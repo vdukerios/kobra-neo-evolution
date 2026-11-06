@@ -414,7 +414,7 @@ def build_candidate(inventory):
     paths += [SOURCE / 'src/lcd/marlinui.cpp', SOURCE / 'src/lcd/tft/ui_320x240.cpp',
               SOURCE / 'src/lcd/tft/ui_320x240.h', SOURCE / 'src/lcd/tft/ui_common.cpp',
               SOURCE / 'src/lcd/tft/tft_color.h']
-    hashes = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.exists()}
+    hashes = {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.exists()}
     revision = '0bc2e73'  # Original working-firmware base; source_hashes identify the candidate.
     # Do not use publication HEAD: committing generated data would invalidate it.
     meta = dict(screens=len(screens), items=sum(len(sc['items']) for sc in screens.values()),
