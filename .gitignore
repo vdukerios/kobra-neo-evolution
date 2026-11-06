@@ -1,0 +1,25 @@
+# Build output and downloaded tools (see build/download_toolchain.md)
+obj/
+obj_*/
+out/
+out_*/
+*.axf
+*.o
+*.map
+*.lst
+/build/toolchain/
+/build/dl/
+/build/src/
+/build/src_nuclear/
+/build/logs/
+# Misc
+__pycache__/
+*.pyc
+*.log
+.vscode/
+
+# Keil build outputs (generated)
+firmware/workspace/list/
+firmware/workspace/firmware.bin
+firmware/workspace/firmware.hex
+firmware/workspace/*.bak

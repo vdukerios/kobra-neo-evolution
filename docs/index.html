@@ -1,0 +1,1522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kobra Neo Evolution - screen simulator</title>
+<style>
+:root{--bg:#10131c;--card:#1a1f2c;--line:#2c3550;--txt:#e6edf7;--dim:#8d99b5;--acc:#3ddcc0;--warn:#ffb938;--err:#e63946}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif}
+.wrap{display:flex;flex-wrap:wrap;gap:20px;padding:16px;align-items:flex-start;justify-content:center}
+.printer{flex:0 1 990px;min-width:0}
+h1{font-size:18px;margin:0 0 10px}
+h2{font-size:15px;margin:0 0 8px;color:var(--acc)}
+.bezel{background:#05060a;border:8px solid #2a2f3d;border-radius:10px;padding:0;line-height:0;width:100%;max-width:min(984px,calc((100vh - 250px) * 1.3333 + 16px));min-width:340px}
+#lcd{width:100%;aspect-ratio:4/3;image-rendering:pixelated;image-rendering:crisp-edges;display:block;background:#000}
+.wheelrow{display:flex;gap:14px;align-items:center;justify-content:center;margin:14px 0 6px}
+.dial{width:120px;height:120px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#4a5270,#1d2233);border:3px solid #3b4566;position:relative;display:flex;align-items:center;justify-content:center;transition:transform .12s}
+.dial .mark{position:absolute;top:6px;left:50%;width:6px;height:18px;margin-left:-3px;border-radius:3px;background:var(--acc)}
+button{font:inherit;color:var(--txt);background:#262d42;border:1px solid var(--line);border-radius:8px;padding:10px 14px;cursor:pointer;min-height:44px}
+button:hover{background:#313a56}
+button.on{background:var(--acc);color:#07211c;border-color:var(--acc);font-weight:600}
+#bC{border-radius:50%;width:64px;height:64px;padding:0;font-weight:600}
+.keys{color:var(--dim);font-size:13px;text-align:center;margin:6px 0}
+.sim{flex:0 1 340px;min-width:280px;background:var(--card);border:2px dashed var(--warn);border-radius:12px;padding:14px}
+.sim .tag{display:inline-block;background:var(--warn);color:#201500;font-weight:700;font-size:12px;border-radius:4px;padding:2px 8px;margin-bottom:8px}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+.row button{padding:8px 10px;min-height:38px}
+ul{margin:4px 0 10px;padding-left:18px}
+li.act{color:var(--acc);font-weight:600}
+li{color:var(--dim)}
+.note{background:#2a2110;border:1px solid var(--warn);border-radius:8px;padding:8px 10px;font-size:13px;color:#ffe2a1;margin-top:10px}
+#msg{min-height:20px;color:var(--warn);font-size:13px}
+.hint{color:var(--dim);font-size:12px}
+@media(max-width:700px){.dial{width:96px;height:96px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<section class="printer">
+  <h1>Kobra Neo Evolution · screen simulator (KNE 1.0.0)</h1>
+  <p class="hint">To run a real print: click → Print → pick a file → choose Full or Express → Print. Shortcut: the "Printer state" buttons in the panel.</p>
+  <div class="bezel"><canvas id="lcd" width="320" height="240" aria-label="Printer screen, 320 by 240 pixels"></canvas></div>
+  <div class="wheelrow">
+   <button id="bL" title="Turn left (left arrow)">turn ◀</button>
+   <div class="dial" id="dial"><div class="mark"></div><button id="bC" title="Click (Enter). Hold 0.8 s = help">click</button></div>
+   <button id="bR" title="Turn right (right arrow)">turn ▶</button>
+  </div>
+  <p class="keys">Only controls: one knob (turn left/right) and its click. Shortcuts: ← → = turn · Enter = click · mouse wheel over the screen = turn.<br>Hold the click (or Enter) 0.8 s = help for the selected item.</p>
+ </section>
+ <aside class="sim">
+  <span class="tag">SIMULATOR PANEL · not part of the printer</span>
+  <h2>Time speed</h2>
+  <div class="row" id="speedRow">
+   <button data-sp="1" class="on">x1</button><button data-sp="60">x60</button><button data-sp="600">x600</button>
+  </div>
+  <h2>Printer state</h2>
+  <div class="row" id="stRow">
+   <button data-st="idle" class="on">Idle</button><button data-st="printing">Printing</button><button data-st="paused">Paused</button>
+  </div>
+  <h2>Simulated events</h2>
+  <div class="row">
+   <button id="evDemo">▶ View a print in progress (demo)</button>
+   <button id="evPower">Simulate power loss</button>
+   <button id="evTemp">Temperature fault</button>
+   <button id="evFil">Filament runout</button>
+   <button id="evIdle">Simulate idle timeout</button>
+   <button id="evReset">Restart simulation</button>
+  </div>
+  <h2>Conditions</h2>
+  <div class="row">
+   <button id="evSD">SD card: present</button>
+   <button id="evMesh">Valid saved mesh: yes</button>
+   <button id="evMaint">Simulate maintenance due</button>
+   <button id="evFactory">Reset to factory defaults</button>
+  </div>
+  <div class="hint">Menus show or hide items exactly as the firmware conditions say (e.g. Tune only while printing, Resume Print only when paused). Heat soak is a simulated wait (90 s); use x60 to skip it.</div>
+  <div id="msg"></div>
+  <h2>Coverage</h2>
+  <div id="cov">-</div>
+  <details><summary class="hint">Screens not visited yet</summary><ul id="covList"></ul></details>
+  <h2>Current screen</h2>
+  <div><b id="scr">-</b></div>
+  <div class="hint">New features present on this screen:</div>
+  <ul id="feat"></ul>
+  <details><summary class="hint">Full list of new features</summary><ul id="allfeat"></ul></details>
+  <details><summary class="hint">Fidelity notes (what is approximated)</summary><ul id="fid"></ul></details>
+  <div class="note">This simulator is a mock-up of the screens, not the real firmware. Fonts and colors differ from the real device, and some screens may differ from what the printer shows. The simulated firmware offers two languages (English, Spanish).</div>
+ </aside>
+</div>
+
+<script id="menu-data">
+/* BEGIN GENERATED MENU DATA (tools/gen_menu_data.py) */
+var MENU_DATA = {"meta":{"screens":39,"items":236,"active_items":249,"overlay":true,"unreachable":["_lcd_pause_message","menu_motion","menu_pause_option","menu_power_monitor"],"inventory_screens":97},"screens":{"menu_advanced_filament":{"id":"menu_advanced_filament","t":["Filament","Filamento"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"tog","en":"E in mm","es":"E en mm","v":"&parser.volumetric_enabled"},{"k":"edit","en":"Fil. Dia.","es":"Diametro Fil.","c":["volumetric"],"min":1.5,"max":3.25,"d":3,"live":1,"v":"&planner.filament_size[active_extruder]"},{"k":"edit","en":"Unload mm","es":"Descarga mm","min":0,"max":100,"d":0,"ap":1,"live":1,"v":"&fc_settings[active_extruder].unload_length"},{"k":"edit","en":"Load mm","es":"Carga mm","min":0,"max":100,"d":0,"ap":1,"live":1,"v":"&fc_settings[active_extruder].load_length"}]},"menu_advanced_temperature":{"id":"menu_advanced_temperature","t":["Temperature","Temperatura"],"items":[{"k":"back","en":"Advanced Settings","es":"Ajustes avanzados"},{"k":"tog","en":"Autotemp","es":"Temp. Autom.","v":"&planner.autotemp_enabled"},{"k":"edit","en":" Min","es":"  Min","min":0,"max":260,"d":0,"u":"°C","v":"(MenuEditItemInfo_int3::type_t*)&planner.autotemp_min"},{"k":"edit","en":" Max","es":"  Max","min":0,"max":260,"d":0,"u":"°C","v":"(MenuEditItemInfo_int3::type_t*)&planner.autotemp_max"},{"k":"edit","en":" Fact","es":"  Factor","min":0,"max":10,"d":2,"u":"°C","v":"&planner.autotemp_factor"},{"k":"edit","en":"PID-P *","es":"PID-P *","min":1,"max":9990,"d":1,"live":1,"v":"&PID_PARAM(Kp,0)"},{"k":"edit","en":"PID-D *","es":"PID-D *","min":1,"max":9990,"d":1,"live":1,"v":"&raw_Kd"},{"k":"edit","en":"PID-P *","es":"PID-P *","min":1,"max":9990,"d":1,"u":"°C","live":1,"v":"&thermalManager.temp_bed.pid.Kp"},{"k":"edit","en":"PID-D *","es":"PID-D *","min":1,"max":9990,"d":1,"live":1,"v":"&raw_Kd"},{"k":"edit","en":"PID Autotune *","es":"PID Auto-ajuste *","min":60,"max":110,"d":0,"u":"°C","live":1,"v":"&autotune_temp_bed"}]},"menu_advanced_velocity":{"id":"menu_advanced_velocity","t":["Velocity","Velocidad"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Max  Vel","es":"Vel. max ","min":1,"max":600.0,"d":0,"ap":1,"u":"mm/s","live":1,"df":300.0,"v":"&planner.settings.max_feedrate_mm_s[_AXIS(A)]"},{"k":"edit","en":"Max  Vel","es":"Vel. max ","min":1,"max":8.0,"d":0,"ap":1,"u":"mm/s","live":1,"df":4.0,"v":"&planner.settings.max_feedrate_mm_s[_AXIS(C)]"},{"k":"edit","en":"Max  Vel","es":"Vel. max ","min":1,"max":100.0,"d":0,"ap":1,"u":"mm/s","live":1,"df":50.0,"v":"&planner.settings.max_feedrate_mm_s[E_AXIS_N(active_extruder"},{"k":"edit","en":"Min Velocity","es":"Vmin","min":0,"max":9999,"d":0,"u":"mm/s","live":1,"df":0.0,"v":"&planner.settings.min_feedrate_mm_s"},{"k":"edit","en":"Min Travel Vel","es":"Vel. viaje min","min":0,"max":9999,"d":0,"u":"mm/s","live":1,"df":0.0,"v":"&planner.settings.min_travel_feedrate_mm_s"}]},"menu_advanced_acceleration":{"id":"menu_advanced_acceleration","t":["Acceleration","Acceleracion"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Accel","es":"Aceleracion","min":25,"max":1000,"d":0,"ap":1,"u":"mm/s²","live":1,"df":500.0,"v":"&planner.settings.acceleration"},{"k":"edit","en":"Retract Accel","es":"Acel. retrac.","min":100,"max":500,"d":0,"u":"mm/s²","live":1,"df":500.0,"v":"&planner.settings.retract_acceleration"},{"k":"edit","en":"Travel Accel","es":"Acel. Viaje","min":25,"max":1000,"d":0,"ap":1,"u":"mm/s²","live":1,"df":1000.0,"v":"&planner.settings.travel_acceleration"},{"k":"edit","en":"Max  Accel","es":"Acel. max","min":100,"max":2000.0,"d":0,"ap":1,"u":"mm/s²","live":1,"df":1000.0,"v":"&planner.settings.max_acceleration_mm_per_s2[_AXIS(A)]"},{"k":"edit","en":"Max  Accel","es":"Acel. max","min":10,"max":200.0,"d":0,"ap":1,"u":"mm/s²","live":1,"df":100.0,"v":"&planner.settings.max_acceleration_mm_per_s2[_AXIS(C)]"},{"k":"edit","en":"Max  Accel","es":"Acel. max","min":100,"max":1000.0,"d":0,"ap":1,"u":"mm/s²","live":1,"df":500.0,"v":"&planner.settings.max_acceleration_mm_per_s2[E_AXIS]"}]},"menu_probe_offsets":{"id":"menu_probe_offsets","t":["Probe Offsets","Desfases sonda"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Probe X Offset","es":"Desfase X sonda","min":-220,"max":220,"d":1,"u":"mm","v":"&probe.offset.x"},{"k":"edit","en":"Probe Y Offset","es":"Desfase Y sonda","min":-220,"max":220,"d":1,"u":"mm","v":"&probe.offset.y"},{"k":"edit","en":"Probe Z Offset","es":"Desfase Z sonda","min":-10,"max":10,"d":0,"u":"mm","df":0.0,"v":"&probe.offset.z"}]},"menu_advanced_steps_per_mm":{"id":"menu_advanced_steps_per_mm","t":["Steps/mm","Pasos/mm"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":" Steps/mm","es":" pasos/mm","min":5,"max":9999,"d":1,"u":"pasos/mm","live":1,"df":80.0,"v":"&planner.settings.axis_steps_per_mm[_AXIS(A)]"},{"k":"edit","en":" Steps/mm","es":" pasos/mm","min":5,"max":9999,"d":1,"u":"pasos/mm","live":1,"df":80.0,"v":"&planner.settings.axis_steps_per_mm[_AXIS(B)]"},{"k":"edit","en":"E steps/mm","es":"E pasos/mm","min":5,"max":9999,"d":1,"u":"pasos/mm","live":1,"df":390.0,"v":"&planner.settings.axis_steps_per_mm[E_AXIS]"}]},"menu_advanced_settings":{"id":"menu_advanced_settings","t":["Advanced Settings","Ajustes avanzados"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"homeoff","en":"Set Home Offsets","es":"Ajustar desfases"},{"k":"sub","to":"menu_advanced_velocity","en":"Velocity","es":"Velocidad"},{"k":"sub","to":"menu_advanced_acceleration","en":"Acceleration","es":"Acceleracion"},{"k":"edit","en":"Junction Dev","es":"Desvi. Union","min":0.001,"max":0.3,"d":3,"df":0.013,"v":"&planner.junction_deviation_mm"},{"k":"sub","to":"menu_probe_offsets","en":"Probe Offsets","es":"Desfases sonda","c":["idle"]},{"k":"sub","to":"menu_advanced_steps_per_mm","en":"Steps/mm","es":"Pasos/mm","c":["idle"]},{"k":"sub","to":"menu_tmc","en":"TMC Drivers","es":"Controladores TMC"},{"k":"sub","to":"menu_advanced_temperature","en":"Temperature","es":"Temperatura"},{"k":"sub","to":"menu_advanced_filament","en":"Filament","es":"Filamento"},{"k":"conf","en":"Initialize EEPROM","es":"Inicializar EEPROM","bt":[["Init","Iniciar"],["Cancel","Cancelar"]],"pr":[["Initialize EEPROM","Inicializar EEPROM"]]}]},"menu_edit_mesh":{"id":"menu_edit_mesh","t":["Edit Mesh","Editar Mallado"],"items":[{"k":"back","en":"Bed Leveling","es":"Nivelando Cama"},{"k":"edit","en":"Index X","es":"Indice X","min":0,"max":5,"d":0,"v":"&xind"},{"k":"edit","en":"Index Y","es":"Indice Y","min":0,"max":5,"d":0,"v":"&yind"},{"k":"edit","en":"Z Value","es":"Valor Z","min":-2,"max":2,"d":3,"live":1,"v":"&Z_VALUES(xind,yind)"}]},"menu_bed_leveling":{"id":"menu_bed_leveling","t":["Bed Leveling","Nivelando Cama"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"menu_edit_mesh","en":"Edit Mesh","es":"Editar Mallado","c":["mesh"]},{"k":"sub","to":"zoffset","en":"Probe Z Offset","es":"Desfase Z sonda"},{"k":"sub","to":"tramming","en":"Bed Tramming","es":"Recorrido Cama"}]},"menu_controller_fan":{"id":"menu_controller_fan","t":["Controller Fan","Controlador Vent."],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Idle Speed","es":"Velocidad en reposo","min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&controllerFan.settings.idle_speed"},{"k":"tog","en":"Auto Mode","es":"Modo Auto","v":"&controllerFan.settings.auto_mode"},{"k":"edit","en":"Active Speed","es":"Velocidad Activa","c":["fan_auto"],"min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&controllerFan.settings.active_speed"},{"k":"edit","en":"Idle Period","es":"Periodo de reposo","c":["fan_auto"],"min":0,"max":4800,"d":0,"v":"&controllerFan.settings.duration"}]},"_menu_configuration_preheat_settings":{"id":"_menu_configuration_preheat_settings","t":["Preheat $ Conf","Precal. $ Ajuste"],"items":[{"k":"info","x":"ui.get_preheat_label(m)"},{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Fan Speed","es":"Ventilador","min":0,"max":255,"d":0,"u":"%","pct":1,"v":"&editable.uint8"},{"k":"edit","en":"Nozzle","es":"Boquilla","min":5,"max":260,"d":0,"u":"°C","v":"&ui.material_preset[m].hotend_temp"},{"k":"edit","en":"Bed","es":"Cama","min":5,"max":110,"d":0,"u":"°C","v":"&ui.material_preset[m].bed_temp"},{"k":"act","a":"store","en":"Store Settings","es":"Guardar EEPROM"}]},"menu_modos_motor":{"id":"menu_modos_motor","t":["Motor mode: Silent","Modo de motores: Silencioso"],"items":[{"k":"back","en":"Configuration","es":"Configuracion"},{"k":"info","en":"Current: SILENT","es":"Actual: Silencioso"},{"k":"act","a":"motor:silent","en":"Silent","es":"Silencioso"},{"k":"act","a":"motor:mixed","en":"Mixed","es":"Mixto"},{"k":"act","a":"motor:high","en":"High speed","es":"Alta velocidad"}]},"menu_configuration":{"id":"menu_configuration","t":["Configuration","Configuracion"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"menu_temperature","en":"Temperature","es":"Temperatura"},{"k":"sub","to":"menu_advanced_settings","en":"Advanced Settings","es":"Ajustes avanzados"},{"k":"sub","to":"menu_modos_motor","en":"Motor mode: Silent","es":"Modo de motores: Silencioso"},{"k":"sub","to":"zoffset","en":"Probe Z Offset","es":"Desfase Z sonda"},{"k":"sub","to":"menu_controller_fan","en":"Controller Fan","es":"Controlador Vent."},{"k":"tog","en":"Runout Sensor","es":"Sensor de filamento","v":"&runout.enabled"},{"k":"tog","en":"Power Outage","es":"Recuperar tras corte de luz","v":"&recovery.enabled"},{"k":"sub","to":"_menu_configuration_preheat_settings","en":"Preheat $ Conf","es":"Precal. $ Ajuste","lp":1},{"k":"tog","en":"Sound","es":"Sonido","v":"&ui.buzzer_enabled"},{"k":"tog","en":"Night mode","es":"Modo noche","v":"&ui.noche_activo"},{"k":"sub","to":"menu_bed_leveling","en":"Bed Leveling","es":"Nivelando Cama"},{"k":"sub","to":"menu_language","en":"Language","es":"Idioma"},{"k":"sub","to":"menu_info","en":"About Printer","es":"Info. Impresora"},{"k":"sub","to":"about","en":"About","es":"Acerca de"},{"k":"act","a":"store","en":"Store Settings","es":"Guardar EEPROM"},{"k":"act","a":"load","en":"Load Settings","es":"Cargar EEPROM","c":["idle"]},{"k":"act","a":"restore","en":"Restore Defaults","es":"Restaurar a fabrica","c":["idle"]}]},"_menu_temp_filament_op":{"id":"_menu_temp_filament_op","items":[{"k":"info","x":"change_filament_header(mode)"},{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"filop_preset","en":"Preheat $","es":"Precal. $","lp":1},{"k":"edit","en":"Preheat Custom","es":"Precal. manual","min":170,"max":260,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_hotend[extruder].target"}]},"menu_guia":{"id":"menu_guia","t":["Guide and help","Guia y ayuda"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"guide:0","en":"First print","es":"Primera impresion"},{"k":"sub","to":"guide:1","en":"Load filament","es":"Cargar filamento"},{"k":"sub","to":"guide:2","en":"Level & height (paper)","es":"Nivelar y altura (papel)"},{"k":"sub","to":"guide:3","en":"If power is cut","es":"Si se corta la luz"},{"k":"sub","to":"guide:4","en":"If the part lifts off","es":"Si se despega la pieza"},{"k":"sub","to":"guide:5","en":"Basic maintenance","es":"Mantenimiento basico"},{"k":"sub","to":"guide:6","en":"What each menu does","es":"Que significa cada menu"}]},"menu_info_stats":{"id":"menu_info_stats","t":["Printer Stats","Estadisticas Imp."],"items":[{"k":"info","en":"Prints","es":"Impresiones"},{"k":"info","en":"Completed","es":"Completadas"},{"k":"info","en":"Total","es":"Total"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Longest","es":"Mas larga"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Extruded","es":"Extruido"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Lubricate axes","es":"Lubricar ejes"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Check belts","es":"Revisar correas"},{"k":"info","en":"> ","es":"> "}],"static":1},"menu_info_thermistors":{"id":"menu_info_thermistors","t":["Thermistors","Termistores"],"items":[{"k":"info","en":"E1: ATC 104GT-2","es":"E1: ATC 104GT-2"},{"k":"info","en":"Min Temp","es":"Temp. Minima"},{"k":"info","en":"Max Temp","es":"Temp. Maxima"},{"k":"info","x":"TERN(WATCH_HOTENDS, MSG_INFO_RUNAWAY_ON, MSG_INFO_RUNAWAY_OFF)"},{"k":"info","x":"bed_label"},{"k":"info","en":"Min Temp","es":"Temp. Minima"},{"k":"info","en":"Max Temp","es":"Temp. Maxima"},{"k":"info","x":"TERN(WATCH_BED, MSG_INFO_RUNAWAY_ON, MSG_INFO_RUNAWAY_OFF)"}],"static":1},"menu_info_board":{"id":"menu_info_board","t":["Board Info","Info. Controlador"],"items":[{"k":"info","en":"AC_TRI_F1","es":"AC_TRI_F1"},{"k":"info","en":"Baud","es":"Baudios"},{"k":"info","en":"Protocol","es":"Protocolo"},{"k":"info","en":"PSU","es":"F. Aliment."}],"static":1},"menu_info_printer":{"id":"menu_info_printer","t":["Printer Info","Info. Impresora"],"items":[{"k":"info","en":"Kobra Neo Evolution","es":"Kobra Neo Evolution"},{"k":"info","en":"KNE 1.0.0","es":"KNE 1.0.0"},{"k":"info","en":"Nov  6 2026","es":"Nov  6 2026"},{"k":"info","en":"Kobra Neo","es":"Kobra Neo"},{"k":"info","en":"github.com/vdukerios","es":"github.com/vdukerios"},{"k":"info","en":"kobra-neo-evolution","es":"kobra-neo-evolution"},{"k":"info","en":"Extruders","es":"Extrusores"},{"k":"info","x":"TERN_(AUTO_BED_LEVELING_3POINT, MSG_3POINT_LEVELING) TERN_(AUTO_BED_LEVELING_LINEAR, MSG_LINEAR_LEVELING) TERN_(AUTO_BED_LEVELING_BILINEAR, MSG_BILINEAR_LEVELING) TERN_(AUTO_BED_LEVELING_UBL, MSG_UBL_LEVELING) TERN_(MESH_BED_LEVELING, MSG_MESH_LEVELING)"}],"static":1},"menu_info_registro":{"id":"menu_info_registro","items":[{"k":"info","en":"Print log","es":"Registro de impresiones"},{"k":"info","en":"> ","es":"> ","c":["reglines"]},{"k":"info","en":"No records","es":"Sin registros","c":["nolog"]},{"k":"info","en":"Time factor","es":"Factor de tiempo"},{"k":"info","en":"Data points","es":"Datos usados"}],"static":1},"menu_info":{"id":"menu_info","t":["About Printer","Info. Impresora"],"items":[{"k":"back","en":"Main Menu","es":"Menu principal"},{"k":"sub","to":"menu_info_printer","en":"Printer Info","es":"Info. Impresora"},{"k":"sub","to":"menu_info_board","en":"Board Info","es":"Info. Controlador"},{"k":"sub","to":"menu_info_thermistors","en":"Thermistors","es":"Termistores"},{"k":"sub","to":"menu_info_stats","en":"Printer Stats","es":"Estadisticas Imp."},{"k":"act","a":"goto:menu_info_registro","en":"Print log","es":"Registro de impresiones"}]},"menu_job_recovery":{"id":"menu_job_recovery","items":[{"k":"info","en":"Power Outage","es":"Recuperar tras corte de luz"},{"k":"act","a":"recov_resume","en":"Resume Print","es":"Reanudar impresion"},{"k":"act","a":"recov_cancel","en":"Stop Print","es":"Detener impresion"}]},"menu_language":{"id":"menu_language","t":["Language","Idioma"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"lang:en","en":"English","es":"English"},{"k":"act","a":"lang:es","en":"Espanol","es":"Espanol"}]},"menu_main":{"id":"menu_main","items":[{"k":"back","en":"Info Screen","es":"Pantalla de inicio"},{"k":"act","a":"resume","en":"Resume Print","es":"Reanudar impresion","c":["busy","paused"]},{"k":"act","a":"pause","en":"Pause Print","es":"Pausar impresion","c":["busy","notpaused"]},{"k":"confsub","en":"Stop Print","es":"Detener impresion","c":["busy"],"bt":[["Stop","Parar"],["Back","Atras"]],"pr":[["Stop Print","Detener impresion"]]},{"k":"act","a":"repeat_cancel","en":"End Repeat Loops","es":"Fin de bucles","c":["busy","repeat"]},{"k":"sub","to":"menu_tune","en":"Tune","es":"Ajustar","c":["busy"]},{"k":"tog","en":"Night mode","es":"Modo noche","c":["busy"],"v":"&ui.noche_activo"},{"k":"sub","to":"menu_guia","en":"Guide and help","es":"Guia y ayuda","c":["busy"]},{"k":"sub","to":"menu_media","en":" Print","es":"Imprimir desde SD/USB","c":["idle"]},{"k":"sub","to":"menu_move","en":"Move Axis","es":"Mover ejes","c":["idle"]},{"k":"act","a":"level_center","en":"Level and center","es":"Nivelar y centrar","c":["idle"]},{"k":"act","a":"resume","en":"Resume Print","es":"Reanudar impresion","c":["idle","paused"]},{"k":"sub","to":"menu_ready","en":"Prepare","es":"Preparar","c":["idle"]},{"k":"sub","to":"menu_configuration","en":"Configuration","es":"Configuracion","c":["idle"]},{"k":"sub","to":"menu_maintenance","en":"Maintenance","es":"Mantenimiento","c":["idle"]},{"k":"tog","en":"Night mode","es":"Modo noche","c":["idle"],"v":"&ui.noche_activo"},{"k":"sub","to":"menu_guia","en":"Guide and help","es":"Guia y ayuda","c":["idle"]}]},"menu_ready":{"id":"menu_ready","t":["Prepare","Preparar"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"preheat:0","en":"Preheat PLA","es":"Precalentar PLA"},{"k":"sub","to":"preheat:1","en":"Preheat ABS","es":"Precalentar ABS"},{"k":"sub","to":"filop:load","en":"Load Filament","es":"Cargar filamento"},{"k":"sub","to":"filop:unload","en":"Unload Filament","es":"Descargar filamento"}]},"menu_confirmar_impresion":{"id":"menu_confirmar_impresion","items":[{"k":"info","en":"Confirm print","es":"Confirmar impresion"},{"k":"info","en":"File: ","es":"Archivo: "},{"k":"act","a":"[]{ __L114__ print_mode = (pri","en":"Mode: Express","es":"Modo: Express"},{"k":"act","a":"sdcard_start_selected_file","en":"Print","es":"Imprimir"},{"k":"act","a":"[]{ __L119__ ui . goto_previou","en":"Cancel","es":"Cancelar"}]},"menu_media_filelist":{"id":"menu_media_filelist","items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"updir","en":"\\x02 ..","es":"\\x02 ..","c":["subdir"]},{"k":"folder","en":" Print","es":"Imprimir desde SD/USB","c":["isdir"]},{"k":"file","en":"<nombre del archivo en la SD>","es":"<nombre del archivo en la SD>"}]},"menu_media":{"id":"menu_media","t":[" Print","Imprimir desde SD/USB"],"items":[{"k":"back","en":"Back","es":"Atras","c":["card","cardopen"]},{"k":"back","en":"Back","es":"Atras","c":["nocard"]},{"k":"info","a":"attach","en":"Attach ","es":"Iniciar SD/USB","c":["nocard"]}]},"_menu_move_distance":{"id":"_menu_move_distance","items":[{"k":"info","en":"Move X","es":"Mover X","c":["axis"]},{"k":"info","en":"Move Y","es":"Mover Y","c":["axis"]},{"k":"info","en":"Move Z","es":"Mover Z","c":["axis"]},{"k":"info","en":"Move Extruder","es":"Extrusor","c":["axis"]},{"k":"back","en":"Move Axis","es":"Mover ejes"},{"k":"sub","to":"dist:10","en":"Move 10mm","es":"Mover 10mm"},{"k":"sub","to":"dist:1","en":"Move 1mm","es":"Mover 1mm"},{"k":"sub","to":"dist:0.1","en":"Move 0.1mm","es":"Mover 0.1mm"},{"k":"sub","to":"dist:z","x":"tmp","c":["axisZ"]}]},"menu_move":{"id":"menu_move","t":["Move Axis","Mover ejes"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"move:x","en":"Move X","es":"Mover X"},{"k":"sub","to":"move:y","en":"Move Y","es":"Mover Y"},{"k":"sub","to":"move:z","en":"Move Z","es":"Mover Z"},{"k":"act","a":"gcode:home","en":"Auto Home","es":"Llevar al origen"},{"k":"sub","to":"menu_xyz_home","en":"Home","es":"Origen"},{"k":"act","a":"gcode:m84","en":"Disable Steppers","es":"Apagar motores"}]},"menu_xyz_home":{"id":"menu_xyz_home","t":["Home","Origen"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"gcode:home","en":"Auto Home","es":"Llevar al origen"},{"k":"act","a":"gcode:homex","en":"Home X","es":"Origen X"},{"k":"act","a":"gcode:homey","en":"Home Y","es":"Origen Y"},{"k":"act","a":"gcode:homez","en":"Home Z","es":"Origen Z"}]},"menu_preheat_m":{"id":"menu_preheat_m","items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"preheat_both","en":"Preheat $","es":"Precal. $"},{"k":"act","a":"preheat_end","en":"Preheat $ End","es":"Precal. $ Fusor"},{"k":"act","a":"preheat_bed","en":"Preheat $ Bed","es":"Precal. $ Cama"}]},"menu_temperature":{"id":"menu_temperature","t":["Temperature","Temperatura"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Nozzle","es":"Boquilla","min":0,"max":260,"d":0,"u":"°C","live":1,"v":"&editable.celsius"},{"k":"edit","en":"Bed","es":"Cama","min":0,"max":110,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_bed.target"},{"k":"edit","x":"MSG_FIRST_FAN_SPEED","min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&editable.uint8"},{"k":"act","a":"cooldown","en":"Cooldown","es":"Enfriar"}]},"menu_tmc_current":{"id":"menu_tmc_current","t":["Driver Current","Amperaje Controlador"],"items":[{"k":"back","en":"TMC Drivers","es":"Controladores TMC"},{"k":"edit","en":"X","es":"X","min":100,"max":3000,"d":0,"v":"&stepperX.val_mA"},{"k":"edit","en":"Y","es":"Y","min":100,"max":3000,"d":0,"v":"&stepperY.val_mA"},{"k":"edit","en":"Z","es":"Z","min":100,"max":3000,"d":0,"v":"&stepperZ.val_mA"},{"k":"edit","en":"E1","es":"E1","min":100,"max":3000,"d":0,"v":"&stepperE0.val_mA"}]},"menu_tmc_hybrid_thrs":{"id":"menu_tmc_hybrid_thrs","t":["Hybrid Threshold","Limite Hibrido"],"items":[{"k":"back","en":"TMC Drivers","es":"Controladores TMC"}]},"menu_tmc_step_mode":{"id":"menu_tmc_step_mode","t":["Stepping Mode","Modo de pasos"],"items":[{"k":"info","en":"StealthChop Enabled","es":"StealthChop Habilit."},{"k":"back","en":"TMC Drivers","es":"Controladores TMC"}]},"menu_tmc":{"id":"menu_tmc","t":["TMC Drivers","Controladores TMC"],"items":[{"k":"back","en":"Advanced Settings","es":"Ajustes avanzados"},{"k":"sub","to":"menu_tmc_current","en":"Driver Current","es":"Amperaje Controlador"},{"k":"sub","to":"menu_tmc_hybrid_thrs","en":"Hybrid Threshold","es":"Limite Hibrido"},{"k":"sub","to":"menu_tmc_step_mode","en":"Stepping Mode","es":"Modo de pasos"}]},"menu_tune":{"id":"menu_tune","t":["Tune","Ajustar"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Speed","es":"Velocidad","min":10,"max":300,"d":0,"u":"%","live":1,"v":"&feedrate_percentage"},{"k":"edit","en":"Nozzle","es":"Boquilla","min":0,"max":260,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_hotend[0].target"},{"k":"edit","en":"Bed","es":"Cama","min":0,"max":110,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_bed.target"},{"k":"edit","x":"MSG_FIRST_FAN_SPEED","min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&editable.uint8"},{"k":"edit","en":"Flow","es":"Flujo","min":10,"max":300,"d":0,"u":"%","v":"&planner.flow_percentage[active_extruder]"},{"k":"sub","to":"zoffset","en":"Probe Z Offset","es":"Desfase Z sonda"}]},"menu_maintenance":{"id":"menu_maintenance","t":["Maintenance","Mantenimiento"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"conf","en":"Lubricate axes","es":"Lubricar ejes","bt":[["Reset","Reiniciar"],["Cancel","Cancelar"]],"pr":[["Reset","Reiniciar"],["Lubricate axes","Lubricar ejes"]]},{"k":"conf","en":"Check belts","es":"Revisar correas","bt":[["Reset","Reiniciar"],["Cancel","Cancelar"]],"pr":[["Reset","Reiniciar"],["Check belts","Revisar correas"]]}]}},"notes":["menu_advanced_filament: default of 'Fil. Dia.' is n/d in the inventory (shown as n/a)","menu_advanced_filament: range max of 'Unload mm' is an expression (extrude_maxlength), approximated as 100","menu_advanced_filament: default of 'Unload mm' is n/d in the inventory (shown as n/a)","menu_advanced_filament: range max of 'Load mm' is an expression (extrude_maxlength), approximated as 100","menu_advanced_filament: default of 'Load mm' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Min' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Max' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Fact' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-P *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-D *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-P *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-D *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID Autotune *' is n/d in the inventory (shown as n/a)","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled[(A_AXIS)]), approximated as 600.0","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled[(C_AXIS)]), approximated as 8.0","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled . e), approximated as 100.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled[(A_AXIS)]), approximated as 2000.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled[(C_AXIS)]), approximated as 200.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled . e), approximated as 1000.0","menu_probe_offsets: default of 'Probe X Offset' is n/d in the inventory (shown as n/a)","menu_probe_offsets: default of 'Probe Y Offset' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Index X' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Index Y' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Z Value' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Idle Speed' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Active Speed' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Idle Period' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Fan Speed' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Nozzle' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Bed' is n/d in the inventory (shown as n/a)","_menu_temp_filament_op: default of 'Preheat Custom' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'Nozzle' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'Bed' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'MSG_FIRST_FAN_SPEED' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'X' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'Y' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'Z' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'E1' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Speed' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Nozzle' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Bed' is n/d in the inventory (shown as n/a)","menu_tune: default of 'MSG_FIRST_FAN_SPEED' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Flow' is n/d in the inventory (shown as n/a)","PENDING OVERLAY 'Menu restructure' is applied by the generator (APPLY_PENDING_RESTRUCTURE): Maintenance submenu; Bed Leveling, Language, About Printer and About moved to Configuration; Level Bed removed. Disable the flag once the inventory is regenerated from that firmware.","Visibility conditions not understood by the generator (treated as always true): [condicion: !still_out]; [condicion: has2]; [condicion: has3 && (7) >= 5]; [condicion: still_out]"]};
+/* END GENERATED MENU DATA */
+</script>
+
+<script id="model">
+/* ======================================================================
+   PURE STATE MODEL (no DOM). State machine of the screen.
+   ====================================================================== */
+var Model = (function(){
+'use strict';
+var MD = (typeof MENU_DATA !== 'undefined') ? MENU_DATA : {meta:{screens:0, items:0, unreachable:[]}, screens:{}, notes:[]};
+/* preheat presets: Configuration.h PREHEAT_1..3 (PLA 200/60, ABS 240/110, PETG 240/80) */
+var PRESETS = [{n:'PLA', tn:200, tb:60}, {n:'ABS', tn:240, tb:110}, {n:'PETG', tn:240, tb:80}];
+function clonePre(){ return PRESETS.map(function(p){ return {n:p.n, tn:p.tn, tb:p.tb, fan:undefined}; }); }
+/* what the simulator approximates; shown in the panel section 'Fidelity notes' */
+var FIDELITY = [
+  'Menu structure, item order, labels (EN/ES), visibility conditions and ranges come from the firmware inventory (menu_data). Everything below is approximated or not in the inventory.',
+  'Inventory v2 (firmware commit cbcb9f8): a pause counts as printing, About Printer opens the Information menu (from Configuration after the pending overlay), confirmations open on the safe option, 8-level screen history.',
+  'Main menu, Maintenance, Configuration and Bed Leveling follow the pending "Menu restructure" commit through a generator overlay (see the data notes), not a regenerated inventory.',
+  'Never opened by the real menu tree, so not reachable here: pause/filament-change option screens, the power monitor and the motion menu. The inventory has 254 active items; 5 are never shown (inch-unit and 100 mm moves) and the generator drops them, and the items of those unreachable screens are not in the reachable counter.',
+  'Printer Info, Board Info, Thermistors and Printer Stats show n/a where the value comes from code (counters, baud, thermistor flags); the inventory only has the labels.',
+  'Print log rows are simulator text built from the simulated stop reasons; the dormant Resume Print in the idle block and the Back shown with a file open on the SD are unreachable code and are not shown.',
+  'Idle timeout (10 min, 30 min while paused, Reheating to resume) is a panel event, not a real timer.',
+  'Status screen, print pages, confirm print and guide pages are simulator drawings of the firmware screens (layout and colors differ).',
+  'Guide lesson texts are written for the simulator (the inventory only lists the 7 topic titles).',
+  'Long-press help texts are written for the simulator; the firmware help table is not in the inventory.',
+  'Toasts and status messages after actions (Settings stored, Home done, ...) are simulator text.',
+  'Initial On/Off states of switches (sound, runout sensor, power outage, controller fan auto mode, ...) are assumptions.',
+  'Preheat presets PLA/ABS/PETG come from Configuration.h; their fan speed is n/a.',
+  'Confirmation dialogs: default button (the second one) and the screen shown after confirming are assumed.',
+  'SD/USB glyphs and folder icons are not drawn; folders are shown with a > prefix.',
+  'Axis letters in labels (Max X Vel, X Steps/mm, ...) are inferred from the edited variable; the inventory drops that glyph.',
+  'Percent items (fan speed) are shown as 0-100 %.',
+  'Knob acceleration in numeric edits is approximated (fast turning steps faster).',
+  'Spanish text for the motor mode labels Mixed and High speed is assumed (only Silent is in the inventory).',
+  'The print start sequence (heat soak, mesh, Full/Express) and the print-finished screens are simulator behaviour, not from the inventory.',
+  'End Repeat Loops is never shown: the simulator has no repeat loops (the item is only active inside a repeat loop).',
+  'Load/Unload Filament opens the preheat menu when the nozzle is below 170 C and the extruder distance menu otherwise; the 170 C limit is an assumption.',
+  'Heat-up speed, print duration and file list are simulated.'
+];
+var VERSION = 'KNE 1.0.0';
+var VIS = 9; // visible rows in lists
+var SOAK = 90; // simulated heat-soak wait, in simulated seconds
+var LANG = 'en'; // current UI language: 'en' (default) or 'es'
+function tr(en, es){ return LANG === 'es' ? es : en; }
+function pick(a){ return LANG === 'es' ? a[1] : a[0]; }
+
+/* feature names are used by the simulator panel only, so they stay in English */
+var FEATURE_NAMES = {
+  1:'Power-loss recovery', 5:'Hours and filament counter (maintenance reminders)',
+  6:'PETG preheats', 7:'Alphabetical SD order', 8:'Night mode', 10:'Level and center',
+  12:'Thumbnail with progress', 14:'Time learning factor', 15:'Guide and help',
+  16:'Language selection (English / Spanish)', 17:'Motor mode (Silent / Mixed / High speed)',
+  18:'Confirm print: Full / Express mode', 19:'About screen'
+};
+
+/* ---------- utilities ---------- */
+function num(x, d){ var s = Number(x).toFixed(d); return LANG === 'es' ? s.replace('.', ',') : s; }
+function fmtMin(m){
+  m = Math.round(m); if (m < 0) m = 0;
+  var h = Math.floor(m / 60), mm = m % 60;
+  return h > 0 ? (h + ' h ' + mm + ' min') : (mm + ' min');
+}
+function fmtSec(s){ return s < 60 ? (Math.round(s) + ' s') : fmtMin(s / 60); }
+function wrap(text, n){
+  var words = String(text).split(' '), lines = [], cur = '';
+  for (var i = 0; i < words.length; i++){
+    var w = words[i];
+    if (cur === '') cur = w;
+    else if ((cur + ' ' + w).length <= n) cur += ' ' + w;
+    else { lines.push(cur); cur = w; }
+  }
+  if (cur !== '') lines.push(cur);
+  return lines;
+}
+function byLower(a, b){ a = a.toLowerCase(); b = b.toLowerCase(); return a < b ? -1 : (a > b ? 1 : 0); }
+function byName(a, b){ return byLower(a.name, b.name); }
+function clamp(v, a, b){ return v < a ? a : (v > b ? b : v); }
+
+/* ---------- SD card data (deliberately unsorted) ---------- */
+var SD_FILES = [
+  {name:'Soporte_celular.gcode', shape:'stand', base:150, h:60, fil:11.8, mat:'PETG', tn:240, tb:80, tf:1.19},
+  {name:'Llavero_V.gcode',       shape:'key',   base:35,  h:4,  fil:1.6,  mat:'PLA',  tn:200, tb:60, tf:1.17},
+  {name:'Cubo_calibracion.gcode',shape:'cube',  base:229, h:20, fil:8.4,  mat:'PLA',  tn:200, tb:60, tf:1.21},
+  {name:'Engranaje_20T.gcode',   shape:'gear',  base:95,  h:8,  fil:4.9,  mat:'PLA',  tn:200, tb:60, tf:1.18}
+];
+var SD_DIRS = {
+  Pruebas: [
+    {name:'Torre_temperatura.gcode', shape:'tower', base:120, h:40, fil:5.5, mat:'PLA', tn:200, tb:60, tf:1.18},
+    {name:'Calibracion_flujo.gcode', shape:'lines', base:25,  h:2,  fil:0.9, mat:'PLA', tn:200, tb:60, tf:1.16}
+  ]
+};
+
+/* ---------- guide and help ---------- */
+var GUIDE = [
+  {t:['First print step by step', 'Primera impresion paso a paso'], pages:[
+    {icon:'sd',    x:['Put the SD card with your .gcode file in the slot, contacts facing down.', 'Pon la tarjeta SD con tu archivo .gcode en la ranura, con los contactos hacia abajo.']},
+    {icon:'spool', x:['Load the filament: Prepare > Load filament. Wait until plastic comes out of the nozzle.', 'Carga el filamento: Preparar > Cargar filamento. Espera a que salga plastico por la boquilla.']},
+    {icon:'paper', x:['Level the bed: Level and center (main menu). Set the height with a sheet of paper.', 'Nivela la cama: Nivelar y centrar (menu principal). Ajusta la altura con una hoja de papel.']},
+    {icon:'menu',  x:['Choose Print from SD, pick the file, then Print. The printer heats and measures by itself.', 'Elige Imprimir desde SD, escoge el archivo y pulsa Imprimir. La impresora calienta y mide sola.']},
+    {icon:'layer', x:['Watch the first layer: it must stick and look smooth. If not, stop and adjust the Z height.', 'Vigila la primera capa: debe quedar pegada y lisa. Si no, deten y ajusta la altura Z.']},
+    {icon:'check', x:['When done, wait until it cools below 50 degrees, remove the part and switch off the printer.', 'Al terminar espera a que enfrie bajo 50 grados, despega la pieza y apaga la impresora.']}
+  ]},
+  {t:['How to load filament', 'Como cargar filamento'], pages:[
+    {icon:'thermo', x:['Cut the filament tip at an angle with a cutter. It feeds in more easily.', 'Corta la punta del filamento en diagonal con una pinza. Asi entra facil.']},
+    {icon:'nozzle', x:['Prepare > Load Filament. Pick a preheat (PLA, ABS or PETG) and the nozzle heats by itself.', 'Preparar > Cargar filamento. Elige un precalentamiento (PLA, ABS o PETG) y la boquilla calienta sola.']},
+    {icon:'spool',  x:['When heating ends, push the filament by hand until the motor pulls it in.', 'Cuando termine de calentar, empuja el filamento a mano hasta que el motor lo jale.']},
+    {icon:'check',  x:['Wait for clean plastic of the right color to come out. Remove the leftover strand.', 'Espera a que salga plastico limpio y del color correcto. Retira el hilo sobrante.']}
+  ]},
+  {t:['Level the bed, set height', 'Nivelar cama y ajustar altura'], pages:[
+    {icon:'bed',   x:['The nozzle must sit at the right distance from the bed. Too far: no grip. Too close: it scrapes.', 'La boquilla debe quedar a la distancia justa de la cama. Muy lejos: no pega. Muy cerca: raspa.']},
+    {icon:'wheel', x:['Go to Level and center. The printer measures the bed and moves to the middle.', 'Ve a Nivelar y centrar. La impresora mide la cama y se coloca al centro.']},
+    {icon:'paper', x:['Put a plain sheet of paper between the nozzle and the bed.', 'Pon una hoja de papel comun entre la boquilla y la cama.']},
+    {icon:'wheel', x:['Turn the knob to raise or lower in 0.01 mm steps until the paper drags slightly.', 'Gira la rueda para subir o bajar de a 0,01 mm hasta sentir un roce leve al mover el papel.']},
+    {icon:'check', x:['Click to save. Print a test first layer to confirm.', 'Clic para guardar. Haz una primera capa de prueba para confirmar.']}
+  ]},
+  {t:['What to do if the power fails', 'Que hacer si se corta la luz'], pages:[
+    {icon:'bolt',  x:['If power fails while printing, the printer saves where it was (if Power Outage is On).', 'Si se corta la luz imprimiendo, la impresora guarda donde iba (si Rec. Fallo electrico esta en Enc).']},
+    {icon:'bolt',  x:['When power returns you will see the Power Outage menu. Do not move the part or the bed.', 'Al volver la luz veras el menu Rec. Fallo electrico. No muevas la pieza ni la cama.']},
+    {icon:'check', x:['Choose Resume Print: it reheats and resumes from the last saved layer.', 'Elige Reanudar impresion: recalienta y retoma desde la ultima capa guardada.']},
+    {icon:'warn',  x:['If the part came loose or cooled too much, choose Stop Print and start over.', 'Si la pieza se despego o se enfrio mucho, elige Detener impresion y empieza de nuevo.']}
+  ]},
+  {t:['What to do if the part lifts off', 'Que hacer si se despega la pieza'], pages:[
+    {icon:'bed',   x:['Clean the bed with isopropyl alcohol. Fingers leave grease that stops adhesion.', 'Limpia la cama con alcohol isopropilico. Los dedos dejan grasa que impide pegar.']},
+    {icon:'paper', x:['Check the Z height with paper: the first layer should be slightly squashed.', 'Revisa la altura Z con el papel: la primera capa debe quedar ligeramente aplastada.']},
+    {icon:'thermo',x:['Raise the bed temperature by 5 degrees, or wipe glue stick on the bed.', 'Sube la temperatura de la cama 5 grados, o pasa pegamento en barra sobre la cama.']},
+    {icon:'warn',  x:['Avoid drafts and do not run the fan on the first layers.', 'Evita corrientes de aire y no pongas el ventilador en las primeras capas.']}
+  ]},
+  {t:['Basic maintenance', 'Mantenimiento basico'], pages:[
+    {icon:'tool',   x:['Clean the bed and the nozzle (cold) every few parts.', 'Limpia la cama y la boquilla (en frio) cada pocas piezas.']},
+    {icon:'nozzle', x:['If there are strings or blobs, purge and reload filament while hot.', 'Si hay hilos o grumos, haz una descarga y carga de filamento en caliente.']},
+    {icon:'drop',   x:['One drop of machine oil on the smooth rods every 100 print hours.', 'Una gota de aceite de maquina en las varillas lisas cada 100 horas de impresion.']},
+    {icon:'tool',   x:['Check that the belts are tight and the screws are firm.', 'Revisa que las correas esten tensas y los tornillos firmes.']},
+    {icon:'check',  x:['Keep filament dry and sealed. Moisture ruins it.', 'Guarda el filamento seco y cerrado. La humedad lo estropea.']}
+  ]},
+  {t:['What each menu does', 'Que significa cada menu'], pages:[
+    {icon:'menu',  x:['Print: file list. Prepare: preheat, load and unload filament.', 'Imprim. desde SD/USB: lista de archivos. Preparar: precalentar, cargar y descargar filamento.']},
+    {icon:'wheel', x:['Move Axis: move the head by hand. Maintenance: reminders to lubricate and check the belts.', 'Mover ejes: mueve la cabeza a mano. Mantenimiento: avisos de lubricar y revisar correas.']},
+    {icon:'tool',  x:['Configuration: sound, language, power outage recovery, filament sensor, About and advanced settings.', 'Configuracion: sonido, idioma, recuperacion tras corte de luz, sensor de filamento, Acerca de y ajustes avanzados.']},
+    {icon:'thermo',x:['Level and center: one click homes, measures the bed and centers the nozzle.', 'Nivelar y centrar: un clic va al origen, mide la cama y centra la boquilla.']},
+    {icon:'hand',  x:['Guide and help: these lessons. Night mode: screen almost off. Hold the click for help on any item.', 'Guia y ayuda: estas lecciones. Modo noche: pantalla casi apagada. Manten el clic para ver la ayuda de cada item.']}
+  ]}
+];
+function guide(){
+  var tt = {};
+  if (MD.screens.menu_guia) MD.screens.menu_guia.items.forEach(function(it){ var m = /^guide:(\d+)/.exec(it.to || ''); if (m) tt[m[1]] = String(LANG === 'es' ? it.es : it.en).replace(/^\s+|\s+$/g, ''); });
+  return GUIDE.map(function(g, i){
+    var pages = [];
+    g.pages.forEach(function(p){ var ls = wrap(pick(p.x), 33); for (var k = 0; k < ls.length; k += 5) pages.push({icon:p.icon, x:ls.slice(k, k + 5).join(' ')}); });
+    return {t:tt[i] || pick(g.t), pages:pages};
+  });
+}
+
+/* each entry: [English, Spanish] */
+var SCREEN_TITLES = {
+  boot:['Boot', 'Arranque'], home:['Status screen (idle)', 'Pantalla de estado (reposo)'], confirm:['Confirm print', 'Confirmar impresion'],
+  start:['Print start sequence', 'Secuencia de inicio'], print:['Print in progress', 'Impresion en curso'], guidepage:['Guide lesson', 'Leccion de la guia'],
+  edit:['Edit value', 'Editar valor'], task:['Task in progress', 'Proceso en curso'], dlg:['Confirmation dialog', 'Dialogo de confirmacion'],
+  about:['About', 'Acerca de'], done:['Print finished', 'Impresion terminada'], cooling:['Cooling down', 'Enfriamiento'],
+  err_temp:['ERROR: temperature fault', 'ERROR: falla de temperatura'], err_filament:['Filament runout', 'Fin de filamento'],
+  off:['Printer unpowered / off', 'Impresora sin energia / apagada']
+};
+
+function createSim(){
+var S = {
+    realT:0, simT:0, speed:1, screen:'boot', stack:[], sel:0, scroll:0, page:0,
+    bootT:0, autoBoot:null, shutT:0, sdHas:true, dir:'', selFile:null,
+    cfg:freshCfg(), lang:'en', printMode:'full', meshValid:true,
+    temp:{n:24, b:24, tn:0, tb:0}, pos:{x:0, y:0, z:0}, homed:false,
+    stats:{minutes:7720, filament:41.2, count:11, factor:1.18, learnN:7,
+           last:{name:'Llavero_V.gcode', real:41, est:41, ok:true}},
+    zoff:0, log:[{n:9, reason:'temp'}, {n:4, reason:'power'}], jobNo:12,
+    job:null, recovery:null, help:null, toast:null, beep:0, night:false,
+    edit:null, task:null, idleT:0, inactT:0, down:null, longFired:false, swallow:false,
+    fault:false, guideIdx:0, simMsg:'',
+    vals:{}, tg:{}, pre:clonePre(), preIdx:0, axis:'x', filOp:'load', title:'', hx:{x:false, y:false, z:false}, svc:{s1:37, s2:37},
+    nightMode:false, nightFirst:false, fan:0, dlg:null, visS:{}, visI:{}, turnT:0, turnStreak:0, turnDir:0
+  };
+  function freshCfg(){ return {sound:true, recovery:true, motor:'mixed'}; }
+  var api = {S:S};
+
+  /* ----- navigation (same push/pop history as the firmware: depth limit 8, selection restored on back) ----- */
+  var MAXDEPTH = 8;
+  function statusScreen(){
+    if (active()){ var j = S.job; return (j.phase === 'printing' || j.paused) ? 'print' : 'start'; }
+    return 'home';
+  }
+  function go(id, title){
+    if (S.stack.length < MAXDEPTH) S.stack.push({screen:S.screen, sel:S.sel, scroll:S.scroll, page:S.page, title:S.title});
+    S.screen = id; S.sel = 0; S.scroll = 0; S.page = 0; S.help = null; S.title = title || '';
+  }
+  function pop(){
+    var p = S.stack.pop();
+    if (p){ S.screen = p.screen; S.sel = p.sel; S.scroll = p.scroll; S.page = p.page; S.title = p.title; S.help = null; }
+    else toStatus();
+  }
+  function reset(id){ S.stack = []; S.screen = id; S.sel = 0; S.scroll = 0; S.page = 0; S.help = null; S.title = ''; }
+  function toStatus(){ reset(statusScreen()); }
+  function openMain(){ reset('menu_main'); }
+  function toast(t){ S.toast = {t:t, left:2.5}; }
+  function beep(){ if (S.cfg.sound && !S.nightMode) S.beep = 1.2; }
+  function active(){ return !!(S.job && S.job.phase !== 'done'); }
+  function enterNight(){ S.night = true; S.help = null; }
+  function wake(){ S.night = false; S.nightFirst = false; }
+function sync(){ LANG = S.lang; }
+  var REASONS = {
+    temp:['Temperature fault', 'Falla de temperatura'], power:['Power loss', 'Corte de luz'],
+    powernr:['Power loss (no recovery)', 'Corte de luz (sin recuperacion)'], fil:['Filament runout', 'Fin de filamento'],
+    user:['Stopped by user', 'Detenida por el usuario']
+  };
+  function reasonText(k){ return REASONS[k] ? pick(REASONS[k]) : String(k); }
+  function logStop(key){ S.log.unshift({n:S.jobNo, reason:key}); }
+  function motorName(k){ return k === 'silent' ? tr('Silent', 'Silencioso') : (k === 'high' ? tr('High speed', 'Alta velocidad') : tr('Mixed', 'Mixto')); }
+
+  /* ----- files ----- */
+  function dirNames(){ return S.sdHas ? Object.keys(SD_DIRS).sort(byLower) : []; }
+  function filesIn(d){
+    if (!S.sdHas) return [];
+    var a = (d ? SD_DIRS[d] : SD_FILES).slice();
+    a.sort(byName); return a;
+  }
+  function est(f){ return Math.round(f.base * S.stats.factor); }
+  function layersOf(f){ return Math.max(1, Math.round(f.h / 0.2)); }
+  function layerNow(j){ return Math.min(j.layers, Math.floor(j.prog * j.layers) + 1); }
+
+  /* ----- print jobs ----- */
+function startJob(f, resume, opt){
+    opt = opt || {};
+    var mode = resume ? 'resume' : (opt.mode || 'full');
+    S.job = {file:f, est:est(f) * 60, actual:f.base * 60 * f.tf, prog:resume ? resume.prog : 0,
+      elapsed:resume ? resume.elapsed : 0, phase:mode === 'full' ? 'heatbed' : 'heatboth', mode:mode, fellBack:!!opt.fellBack,
+      resumed:!!resume, soakT:0, lvlT:0, lvl:0, paused:false,
+      speed:100, flow:100, tn:f.tn, tb:f.tb, zfine:0, fan:0, no:S.jobNo, layers:layersOf(f), usedFil:0};
+    S.temp.tb = f.tb; S.temp.tn = mode === 'full' ? 0 : f.tn; // Full: bed first, nozzle heats last
+    reset('start');
+  }
+  function snapshot(){
+    var j = S.job;
+    return {file:j.file, prog:j.prog, elapsed:j.elapsed, layer:layerNow(j), z:layerNow(j) * 0.2};
+  }
+  function finishJob(){
+    var j = S.job; j.phase = 'done'; j.prog = 1;
+    var realMin = j.elapsed / 60, n = S.stats.learnN, old = S.stats.factor;
+    S.stats.factor = Math.round(((old * n + realMin / j.file.base) / (n + 1)) * 100) / 100;
+    S.stats.learnN = n + 1; S.stats.minutes += Math.round(realMin);
+    S.stats.filament = Math.round((S.stats.filament + j.file.fil) * 10) / 10; S.stats.count++;
+    S.stats.last = {name:j.file.name, real:Math.round(realMin), est:Math.round(j.est / 60), ok:true};
+    j.result = {real:realMin, est:j.est / 60, before:old, after:S.stats.factor};
+    S.jobNo++; S.temp.tn = 0; S.temp.tb = 0; S.pos.z = j.file.h + 10;
+    beep(); wake(); reset('done');
+  }
+  function stopJob(key){
+    logStop(key); S.stats.last = {name:S.job.file.name, real:Math.round(S.job.elapsed / 60), est:Math.round(S.job.est / 60), ok:false};
+    S.jobNo++; S.temp.tn = 0; S.temp.tb = 0; S.job = null; toast(reasonText(key)); reset('home');
+  }
+
+  /* ----- tasks with progress (load filament, home, level...) ----- */
+  function startTask(o){
+    S.task = {title:o.title, steps:o.steps, i:0, t:0, done:false, onDone:o.onDone, onCancel:o.onCancel, wiz:!!o.wiz, cancel:o.cancel !== false};
+    if (S.task.steps[0].enter) S.task.steps[0].enter();
+    if (o.reset) reset('task'); else go('task');
+  }
+  function taskTick(dt){
+    var k = S.task; if (!k || k.done) return;
+    var st = k.steps[k.i]; k.t += dt;
+    if (k.t >= st.d && (!st.until || st.until())){
+      k.i++; k.t = 0;
+      if (k.i >= k.steps.length){ k.done = true; pop(); if (k.onDone) k.onDone(); return; }
+      if (k.steps[k.i].enter) k.steps[k.i].enter();
+    }
+  }
+  function heatTo(n, b){ S.temp.tn = n; if (b !== undefined) S.temp.tb = b; }
+function loadSteps(){
+    return [{l:tr('Heating nozzle', 'Calentando boquilla'), d:0.5, enter:function(){ if (S.temp.tn < 200) S.temp.tn = 200; }, until:function(){ return S.temp.n >= 195; }},
+            {l:tr('Push the filament by hand', 'Empuje el filamento a mano'), d:5}, {l:tr('Extruding filament', 'Extruyendo filamento'), d:4}];
+  }
+
+  /* ----- value editing ----- */
+  function startEdit(o){ S.edit = o; go('edit'); }
+
+  /* ----- menus: data-driven engine (screens come from MENU_DATA, generated from the firmware inventory) ----- */
+  function I(t, help, act, v){ return {t:t, help:help, act:act || null, v:v}; }
+  function isBusy(){ return active(); } // firmware v2: a pause is treated as printing
+  function isPaused(){ return active() && !!S.job.paused; }
+  var TOG_DEF = {'&ui.buzzer_enabled':true, '&runout.enabled':true, '&recovery.enabled':true, '&ui.noche_activo':false,
+                 '&controllerFan.settings.auto_mode':true, '&parser.volumetric_enabled':false, '&planner.autotemp_enabled':false};
+  function tgGet(v){
+    if (v === '&ui.buzzer_enabled') return S.cfg.sound;
+    if (v === '&recovery.enabled') return S.cfg.recovery;
+    if (v === '&ui.noche_activo') return S.nightMode;
+    return S.tg.hasOwnProperty(v) ? S.tg[v] : !!TOG_DEF[v];
+  }
+  function tgSet(v, b){
+    if (v === '&ui.buzzer_enabled') S.cfg.sound = b;
+    else if (v === '&recovery.enabled') S.cfg.recovery = b;
+    else if (v === '&ui.noche_activo'){ S.nightMode = b; S.nightFirst = b; S.inactT = 0; }
+    else S.tg[v] = b;
+  }
+  function onOff(b){ return b ? tr('On', 'Enc') : tr('Off', 'Apg'); }
+  function condOK(c){
+    if (!c) return true;
+    for (var i = 0; i < c.length; i++){
+      var ok = true;
+      switch (c[i]){
+      case 'busy': ok = isBusy(); break;
+      case 'idle': ok = !isBusy(); break;
+      case 'paused': ok = isPaused(); break;
+      case 'repeat': ok = false; break; // repeat loops are never active in the simulator
+      case 'fan_auto': ok = tgGet('&controllerFan.settings.auto_mode'); break;
+      case 'volumetric': ok = tgGet('&parser.volumetric_enabled'); break;
+      case 'mesh': ok = !!S.meshValid; break;
+      case 'nocard': ok = !S.sdHas; break;
+      case 'card': ok = !!S.sdHas; break;
+      case 'cardopen': ok = !!S.sdHas && active(); break;
+      case 'notpaused': ok = !isPaused(); break;
+      case 'reglines': ok = S.log.length > 0; break;
+      case 'nolog': ok = S.log.length === 0; break;
+      case 'subdir': ok = !!S.dir; break;
+      case 'axisZ': ok = S.axis === 'z'; break;
+      }
+      if (!ok) return false;
+    }
+    return true;
+  }
+  function trim(s){ return String(s).replace(/^\s+|\s+$/g, ''); }
+  function motorTxt(){ var k = S.cfg.motor; return k === 'silent' ? tr('Silent', 'Silencioso') : (k === 'high' ? tr('High speed', 'Alta velocidad') : tr('Mixed', 'Mixto')); }
+  function fixText(s, pi){
+    s = trim(s);
+    if (/^(Motor mode:|Modo de motores:)/.test(s)) s = tr('Motor mode: ', 'Modo de motores: ') + motorTxt();
+    if (/^(Current:|Actual:)/.test(s)){
+      var k = S.cfg.motor;
+      s = tr('Current: ', 'Actual: ') + (k === 'silent' ? tr('SILENT', 'Silencioso') : (k === 'high' ? tr('HIGH SPEED', 'Alta velocidad') : tr('MIXED', 'Mixto')));
+    }
+    if (s.indexOf('$') >= 0) s = s.replace('$', S.pre[pi || 0].n);
+    return s;
+  }
+  function lbl(it, mi){
+    var s = '';
+    if (it.en !== undefined) s = LANG === 'es' ? it.es : it.en;
+    else if (it.x){
+      switch (it.x){
+      case 'MSG_FIRST_FAN_SPEED': s = tr('Fan Speed', 'Ventilador'); break;
+      case 'ui.get_preheat_label(m)': s = S.pre[mi || 0].n; break;
+      case 'change_filament_header(mode)': s = S.filOp === 'unload' ? tr('Unload Filament', 'Descargar filamento') : tr('Load Filament', 'Cargar filamento'); break;
+      case 'tmp': s = tr('Move 0.025mm', 'Mover 0.025mm'); break;
+      default: s = 'n/a';
+      }
+    }
+    if (/^\\x02/.test(s)) s = '↑ ..';
+    var ax = /_AXIS\((A|B|C)\)|(E)_AXIS/.exec(it.v || ''); // the firmware prints the axis letter as a glyph that the inventory drops
+    if (ax){
+      var AL = {A:'X', B:'Y', C:'Z', E:'E'}[ax[1] || ax[2]];
+      if (/\S {2}\S/.test(s)) s = s.replace(/(\S) {2}(\S)/, '$1 ' + AL + ' $2');
+      else if (/ $/.test(s)) s = s + AL;
+      else if (/^ /.test(s)) s = AL + s;
+      else s = s + ' ' + AL;
+    }
+    return fixText(s, mi !== undefined ? mi : S.preIdx);
+  }
+  function titleOf(id){
+    var sc = MD.screens[id], t;
+    if (sc && sc.t) t = LANG === 'es' ? sc.t[1] : sc.t[0];
+    else t = S.title || (id === 'menu_main' ? tr('Main Menu', 'Menu principal') : id);
+    return fixText(t, S.preIdx);
+  }
+  function setTn(x){ S.temp.tn = x; if (S.job) S.job.tn = x; }
+  function setTb(x){ S.temp.tb = x; if (S.job) S.job.tb = x; }
+  function bind(it, sid, mi){
+    var v = it.v || '', j = S.job, p = S.pre[mi !== undefined ? mi : (S.preIdx || 0)];
+    if (v === '&feedrate_percentage' && j) return {g:function(){ return j.speed; }, s:function(x){ j.speed = x; }};
+    if (v === '&planner.flow_percentage[active_extruder]' && j) return {g:function(){ return j.flow; }, s:function(x){ j.flow = x; }};
+    if (v === '&thermalManager.temp_hotend[0].target' || v === '&editable.celsius') return {g:function(){ return S.temp.tn; }, s:setTn};
+    if (v === '&thermalManager.temp_bed.target') return {g:function(){ return S.temp.tb; }, s:setTb};
+    if (v === '&editable.uint8' && (sid === 'menu_tune' || sid === 'menu_temperature'))
+      return {g:function(){ return S.job ? S.job.fan : S.fan; }, s:function(x){ S.fan = x; if (S.job){ S.job.fan = x; S.job.fanMan = true; } }};
+    if (sid === '_menu_configuration_preheat_settings'){
+      if (/hotend_temp/.test(v)) return {g:function(){ return p.tn; }, s:function(x){ p.tn = x; }};
+      if (/bed_temp/.test(v)) return {g:function(){ return p.tb; }, s:function(x){ p.tb = x; }};
+      if (v === '&editable.uint8') return {g:function(){ return p.fan; }, s:function(x){ p.fan = x; }};
+    }
+    if (v === '&probe.offset.z') return {g:function(){ return S.zoff; }, s:function(x){ S.zoff = x; }};
+    return null;
+  }
+  function valKey(it, key, sid){ return sid === '_menu_configuration_preheat_settings' ? key + '@' + S.preIdx : key; }
+  function valGet(it, key, b){ if (b) return b.g(); return S.vals.hasOwnProperty(key) ? S.vals[key] : it.df; }
+  function unitStr(it){ return it.pct ? '%' : (it.u ? ' ' + it.u : ''); }
+  function valStr(it, v){ return (v === undefined || v === null) ? 'n/a' : num(v, it.d || 0) + unitStr(it); }
+
+  /* contextual help: written for the simulator (the firmware help table is not part of the inventory) */
+  var HELP = {
+    'Pause Print':['Pauses the print. Heaters stay on. Resume Print appears in this menu.', 'Pausa la impresion. Los calentadores siguen encendidos. Reanudar aparece en este menu.'],
+    'Resume Print':['Continues the paused print.', 'Continua la impresion en pausa.'],
+    'Stop Print':['Cancels the print after a confirmation.', 'Cancela la impresion tras pedir confirmacion.'],
+    'Tune':['Live adjustments while printing: speed, temperatures, fan, flow and Z offset.', 'Ajustes en vivo durante la impresion: velocidad, temperaturas, ventilador, flujo y desfase Z.'],
+    'Print':['Lists the files on the SD or USB: folders first, then files in alphabetical order.', 'Lista los archivos de la SD o USB: carpetas primero y luego archivos en orden alfabetico.'],
+    'Move Axis':['Moves X, Y or Z by hand, goes to origin or releases the motors.', 'Mueve X, Y o Z a mano, va al origen o suelta los motores.'],
+    'Level and center':['Homes, measures the bed, centers the nozzle and lets you set the height with paper.', 'Va al origen, mide la cama, centra la boquilla y te deja ajustar la altura con papel.'],
+    'Bed Leveling':['Advanced bed tools: edit the mesh, adjust the Z offset and level the bed corners (bed tramming).', 'Herramientas de cama: editar la malla, ajustar el desfase Z y nivelar las esquinas (recorrido).'],
+    'Maintenance':['Reminders to lubricate the axes and check the belts. Reset a reminder after doing the task.', 'Avisos para lubricar los ejes y revisar las correas. Reinicia un aviso al hacer la tarea.'],
+    'Prepare':['Preheat for a material and load or unload filament.', 'Precalienta segun el material y carga o descarga filamento.'],
+    'Configuration':['Temperatures, advanced settings, motor mode, fans, sound and saving settings.', 'Temperaturas, ajustes avanzados, modo de motores, ventiladores, sonido y guardado.'],
+    'Night mode':['Mutes the buzzer and turns the screen black after a few seconds. The first turn or click only wakes it.', 'Silencia el zumbador y pone la pantalla en negro tras unos segundos. El primer giro o clic solo la despierta.'],
+    'Guide and help':['Short lessons for beginners.', 'Lecciones cortas para principiantes.'],
+    'Language':['Changes the language: English or Spanish. It is saved.', 'Cambia el idioma: ingles o espanol. Se guarda.'],
+    'About':['Shows the firmware name, version and bed size.', 'Muestra el nombre del firmware, la version y el tamano de la cama.'],
+    'Lubricate axes':['Maintenance reminder every 100 print hours. Reset restarts the counter.', 'Recordatorio de mantenimiento cada 100 horas de impresion. Reiniciar pone el contador en cero.'],
+    'Check belts':['Maintenance reminder every 200 print hours. Reset restarts the counter.', 'Recordatorio de mantenimiento cada 200 horas de impresion. Reiniciar pone el contador en cero.'],
+    'Store Settings':['Saves all settings to the printer memory.', 'Guarda todos los ajustes en la memoria de la impresora.'],
+    'Load Settings':['Loads the settings saved in memory.', 'Carga los ajustes guardados en memoria.'],
+    'Restore Defaults':['Returns all settings to factory values.', 'Devuelve todos los ajustes a los valores de fabrica.'],
+    'Cooldown':['Turns off the nozzle and bed heaters.', 'Apaga los calentadores de boquilla y cama.']
+  };
+  function helpOf(it, label, sid){
+    var h = HELP[trim(it.en || '')];
+    if (h) return pick(h);
+    switch (it.k){
+    case 'back': return tr('Click: back', 'Clic: volver');
+    case 'sub': return tr('Opens "' + label + '".', 'Abre "' + label + '".');
+    case 'edit': return tr('Turn changes the value, click confirms. Range ' + num(it.min, it.d || 0) + ' to ' + (it.ap ? 'n/a' : num(it.max, it.d || 0)) + unitStr(it) + '.',
+                           'Girar cambia el valor, clic confirma. Rango ' + num(it.min, it.d || 0) + ' a ' + (it.ap ? 'n/a' : num(it.max, it.d || 0)) + unitStr(it) + '.');
+    case 'tog': return tr('Click switches On / Off.', 'Clic alterna Enc / Apg.');
+    case 'conf': case 'confsub': return tr('Asks for confirmation before doing it.', 'Pide confirmacion antes de hacerlo.');
+    case 'info': return tr('Information line. Nothing to change here.', 'Linea informativa. Nada que cambiar aqui.');
+    }
+    return tr('Runs this action when clicked.', 'Ejecuta esta accion al hacer clic.');
+  }
+
+  function openDlg(prompt, bt, onYes, opt){
+    S.dlg = {prompt:wrap(prompt + '?', 30), bt:[pick(bt[0]), pick(bt[1])], sel:1, onYes:onYes};
+    go('dlg');
+  }
+  function factoryDefaults(){
+    S.vals = {}; S.tg = {}; S.cfg = freshCfg(); S.pre = clonePre(); S.nightMode = false; S.fan = 0;
+  }
+  function confirmDone(it){
+    var n = trim(it.en);
+    if (n === 'Lubricate axes'){ S.svc.s1 = 0; reset('home'); toast(tr('Counter reset', 'Contador reiniciado')); } // firmware: ui.return_to_status()
+    else if (n === 'Check belts'){ S.svc.s2 = 0; reset('home'); toast(tr('Counter reset', 'Contador reiniciado')); }
+    else if (n === 'Initialize EEPROM'){ factoryDefaults(); toast(tr('EEPROM initialized', 'EEPROM inicializada')); }
+  }
+  function homeTask(axes){
+    startTask({title:tr('Home', 'Origen'), steps:[{l:tr('Homing ', 'Origen ') + axes.toUpperCase(), d:3}], onDone:function(){
+      for (var i = 0; i < axes.length; i++){ S.hx[axes[i]] = true; S.pos[axes[i]] = 0; }
+      S.homed = S.hx.x && S.hx.y && S.hx.z; toast(tr('Home done', 'Origen listo')); }});
+  }
+  function levelCenter(){
+    if (isBusy()){ toast(tr('Not available: printer busy', 'No disponible: imprimiendo')); return; }
+    var savedMesh = S.meshValid, savedHome = {x:S.hx.x, y:S.hx.y, z:S.hx.z};
+    startTask({title:tr('Level and center', 'Nivelar y centrar'), wiz:true, onCancel:function(){ S.meshValid = savedMesh; S.hx = savedHome; }, steps:[
+      {l:tr('Homing...', 'Yendo al origen...'), d:3},
+      {l:tr('Measuring the mesh...', 'Midiendo la malla...'), d:18, grid:true, enter:function(){ S.meshValid = false; }},
+      {l:tr('Centering nozzle...', 'Centrando boquilla...'), d:3},
+      {l:tr('Lowering carefully...', 'Bajando con cuidado...'), d:3}], onDone:function(){
+        S.hx = {x:true, y:true, z:true}; S.homed = true; S.pos.x = 110; S.pos.y = 110; S.pos.z = 0; S.meshValid = true; openZOffset(); }});
+  }
+  function filTask(tn){
+    var load = S.filOp !== 'unload';
+    startTask({title:load ? tr('Load Filament', 'Cargar filamento') : tr('Unload Filament', 'Descargar filamento'), steps:[
+      {l:tr('Heating nozzle', 'Calentando boquilla'), d:0.5, enter:function(){ S.temp.tn = tn; }, until:function(){ return S.temp.n >= tn - 5; }},
+      load ? {l:tr('Extruding filament', 'Extruyendo filamento'), d:5} : {l:tr('Retracting filament', 'Retrayendo filamento'), d:5}],
+      onDone:function(){ toast(load ? tr('Filament loaded', 'Filamento cargado') : tr('Remove the filament', 'Retire el filamento')); }});
+  }
+  function startMove(d){
+    var ax = S.axis, step = d === 'z' ? 0.025 : Number(d), mx = {x:220, y:220, z:250}[ax], dec = step < 0.1 ? 3 : (step < 1 ? 1 : 0);
+    startEdit({label:tr('Move ', 'Mover ') + ax.toUpperCase(), kind:'move', value:S.pos[ax], min:0, max:mx, step:step, dec:dec, unit:' mm',
+      help:tr('Turn moves the axis by ' + step + ' mm per step. Click finishes.', 'Girar mueve el eje ' + step + ' mm por paso. Clic termina.'),
+      onChange:function(v){ S.pos[ax] = v; }});
+  }
+  var ACTS = {
+    pause:function(){ if (!active()) return; S.job.paused = true; toStatus(); toast(tr('Print Paused', 'Impresion Pausada')); },
+    resume:function(){
+      if (!active()) return; var j = S.job; j.paused = false; toStatus();
+      if (j.coldPaused){ j.coldPaused = false; S.temp.tn = j.tn; S.temp.tb = j.tb; toast(tr('Reheating to resume', 'Recalentando para reanudar')); }
+      else toast(tr('Resuming...', 'Reanudando...'));
+    },
+    repeat_cancel:function(){ toast('n/a'); },
+    level_center:function(){ levelCenter(); },
+    store:function(){ toast(tr('Settings stored', 'Config. guardada')); },
+    load:function(){ toast(tr('Settings loaded', 'Config. cargada')); },
+    restore:function(){ factoryDefaults(); toast(tr('Defaults restored', 'Valores de fabrica')); },
+    cooldown:function(){ heatTo(0, 0); toast(tr('Cooling down', 'Enfriando')); },
+    homeoff:function(){ toStatus(); toast(tr('Home offsets set', 'Desfases ajustados')); },
+    updir:function(){ S.dir = ''; S.sel = 0; S.scroll = 0; },
+    attach:function(){ if (S.sdHas) S.sel = 0; else toast(tr('SD init fail', 'Fallo init. SD')); },
+    recov_resume:function(){ var r = S.recovery; S.recovery = null; if (r) startJob(r.file, {prog:r.prog, elapsed:r.elapsed}); else toStatus(); },
+    recov_cancel:function(){ S.recovery = null; S.jobNo++; toStatus(); },
+    preheat_both:function(){ var p = S.pre[S.preIdx]; heatTo(p.tn, p.tb); toStatus(); toast(tr('Heating ', 'Calentando ') + p.n); },
+    preheat_end:function(){ var p = S.pre[S.preIdx]; S.temp.tn = p.tn; toStatus(); toast(tr('Heating ', 'Calentando ') + p.n); },
+    preheat_bed:function(){ var p = S.pre[S.preIdx]; S.temp.tb = p.tb; toStatus(); toast(tr('Heating bed', 'Calentando cama')); },
+    filop_preset:function(a, it, mi){ filTask(S.pre[mi || 0].tn); },
+    'gcode:home':function(){ homeTask('xyz'); }, 'gcode:homex':function(){ homeTask('x'); },
+    'gcode:homey':function(){ homeTask('y'); }, 'gcode:homez':function(){ homeTask('z'); },
+    'gcode:m84':function(){ S.hx = {x:false, y:false, z:false}; S.homed = false; toast(tr('Motors released', 'Motores sueltos')); },
+    'motor:silent':function(){ setMotor('silent'); }, 'motor:mixed':function(){ setMotor('mixed'); }, 'motor:high':function(){ setMotor('high'); },
+    'lang:en':function(){ setLang('en'); }, 'lang:es':function(){ setLang('es'); }
+  };
+  function setMotor(k){
+    if (isBusy()){ toast(tr('Not while printing', 'No durante la impresion')); return; }
+    S.cfg.motor = k;
+    toast(k === 'silent' ? tr('Motors: SILENT (saved)', 'Motores: SILENCIOSO (guardado)') : (k === 'high' ? tr('Motors: HIGH SPEED (saved)', 'Motores: ALTA VELOCIDAD (guardado)') : tr('Motors: MIXED (saved)', 'Motores: MIXTO (guardado)')));
+  }
+  function setLang(l){
+    S.lang = l; sync(); pop(); // v2: saves and returns to the menu it was opened from
+  }
+  function runAct(it, mi){
+    if (/^goto:/.test(it.a || '')){ go(it.a.slice(5), lbl(it, mi)); return; }
+    var f = ACTS[it.a];
+    if (f) f(it.a, it, mi); else toast('n/a');
+  }
+  function openDest(it, label, mi){
+    var to = it.to || '', p = to.split(':');
+    if (MD.screens[to]){ if (mi !== undefined) S.preIdx = mi; if (to === 'menu_media') S.dir = ''; go(to, label); return; }
+    switch (p[0]){
+    case 'about': go('about'); break;
+    case 'levelcenter': levelCenter(); break;
+    case 'guide': S.guideIdx = Number(p[1]); go('guidepage'); break;
+    case 'move': S.axis = p[1]; go('_menu_move_distance', tr('Move ', 'Mover ') + p[1].toUpperCase()); break;
+    case 'filop': // firmware: too cold to extrude -> preheat menu, otherwise the extruder distance menu
+      S.filOp = p[1];
+      if (S.temp.n >= 170){ S.axis = 'e'; go('_menu_move_distance', tr('Move Extruder', 'Extrusor')); }
+      else go('_menu_temp_filament_op', label);
+      break;
+    case 'preheat': S.preIdx = Number(p[1]); go('menu_preheat_m', label); break;
+    case 'dist': if (S.axis === 'e') filTask(Math.max(170, S.temp.tn || 200)); else startMove(p[1]); break;
+    case 'zoffset': openZOffset(); break;
+    case 'bedlevel':
+      startTask({title:tr('Level Bed', 'Nivelar Cama'), wiz:true, steps:[{l:tr('Homing...', 'Yendo al origen...'), d:3}, {l:tr('Measuring the mesh...', 'Midiendo la malla...'), d:18, grid:true}],
+        onDone:function(){ S.hx = {x:true, y:true, z:true}; S.homed = true; S.meshValid = true; toast(tr('Mesh saved', 'Malla guardada')); }});
+      break;
+    case 'tramming':
+      startTask({title:tr('Bed Tramming', 'Recorrido Cama'), steps:[{l:tr('Moving to corners', 'Yendo a las esquinas'), d:6}]});
+      break;
+    default: toast('n/a');
+    }
+  }
+  function editItem(it, key, sid, label, mi){
+    var b = bind(it, sid, mi), k = valKey(it, key, sid), cur = valGet(it, k, b), mn = it.pct ? 0 : it.min, mx = it.pct ? 100 : it.max, dec = it.pct ? 0 : (it.d || 0);
+    function save(v){ if (b) b.s(v); else S.vals[k] = v; }
+    startEdit({label:label, value:(cur === undefined || cur === null) ? mn : clamp(cur, mn, mx), min:mn, max:mx, step:Math.pow(10, -dec), dec:dec, unit:unitStr(it),
+      maxApprox:!!it.ap, help:helpOf(it, label, sid), generic:true, onChange:it.live ? save : null, onSave:save});
+  }
+  function mk(sid, idx, it, mi){
+    var o = {key:sid + '#' + idx, t:lbl(it, mi), k:it.k}, k = it.k;
+    o.help = helpOf(it, o.t, sid);
+    switch (k){
+    case 'back': o.act = function(){ if (it.a === 'attach') ACTS.attach(); else if (sid === 'menu_main') toStatus(); else pop(); }; break;
+    case 'sub': o.act = function(){ openDest(it, o.t, mi); }; break;
+    case 'confsub': o.act = function(){ openDlg(it.pr.map(pick).join(' '), it.bt, function(){ stopJob('user'); }); }; break;
+    case 'conf': o.act = function(){ openDlg(it.pr.map(pick).join(' '), it.bt, function(){ confirmDone(it); }); }; break;
+    case 'act': o.act = function(){ runAct(it, mi); }; break;
+    case 'tog': o.v = onOff(tgGet(it.v)); o.act = function(){ tgSet(it.v, !tgGet(it.v)); }; break;
+    case 'edit':
+      var b = bind(it, sid, mi);
+      o.v = valStr(it, valGet(it, valKey(it, o.key, sid), b));
+      o.act = function(){ editItem(it, o.key, sid, o.t, mi); };
+      break;
+    case 'info': o.st = true; o.inv = it.x !== undefined || idx === 0 || /^Attach/.test(it.en || ''); if (/^>$/.test(o.t) && !it.c) o.t = '> n/a'; break;
+    }
+    return o;
+  }
+  function axisMatch(it){ return trim(it.en || '') === (S.axis === 'e' ? 'Move Extruder' : 'Move ' + S.axis.toUpperCase()); }
+  function engineDef(id){
+    var sc = MD.screens[id], items = [];
+    sc.items.forEach(function(it, idx){
+      if (!condOK(it.c)) return;
+      if (it.c && it.c.indexOf('axis') >= 0 && !axisMatch(it)) return;
+      if (it.c && it.c.indexOf('reglines') >= 0){
+        S.log.slice(0, 5).forEach(function(e){ var o = mk(id, idx, it); o.t = '> #' + e.n + ' ' + reasonText(e.reason); items.push(o); });
+      }
+      else if (it.lp){ for (var m = 0; m < S.pre.length; m++) items.push(mk(id, idx, it, m)); }
+      else items.push(mk(id, idx, it));
+    });
+    return {title:titleOf(id), items:items, sid:id, stat:!!sc.static};
+  }
+  function mediaDef(){
+    if (!S.sdHas) return engineDef('menu_media');
+    var sid = 'menu_media_filelist', items = [], help = tr('Print file. Click shows its summary.', 'Archivo de impresion. Clic muestra su resumen.');
+    MD.screens[sid].items.forEach(function(it, idx){
+      if (it.k === 'folder'){
+        if (!S.dir) dirNames().forEach(function(d){
+          items.push({key:sid + '#' + idx, t:'> ' + d, help:tr('Folder ' + d + '. Click opens it.', 'Carpeta ' + d + '. Clic la abre.'), act:function(){ S.dir = d; S.sel = 0; S.scroll = 0; }});
+        });
+        return;
+      }
+      if (it.k === 'file'){
+        filesIn(S.dir).forEach(function(fl){ items.push({key:sid + '#' + idx, t:fl.name, help:help, act:function(){ S.selFile = fl; go('confirm'); }}); });
+        return;
+      }
+      if (!condOK(it.c)) return;
+      items.push(mk(sid, idx, it));
+    });
+    return {title:S.dir ? 'SD/' + S.dir : titleOf('menu_media'), items:items, sid:sid};
+  }
+
+function menuDef(){
+    sync();
+    var id = S.screen;
+    if (id === 'menu_media') return mediaDef();
+    if (MD.screens[id]) return engineDef(id);
+    if (id === 'confirm'){
+      var f = S.selFile, express = S.printMode === 'express', noMesh = express && !S.meshValid;
+      var fl = tr('File: ', 'Archivo: '), room = 30 - fl.length, shortName = f.name.length > room ? f.name.slice(0, room - 3) + '...' : f.name;
+      var info = [fl + shortName].concat(wrap(tr('Time: ', 'Tiempo: ') + fmtMin(est(f)) + tr(' (adjusted x', ' (ajustado x') + num(S.stats.factor, 2) + tr(', ', ' con ') + S.stats.learnN + tr(' prints)', ' impresiones)'), 30))
+        .concat([tr('Filament: ', 'Filamento: ') + num(f.fil, 1) + ' m ' + f.mat])
+        .concat(wrap(noMesh ? tr('No valid mesh: will run Full', 'Sin malla valida: se hara Completa') : (express ? tr('Uses the saved mesh', 'Usa la malla guardada') : tr('Measures the hot bed', 'Mide la cama caliente')), 30));
+      var mi = [
+        I(tr('Mode: ', 'Modo: ') + (express ? 'Express' : tr('Full', 'Completo')),
+          tr('Click toggles Express / Full. Express heats bed and nozzle together and reuses the saved mesh. Without a valid mesh it runs Full.', 'Un clic alterna Express / Completa. Express calienta cama y boquilla juntas y usa la malla guardada. Sin malla valida hace la Completa.'),
+          function(){ S.printMode = express ? 'full' : 'express'; }),
+        I(tr('Print', 'Imprimir'), tr('Starts the print in the chosen mode.', 'Empieza la impresion en el modo elegido.'), function(){
+          startJob(f, null, {mode:noMesh ? 'full' : S.printMode, fellBack:noMesh}); }),
+        I(tr('Cancel', 'Cancelar'), tr('Goes back to the file list without printing.', 'Vuelve a la lista de archivos sin imprimir.'), function(){ S.printMode = 'full'; pop(); })];
+      mi.forEach(function(x, n){ x.key = 'menu_confirmar_impresion#' + (n + 2); });
+      return {title:tr('Confirm print', 'Confirmar impresion'), thumb:f.shape, info:info, infoX:96, items:mi, sid:'menu_confirmar_impresion'};
+    }
+    return null;
+  }
+
+  /* ----- coverage: which inventoried screens/items the user has seen in this session ----- */
+  function track(){
+    var m = (S.screen === 'night') ? null : menuDef();
+    if (!m || !m.sid) return;
+    S.visS[m.sid] = 1;
+    if (m.sid === 'menu_media_filelist') S.visS.menu_media = 1;
+    if (m.sid === 'menu_confirmar_impresion'){ S.visI['menu_confirmar_impresion#0'] = 1; S.visI['menu_confirmar_impresion#1'] = 1; }
+    var it = m.items[S.sel]; if (it && it.key) S.visI[it.key] = 1;
+  }
+  function coverage(){
+    var un = [], k;
+    for (k in MD.screens) if (!S.visS[k]) un.push(k);
+    return {screens:Object.keys(MD.screens).length, screensSeen:Object.keys(MD.screens).length - un.length,
+            items:MD.meta.items, activeTotal:MD.meta.active_items, itemsSeen:Object.keys(S.visI).length, unseenScreens:un};
+  }
+  function fidelity(){ return FIDELITY.concat(MD.notes || []); }
+
+  function openZOffset(){
+    startEdit({label:tr('Probe Z Offset', 'Desf. Sonda Z'), kind:'z', value:S.zoff, min:-2, max:2, step:0.01, dec:2, unit:' mm',
+      help:tr('Turn to raise or lower the nozzle in 0.01 mm steps. With paper underneath, look for a slight drag. Click saves the value.', 'Gira para subir o bajar la boquilla de a 0,01 mm. Con un papel debajo, busca un roce leve. Clic guarda el valor.'),
+      onChange:function(v){ S.pos.z = Math.max(0, 0.2 + v); },
+      onSave:function(v){ S.zoff = v; toast(tr('Offset saved: ', 'Offset guardado: ') + num(v, 2) + ' mm'); }});
+  }
+
+/* ----- contextual help ----- */
+  var SCREEN_HELP = {
+    boot:['The printer logo appears at power-on. If power failed during a print, you are offered to continue it.', 'El logotipo de la impresora aparece al encender. Si hubo un corte de luz durante una impresion, se te ofrece continuarla.'],
+    home:['Idle screen: status, nozzle and bed temperatures, height offset (Z offset), current height and SD card. Click to open the menu.', 'Pantalla de reposo: estado, temperaturas de boquilla y cama, ajuste de altura (Z offset), altura actual y tarjeta SD. Haz clic para abrir el menu.'],
+    start:['Full: heats the bed, waits for heat soak, measures the hot bed at 36 points, then heats the nozzle. Express: heats both at once and uses the saved mesh. A click lets you cancel, with confirmation.', 'Completa: calienta la cama, espera el calor parejo, mide la cama caliente en 36 puntos y luego calienta la boquilla. Express: calienta ambos a la vez y usa la malla guardada. Un clic permite cancelar, con confirmacion.'],
+    print0:['Part progress: the thumbnail fills from bottom to top. Turn for more pages; click opens the print menu.', 'Avance de la pieza: la miniatura se llena de abajo hacia arriba. Gira para ver mas paginas; clic abre el menu de impresion.'],
+    print1:['Current and target temperatures, speed, flow and fan. Change them with click > Adjust.', 'Temperaturas actuales y objetivo, velocidad, flujo y ventilador. Se cambian con clic > Ajustar.'],
+    print2:['Statistics: elapsed time, filament used and the time factor learned from earlier prints.', 'Estadisticas: tiempo transcurrido, filamento gastado y el ajuste de tiempos aprendido de impresiones anteriores.'],
+    task:['The printer is doing the step shown. A click cancels it if it has not finished yet.', 'La impresora esta haciendo el paso indicado. Un clic lo cancela si todavia no termina.'],
+    done:['The print is finished. Compare real and estimated time; the printer learns from it. Click to see the cooldown.', 'La impresion termino. Compara el tiempo real con el estimado; con eso la impresora aprende. Clic para ver el enfriamiento.'],
+    cooling:['Nozzle and bed are cooling. You can switch the printer off when both are below 50 degrees. Click returns home.', 'Boquilla y cama se enfrian. Puedes apagar la impresora cuando ambas bajen de 50 grados. Clic vuelve al inicio.'],
+    err_temp:['The temperature did not behave as expected, so the nozzle was turned off for safety. Check the sensor wires and restart.', 'La temperatura no se comporto como se esperaba, por seguridad se apago la boquilla. Revisa cables del sensor y reinicia.'],
+    err_filament:['The sensor does not detect filament. Load a new one with a click and the print continues where it paused.', 'El sensor no detecta filamento. Carga uno nuevo con clic y la impresion continua donde se pauso.'],
+    guidepage:['Turn to change page inside the lesson. Click leaves the lesson and returns to the topic list.', 'Gira para cambiar de pagina dentro de la leccion. Clic sale de la leccion y vuelve a la lista de temas.'],
+    shutdown:['Because of inactivity, heaters turn off and then the printer. A click cancels the shutdown.', 'Por inactividad se apagan los calentadores y luego la impresora. Un clic cancela el apagado.'],
+    off:['The printer is unpowered or off. A click turns it back on.', 'La impresora esta sin energia o apagada. Un clic la vuelve a encender.'],
+    about:['Firmware name, version and bed size. Click returns to the status screen.', 'Nombre del firmware, version y tamano de la cama. Clic vuelve a la pantalla de estado.'],
+    dlg:['Turn to choose a button, click to confirm.', 'Gira para elegir un boton, clic para confirmar.']
+  };
+  function helpFor(){
+    var d = menuDef();
+    if (d){ var it = d.items[S.sel] || d.items[0]; return {title:it ? it.t : d.title, text:it ? (it.help || '') : ''}; }
+    var key = S.screen;
+    if (key === 'print') key = 'print' + S.page;
+    if (key === 'edit') return {title:S.edit.label, text:S.edit.help};
+    return {title:pick(SCREEN_TITLES[S.screen] || [S.screen, S.screen]), text:SCREEN_HELP[key] ? pick(SCREEN_HELP[key]) : tr('No help for this screen.', 'Sin ayuda para esta pantalla.')};
+  }
+  function longPress(){
+    var h = helpFor(); S.help = {title:h.title, lines:wrap(h.text, 40)};
+  }
+
+  /* ----- input: knob and click ----- */
+  function touch(){ S.inactT = 0; S.idleT = 0; }
+  function turn(d){
+    touch();
+    if (S.night){ wake(); return; }
+    if (S.help){ S.help = null; return; }
+    var m = menuDef();
+    if (m){
+      S.sel = clamp(S.sel + d, 0, m.items.length - 1);
+      if (S.sel < S.scroll) S.scroll = S.sel;
+      if (S.sel >= S.scroll + VIS) S.scroll = S.sel - VIS + 1;
+      track(); return;
+    }
+    switch (S.screen){
+    case 'print': S.page = (((S.page + d) % 3) + 3) % 3; break;
+    case 'edit':
+      var e = S.edit, st = e.step;
+      if (e.generic){ // knob acceleration
+        if (d === S.turnDir && S.realT - S.turnT < 0.25) S.turnStreak++; else S.turnStreak = 0;
+        S.turnDir = d; S.turnT = S.realT;
+        var mult = S.turnStreak > 12 ? 100 : (S.turnStreak > 6 ? 10 : 1);
+        st = e.step * Math.min(mult, Math.max(1, Math.floor((e.max - e.min) / e.step / 20)));
+      }
+      e.value = clamp(Math.round((e.value + d * st) / e.step) * e.step, e.min, e.max);
+      e.value = Math.round(e.value * 1000) / 1000;
+      if (e.onChange) e.onChange(e.value);
+      break;
+    case 'guidepage':
+      var n = guide()[S.guideIdx].pages.length;
+      if (S.page + d >= n) pop(); else S.page = clamp(S.page + d, 0, n - 1);
+      break;
+    case 'dlg': S.dlg.sel = clamp(S.dlg.sel + d, 0, 1); break;
+    }
+  }
+  function doClick(){
+    var m = menuDef();
+    if (m){ var it = m.items[S.sel]; if (m.stat) pop(); else if (it && it.act) it.act(); track(); return; }
+    switch (S.screen){
+    case 'home': case 'start': case 'print': openMain(); break;
+    case 'edit': var e = S.edit; if (e.onSave) e.onSave(e.value); pop(); break;
+    case 'task':
+      if (S.task && S.task.cancel){ var tk = S.task; S.task = null; pop(); if (tk.onCancel) tk.onCancel(); toast(tr('Level and center canceled', 'Cancelado').replace('Level and center canceled', tk.wiz ? 'Level and center canceled' : 'Canceled')); }
+      break;
+    case 'guidepage': pop(); break;
+    case 'about': toStatus(); break;
+    case 'dlg': var dl = S.dlg; if (dl.sel === 0){ dl.onYes(); if (S.screen === 'dlg') pop(); } else pop(); break;
+    case 'done': reset('cooling'); break;
+    case 'cooling': S.job = null; reset('home'); break;
+    case 'err_temp': S.fault = false; S.job = null; reset('home'); break;
+    case 'err_filament':
+      startTask({title:tr('Load new filament', 'Cargar filamento nuevo'), reset:true, cancel:false, steps:loadSteps(), onDone:function(){
+        if (S.job){ S.job.paused = false; } toast(tr('Resuming print', 'Reanudando impresion')); }});
+      break;
+    case 'off': reboot(); break;
+    }
+  }
+  function clickDown(){
+    if (S.down !== null) return;
+    S.down = S.realT; S.longFired = false; S.swallow = false; touch();
+    if (S.night){ wake(); S.swallow = true; }
+    else if (S.help){ S.help = null; S.swallow = true; }
+  }
+  function clickUp(){
+    if (S.down === null) return;
+    var skip = S.longFired || S.swallow;
+    S.down = null; S.longFired = false; S.swallow = false;
+    if (!skip){ touch(); doClick(); }
+  }
+  function click(){ clickDown(); clickUp(); }
+
+  /* ----- simulated events ----- */
+function reboot(){ S.bootT = 0; S.autoBoot = null; wake(); reset('boot'); }
+  function bootDone(){ reset(S.recovery ? 'menu_job_recovery' : 'home'); }
+  function simPowerLoss(){
+    var msg = 'Simulated power loss.';
+    if (active() && (S.job.phase === 'printing' || S.job.resumed)){
+      if (S.cfg.recovery){ S.recovery = snapshot(); logStop('power'); msg += ' Progress saved.'; }
+      else { logStop('powernr'); S.jobNo++; S.recovery = null; msg += ' Recovery is off: the part was lost.'; }
+    } else if (active()){ logStop('power'); S.jobNo++; }
+    S.job = null; S.temp.tn = 0; S.temp.tb = 0; S.edit = null; S.task = null; S.down = null;
+    wake(); reset('off'); S.autoBoot = 1.5; beep();
+    S.simMsg = msg; return msg;
+  }
+  function simTempFail(){
+    if (S.screen === 'boot' || S.screen === 'off') return (S.simMsg = 'The printer is not powered on.');
+    if (active()){ logStop('temp'); S.jobNo++; }
+    S.job = null; S.temp.tn = 0; S.temp.tb = 0; S.fault = true; S.task = null; S.nightMode = false;
+    wake(); beep(); reset('err_temp');
+    return (S.simMsg = 'Simulated temperature fault: nozzle turned off.');
+  }
+  function simFilament(){
+    if (!active() || S.job.phase !== 'printing' || S.job.paused) return (S.simMsg = 'Only works during a print in progress.');
+    S.job.paused = true; logStop('fil'); wake(); S.beep = 1.2; /* one beep even in night mode */ reset('err_filament');
+    return (S.simMsg = 'Simulated filament runout: print paused.');
+  }
+  function simDemoPrint(){
+    if (S.screen === 'boot' || S.screen === 'off') return (S.simMsg = 'The printer is not ready (powered off).');
+    if (active()) return (S.simMsg = 'A print is already running.');
+    S.sdHas = true; S.fault = false; S.task = null; S.edit = null;
+    var list = SD_FILES.slice().sort(byName), f = list[Math.min(1, list.length - 1)];
+    startJob(f, null, {mode:'full'});
+    var j = S.job; j.phase = 'printing'; j.prog = 0.35; j.elapsed = j.actual * 0.35; j.usedFil = f.fil * 0.35;
+    S.temp.n = j.tn; S.temp.b = j.tb; S.temp.tn = j.tn; S.homed = true; S.pos.x = 110; S.pos.y = 110;
+    wake(); reset('print');
+    return (S.simMsg = 'Demo: ' + f.name + ' at 35 %. Turn the knob to change page; click opens the print menu.');
+  }
+  function setSD(has){
+    S.sdHas = !!has; S.dir = ''; if (S.screen === 'menu_media'){ S.sel = 0; S.scroll = 0; }
+    return (S.simMsg = has ? 'SD card with files.' : 'SD card empty.');
+  }
+  function setMesh(valid){
+    S.meshValid = !!valid;
+    return (S.simMsg = valid ? 'A valid saved mesh exists: Express can skip the mesh.' : 'No valid saved mesh: Express falls back to Full.');
+  }
+
+  /* ----- time advance ----- */
+  function thermal(dt){
+    var t = S.temp;
+    if (t.n < t.tn) t.n = Math.min(t.tn, t.n + 2.2 * dt);
+    else if (t.n > t.tn) t.n = Math.max(Math.max(t.tn, 24), t.n - 0.8 * dt);
+    if (t.b < t.tb) t.b = Math.min(t.tb, t.b + 0.6 * dt);
+    else if (t.b > t.tb) t.b = Math.max(Math.max(t.tb, 24), t.b - 0.04 * dt);
+  }
+function toPrinting(j){
+    j.phase = 'printing'; S.homed = true; S.pos.x = 110; S.pos.y = 110;
+    if (S.screen === 'start') reset('print');
+  }
+  function jobTick(dt){
+    var j = S.job; if (!j) return;
+    switch (j.phase){
+    case 'heatbed':
+      if (S.temp.b >= j.tb - 1){ j.phase = 'soak'; j.soakT = 0; }
+      break;
+    case 'soak':
+      j.soakT += dt;
+      if (j.soakT >= SOAK){ j.phase = 'mesh'; j.lvlT = 0; j.lvl = 0; }
+      break;
+    case 'mesh':
+      j.lvlT += dt; j.lvl = Math.min(36, Math.floor(j.lvlT / 2.5));
+      if (j.lvl >= 36){ S.meshValid = true; j.phase = 'heatnozzle'; S.temp.tn = j.tn; }
+      break;
+    case 'heatnozzle':
+      if (S.temp.n >= j.tn - 1) toPrinting(j);
+      break;
+    case 'heatboth':
+      if (S.temp.n >= j.tn - 1 && S.temp.b >= j.tb - 1) toPrinting(j);
+      break;
+    case 'printing':
+      if (!j.paused){
+        j.elapsed += dt; j.prog = Math.min(1, j.prog + dt * (j.speed / 100) / j.actual);
+        j.usedFil = j.file.fil * j.prog; S.pos.z = layerNow(j) * 0.2;
+        if (!j.fanMan) j.fan = layerNow(j) < 3 ? 0 : 100;
+        if (j.prog >= 1) finishJob();
+      }
+      break;
+    }
+  }
+  function tick(dr){
+    S.realT += dr; var dt = dr * S.speed; S.simT += dt;
+    if (S.toast){ S.toast.left -= dr; if (S.toast.left <= 0) S.toast = null; }
+    if (S.beep > 0) S.beep -= dr;
+    if (S.down !== null && !S.longFired && !S.swallow && S.realT - S.down >= 0.8){ S.longFired = true; longPress(); }
+    S.inactT += dr;
+    if (S.nightMode && !S.night && S.inactT >= (S.nightFirst ? 3 : 30)) enterNight(); // 3 s after switching on, then 30 s without use
+    thermal(dt);
+    if (S.screen === 'boot'){
+      S.bootT += dr;
+      if (S.bootT >= 2.5) bootDone();
+    } else if (S.screen === 'off' && S.autoBoot !== null){
+      S.autoBoot -= dr; if (S.autoBoot <= 0) reboot();
+    } else if (S.screen === 'task') taskTick(dt);
+    if (S.job && S.job.phase === 'printing' && !S.job.paused){ S.svc.s1 += dt / 3600; S.svc.s2 += dt / 3600; } // printed-hours counters
+    jobTick(dt);
+    var m = menuDef();
+    if (m){ S.sel = clamp(S.sel, 0, Math.max(0, m.items.length - 1)); if (S.scroll > Math.max(0, m.items.length - VIS)) S.scroll = Math.max(0, m.items.length - VIS); track(); }
+  }
+  function serviceMsg(){
+    if (active()) return null;
+    if (S.svc.s1 >= 100) return tr('> Lubricate axes!', '> Lubricar ejes!');
+    if (S.svc.s2 >= 200) return tr('> Check belts!', '> Revisar correas!');
+    return null;
+  }
+  function simIdleTimeout(){ // hotend_idle.cpp: 10 min idle (30 min while paused) switches the heaters off
+    if (S.screen === 'boot' || S.screen === 'off') return (S.simMsg = 'The printer is not powered on.');
+    S.temp.tn = 0; S.temp.tb = 0;
+    if (active() && S.job.paused) S.job.coldPaused = true;
+    wake(); toast(tr('Heater off: idle timeout', 'Apagado por inactividad'));
+    return (S.simMsg = active() && S.job.paused ? 'Idle timeout while paused (30 min): heaters off; Resume Print reheats.' : 'Idle timeout (10 min): heaters off.');
+  }
+  function simMaintenance(){ S.svc.s1 = 100; S.svc.s2 = 200; return (S.simMsg = 'Maintenance due: both counters passed their interval (100 h / 200 h). The status screen shows the banner.'); }
+  function setPrinterState(st){
+    if (S.screen === 'boot' || S.screen === 'off') return (S.simMsg = 'The printer is not powered on.');
+    if (st === 'idle'){
+      S.job = null; S.temp.tn = 0; S.temp.tb = 0; S.task = null; S.edit = null; S.dlg = null; toStatus();
+      return (S.simMsg = 'Printer state: idle.');
+    }
+    if (!active()) simDemoPrint();
+    if (!active()) return S.simMsg;
+    S.job.paused = (st === 'paused'); S.task = null; S.edit = null; S.dlg = null; toStatus();
+    return (S.simMsg = 'Printer state: ' + st + '.');
+  }
+  function debugGo(id){ // debug / test hook: jump to a screen as if opened from the main menu
+    S.stack = (id === 'menu_main') ? [] : [{screen:'menu_main', sel:0, scroll:0, page:0, title:''}];
+    S.screen = id; S.sel = 0; S.scroll = 0; S.page = 0; S.help = null; S.edit = null;
+    if (id === 'confirm' && !S.selFile) S.selFile = SD_FILES[0];
+    if (id === 'dlg' && !S.dlg) S.dlg = {prompt:['?'], bt:['OK', 'Cancel'], sel:1, onYes:function(){}};
+    track();
+  }
+
+  /* ----- derived information for the view ----- */
+function features(){
+    sync();
+    var f = [];
+    if (S.night) return [8];
+    switch (S.screen){
+    case 'boot': f = [1]; break;
+    case 'menu_job_recovery': f = [1]; break;
+    case 'home': f = serviceMsg() ? [5] : []; break;
+    case 'menu_main': f = [8, 10, 15, 16, 19]; break;
+    case 'menu_media': f = [7]; break;
+    case 'confirm': f = [12, 14, 18]; break;
+    case 'start': f = S.job && S.job.mode === 'express' ? [18] : []; break;
+    case 'menu_ready': case 'menu_preheat_m': f = [6]; break;
+    case '_menu_configuration_preheat_settings': f = [6]; break;
+    case 'task': f = S.task && S.task.wiz ? [10] : []; break;
+    case 'edit': f = S.edit && S.edit.kind === 'z' ? [10] : []; break;
+    case 'menu_configuration': f = [8, 17]; break;
+    case 'menu_language': f = [16]; break;
+    case 'menu_modos_motor': f = [17]; break;
+    case 'about': f = [19]; break;
+    case 'menu_guia': case 'guidepage': f = [15]; break;
+    case 'print': f = S.page === 0 ? [12] : (S.page === 2 ? [14] : []); break;
+    case 'done': f = [14]; break;
+    }
+    if (S.help && f.indexOf(15) < 0) f.push(15);
+    return f;
+  }
+  /* screen name for the simulator panel: always English */
+  function screenName(){
+    if (S.night) return 'Night mode (black screen)';
+    var sc = MD.screens[S.screen];
+    if (sc) return (sc.t ? sc.t[0].replace(/^\s+|\s+$/g, '') : S.screen) + ' [' + S.screen + ']';
+    return (SCREEN_TITLES[S.screen] || [S.screen])[0];
+  }
+
+  api.coverage = coverage; api.fidelity = fidelity; api.serviceMsg = serviceMsg; api.simMaintenance = simMaintenance; api.simIdleTimeout = simIdleTimeout; api.setPrinterState = setPrinterState; api.debugGo = debugGo;
+  api.turn = turn; api.click = click; api.clickDown = clickDown; api.clickUp = clickUp; api.tick = tick; api.sync = sync;
+  api.menuDef = menuDef; api.helpFor = helpFor; api.longPress = longPress; api.features = features; api.screenName = screenName;
+  api.simPowerLoss = simPowerLoss; api.simTempFail = simTempFail; api.simFilament = simFilament; api.simDemoPrint = simDemoPrint; api.setSD = setSD; api.setMesh = setMesh;
+  api.est = est; api.layerNow = layerNow; api.active = active; api.reboot = reboot;
+  api.setSpeed = function(x){ S.speed = x; };
+  return api;
+}
+
+return {createSim:createSim, wrap:wrap, num:num, fmtMin:fmtMin, fmtSec:fmtSec, GUIDE:GUIDE, guide:guide, tr:tr, pick:pick, FEATURE_NAMES:FEATURE_NAMES,
+        SD_FILES:SD_FILES, SD_DIRS:SD_DIRS, VIS:VIS, VERSION:VERSION, SCREEN_TITLES:SCREEN_TITLES, SOAK:SOAK, MD:MD};
+})();
+</script>
+
+<script id="render">
+/* ======================================================================
+   DRAWING: everything is painted on a 320x240 canvas (the page upscales it).
+   Receives the 2D context and the simulation; does not touch the DOM.
+   ====================================================================== */
+var Render = (function(){
+'use strict';
+var P = {bg:'#080c18', hdr:'#0f1830', txt:'#e8eef9', dim:'#8393b8', acc:'#3ddcc0', sel:'#2450b8', warn:'#ffb938',
+         err:'#e63946', ok:'#57d163', hot:'#ff6b57', cold:'#5bb8ff', track:'#1d2845', thumbDim:'#26324f',
+         card:'#111b36', line:'#1e2b4d', foot:'#0b1124'};
+var FONT = '12px "Courier New", Consolas, monospace';
+var FONT_B = 'bold 14px "Courier New", Consolas, monospace';
+var FONT_BIG = 'bold 30px "Courier New", Consolas, monospace';
+var W = 320, H = 240;
+var tr = Model.tr;
+
+function T(c, s, x, y, col, al){ c.fillStyle = col || P.txt; c.textAlign = al || 'left'; c.fillText(String(s), x, y); }
+function R(c, x, y, w, h, col){ c.fillStyle = col; c.fillRect(x, y, w, h); }
+function trunc(s, n){ s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+/* rounded rectangle (own path, no dependency on roundRect) */
+function rrPath(c, x, y, w, h, r){
+  r = Math.min(r, w / 2, h / 2);
+  c.beginPath(); c.moveTo(x + r, y); c.lineTo(x + w - r, y); c.arcTo(x + w, y, x + w, y + r, r);
+  c.lineTo(x + w, y + h - r); c.arcTo(x + w, y + h, x + w - r, y + h, r);
+  c.lineTo(x + r, y + h); c.arcTo(x, y + h, x, y + h - r, r);
+  c.lineTo(x, y + r); c.arcTo(x, y, x + r, y, r); c.closePath();
+}
+function RR(c, x, y, w, h, r, col){ rrPath(c, x, y, w, h, r); c.fillStyle = col; c.fill(); }
+function bar(c, x, y, w, h, f, col){
+  f = Math.max(0, Math.min(1, f)); RR(c, x, y, w, h, h / 2, P.track);
+  if (f > 0) RR(c, x, y, Math.max(h, Math.round(w * f)), h, h / 2, col);
+}
+/* progress ring: starts at the top and runs clockwise */
+function ring(c, cx, cy, r, lw, f, col){
+  f = Math.max(0, Math.min(1, f)); c.lineWidth = lw; c.lineCap = 'round';
+  c.strokeStyle = P.track; c.beginPath(); c.arc(cx, cy, r, 0, 2 * Math.PI); c.stroke();
+  if (f > 0.01){ c.strokeStyle = col; c.beginPath(); c.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * f); c.stroke(); }
+  c.lineCap = 'butt';
+}
+/* temperature color: blue when cold, amber while heating or still hot, coral at target */
+function tempCol(cur, target){
+  if (target > 0) return cur < target - 2 ? P.warn : P.hot;
+  return cur > 45 ? P.warn : P.cold;
+}
+function dot(c, x, y, r, col){ c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill(); }
+function header(c, S, title, col){
+  R(c, 0, 0, W, 22, col || P.hdr); R(c, 0, 22, W, 1, P.line); c.font = FONT;
+  RR(c, 6, 6, 3, 11, 1.5, P.acc);
+  T(c, trunc(title, 24), 15, 12, P.txt);
+  dot(c, 236, 11, 3, tempCol(S.temp.n, S.temp.tn)); T(c, Math.round(S.temp.n) + '°', 243, 12, P.dim);
+  dot(c, 280, 11, 3, tempCol(S.temp.b, S.temp.tb)); T(c, Math.round(S.temp.b) + '°', 287, 12, P.dim);
+}
+function footer(c, s){ R(c, 0, 224, W, 16, P.foot); R(c, 0, 224, W, 1, P.line); c.font = FONT; T(c, s, 8, 233, P.dim); }
+function big(c, s, x, y, col, al){ c.font = FONT_BIG; T(c, s, x, y, col, al); c.font = FONT; }
+function bold(c, s, x, y, col, al){ c.font = FONT_B; T(c, s, x, y, col, al); c.font = FONT; }
+
+/* ---------- thumbnails drawn in code ---------- */
+function shapePath(c, shape, x, y, w, h){
+  var i, a, cx = x + w / 2, cy = y + h / 2, Rr = Math.min(w, h) / 2;
+  c.beginPath();
+  switch (shape){
+  case 'cube':
+    c.moveTo(cx, y); c.lineTo(x + w, y + h * 0.25); c.lineTo(x + w, y + h * 0.75); c.lineTo(cx, y + h);
+    c.lineTo(x, y + h * 0.75); c.lineTo(x, y + h * 0.25); c.closePath(); break;
+  case 'gear':
+    var n = 10, u = 2 * Math.PI / n, r = Rr * 0.78;
+    for (i = 0; i < n; i++){
+      a = i * u;
+      var pts = [[a, r], [a + 0.12 * u, Rr], [a + 0.38 * u, Rr], [a + 0.5 * u, r]];
+      for (var k = 0; k < 4; k++){
+        var px = cx + Math.cos(pts[k][0]) * pts[k][1], py = cy + Math.sin(pts[k][0]) * pts[k][1];
+        if (i === 0 && k === 0) c.moveTo(px, py); else c.lineTo(px, py);
+      }
+    }
+    c.closePath(); c.moveTo(cx + Rr * 0.25, cy); c.arc(cx, cy, Rr * 0.25, 0, 2 * Math.PI); break;
+  case 'key':
+    c.moveTo(x, y + h * 0.28); c.lineTo(x + w * 0.28, y + h * 0.28); c.lineTo(cx, y + h * 0.68); c.lineTo(x + w * 0.72, y + h * 0.28);
+    c.lineTo(x + w, y + h * 0.28); c.lineTo(x + w * 0.6, y + h * 0.95); c.lineTo(x + w * 0.4, y + h * 0.95); c.closePath();
+    c.moveTo(cx + w * 0.1, y + h * 0.1); c.arc(cx, y + h * 0.1, w * 0.1, 0, 2 * Math.PI); break;
+  case 'stand':
+    c.moveTo(x, y + h); c.lineTo(x + w, y + h); c.lineTo(x + w, y + h * 0.82); c.lineTo(x + w * 0.5, y + h * 0.82);
+    c.lineTo(x + w * 0.88, y); c.lineTo(x + w * 0.66, y); c.lineTo(x + w * 0.22, y + h * 0.82); c.lineTo(x, y + h * 0.82); c.closePath(); break;
+  case 'tower':
+    for (i = 0; i < 5; i++){ var bw = w * (1 - i * 0.12); c.rect(cx - bw / 2, y + h - (i + 1) * h / 5 + 2, bw, h / 5 - 3); } break;
+  default: // 'lines'
+    c.rect(x, y, w, h * 0.16); c.rect(x, y + h * 0.42, w, h * 0.16); c.rect(x, y + h * 0.84, w, h * 0.16);
+    c.rect(x, y, w * 0.14, h); c.rect(x + w * 0.86, y, w * 0.14, h);
+  }
+}
+function fillShape(c, shape, x, y, w, h, col){ shapePath(c, shape, x, y, w, h); c.fillStyle = col; c.fill('evenodd'); }
+function drawThumb(c, shape, x, y, w, h, fill){
+  R(c, x - 4, y - 4, w + 8, h + 8, '#111a33');
+  fillShape(c, shape, x, y, w, h, P.thumbDim);
+  fill = Math.max(0, Math.min(1, fill));
+  if (fill > 0){
+    c.save(); c.beginPath(); c.rect(x - 2, y + h * (1 - fill), w + 4, h * fill + 2); c.clip();
+    fillShape(c, shape, x, y, w, h, P.acc); c.restore();
+    if (fill < 1) R(c, x - 2, Math.round(y + h * (1 - fill)), w + 4, 1, P.warn);
+  }
+}
+
+/* ---------- simple guide icons ---------- */
+function drawIcon(c, name, cx, cy, s){
+  var h = s / 2;
+  c.strokeStyle = P.acc; c.fillStyle = P.acc; c.lineWidth = 2;
+  c.beginPath();
+  switch (name){
+  case 'spool': c.arc(cx, cy, h, 0, 2 * Math.PI); c.moveTo(cx + h * 0.3, cy); c.arc(cx, cy, h * 0.3, 0, 2 * Math.PI); c.moveTo(cx + h * 0.65, cy); c.arc(cx, cy, h * 0.65, 0, 2 * Math.PI); c.stroke(); break;
+  case 'nozzle': c.rect(cx - h * 0.6, cy - h, h * 1.2, h * 0.9); c.moveTo(cx - h * 0.6, cy - h * 0.1); c.lineTo(cx, cy + h); c.lineTo(cx + h * 0.6, cy - h * 0.1); c.closePath(); c.stroke(); break;
+  case 'bed': c.rect(cx - h, cy, s, h * 0.35); c.moveTo(cx - h * 0.7, cy + h * 0.35); c.lineTo(cx - h * 0.7, cy + h); c.moveTo(cx + h * 0.7, cy + h * 0.35); c.lineTo(cx + h * 0.7, cy + h); c.rect(cx - h * 0.3, cy - h * 0.8, h * 0.6, h * 0.8); c.stroke(); break;
+  case 'paper': c.rect(cx - h * 0.7, cy - h, h * 1.4, s); c.moveTo(cx - h * 0.4, cy - h * 0.4); c.lineTo(cx + h * 0.4, cy - h * 0.4); c.moveTo(cx - h * 0.4, cy); c.lineTo(cx + h * 0.4, cy); c.moveTo(cx - h * 0.4, cy + h * 0.4); c.lineTo(cx + h * 0.2, cy + h * 0.4); c.stroke(); break;
+  case 'bolt': c.moveTo(cx + h * 0.2, cy - h); c.lineTo(cx - h * 0.5, cy + h * 0.1); c.lineTo(cx, cy + h * 0.1); c.lineTo(cx - h * 0.2, cy + h); c.lineTo(cx + h * 0.5, cy - h * 0.2); c.lineTo(cx, cy - h * 0.2); c.closePath(); c.fill(); break;
+  case 'warn': c.moveTo(cx, cy - h); c.lineTo(cx + h, cy + h * 0.85); c.lineTo(cx - h, cy + h * 0.85); c.closePath(); c.stroke();
+    c.beginPath(); c.moveTo(cx, cy - h * 0.35); c.lineTo(cx, cy + h * 0.25); c.stroke(); c.beginPath(); c.arc(cx, cy + h * 0.55, 1.5, 0, 2 * Math.PI); c.fill(); break;
+  case 'tool': c.moveTo(cx - h, cy + h); c.lineTo(cx + h * 0.3, cy - h * 0.3); c.stroke(); c.beginPath(); c.arc(cx + h * 0.5, cy - h * 0.5, h * 0.5, 0, 2 * Math.PI); c.stroke(); break;
+  case 'menu': c.moveTo(cx - h, cy - h * 0.6); c.lineTo(cx + h, cy - h * 0.6); c.moveTo(cx - h, cy); c.lineTo(cx + h, cy); c.moveTo(cx - h, cy + h * 0.6); c.lineTo(cx + h, cy + h * 0.6); c.stroke(); break;
+  case 'check': c.moveTo(cx - h, cy); c.lineTo(cx - h * 0.3, cy + h * 0.7); c.lineTo(cx + h, cy - h * 0.7); c.stroke(); break;
+  case 'sd': c.moveTo(cx - h * 0.7, cy - h); c.lineTo(cx + h * 0.3, cy - h); c.lineTo(cx + h * 0.7, cy - h * 0.5); c.lineTo(cx + h * 0.7, cy + h); c.lineTo(cx - h * 0.7, cy + h); c.closePath();
+    c.moveTo(cx - h * 0.4, cy - h * 0.8); c.lineTo(cx - h * 0.4, cy - h * 0.3); c.moveTo(cx - h * 0.1, cy - h * 0.8); c.lineTo(cx - h * 0.1, cy - h * 0.3); c.stroke(); break;
+  case 'wheel': c.arc(cx, cy, h, 0, 2 * Math.PI); c.moveTo(cx, cy - h); c.lineTo(cx, cy - h * 0.5); c.stroke(); c.beginPath(); c.arc(cx, cy, h * 1.2, -2.6, -1.0); c.stroke(); break;
+  case 'thermo': c.rect(cx - h * 0.2, cy - h, h * 0.4, h * 1.4); c.stroke(); c.beginPath(); c.arc(cx, cy + h * 0.65, h * 0.4, 0, 2 * Math.PI); c.fill(); break;
+  case 'layer': c.rect(cx - h, cy + h * 0.2, s, h * 0.4); c.rect(cx - h * 0.8, cy - h * 0.3, h * 1.6, h * 0.4); c.rect(cx - h * 0.6, cy - h * 0.8, h * 1.2, h * 0.4); c.stroke(); break;
+  case 'drop': c.moveTo(cx, cy - h); c.lineTo(cx + h * 0.6, cy + h * 0.2); c.arc(cx, cy + h * 0.2, h * 0.6, 0, Math.PI); c.closePath(); c.stroke(); break;
+  case 'hand': c.rect(cx - h * 0.8, cy - h * 0.3, h * 1.6, h * 1.1); c.moveTo(cx - h * 0.5, cy - h * 0.3); c.lineTo(cx - h * 0.5, cy - h); c.moveTo(cx - h * 0.15, cy - h * 0.3); c.lineTo(cx - h * 0.15, cy - h * 1.1); c.moveTo(cx + h * 0.2, cy - h * 0.3); c.lineTo(cx + h * 0.2, cy - h); c.moveTo(cx + h * 0.55, cy - h * 0.3); c.lineTo(cx + h * 0.55, cy - h * 0.8); c.stroke(); break;
+  default: c.rect(cx - h, cy - h, s, s); c.stroke();
+  }
+}
+
+/* ---------- 6x6 mesh ---------- */
+function drawGrid(c, x, y, cell, marked){
+  for (var k = 0; k < 36; k++){
+    var row = Math.floor(k / 6), col = k % 6; if (row % 2 === 1) col = 5 - col; // snake order
+    var px = x + col * cell, py = y + row * cell, on = k < marked;
+    R(c, px, py, cell - 4, cell - 4, on ? P.ok : P.track);
+    if (k === marked) { c.strokeStyle = P.warn; c.lineWidth = 1; c.strokeRect(px - 0.5, py - 0.5, cell - 3, cell - 3); }
+  }
+}
+
+/* ---------- screens ---------- */
+function drawBoot(c, S){
+  c.font = 'bold 30px "Courier New", Consolas, monospace';
+  T(c, 'KOBRA NEO', 160, 84, P.acc, 'center'); c.font = FONT;
+  bold(c, 'EVOLUTION', 160, 112, P.txt, 'center');
+  T(c, tr('Starting...', 'Iniciando...'), 160, 170, P.dim, 'center');
+  bar(c, 80, 186, 160, 10, S.bootT / 2.5, P.acc);
+  T(c, Model.VERSION, 160, 214, P.dim, 'center');
+}
+function gaugeCard(c, x, label, cur, target, max){
+  var col = tempCol(cur, target), cx = x + 72, cy = 92;
+  RR(c, x, 34, 144, 116, 10, P.card);
+  c.font = FONT; T(c, label, cx, 48, P.dim, 'center');
+  ring(c, cx, cy, 30, 6, target ? cur / target : cur / max, col);
+  c.font = 'bold 20px "Courier New", Consolas, monospace'; T(c, Math.round(cur) + '°', cx, cy + 1, P.txt, 'center'); c.font = FONT;
+  T(c, target ? tr('Target ', 'Objetivo ') + target + '°' : tr('Off', 'Apagada'), cx, 138, target ? col : P.dim, 'center');
+}
+function drawSDIcon(c, x, y, col){
+  c.fillStyle = col; c.beginPath(); c.moveTo(x, y + 2); c.arcTo(x, y, x + 2, y, 2); c.lineTo(x + 6, y); c.lineTo(x + 10, y + 4);
+  c.lineTo(x + 10, y + 13); c.lineTo(x, y + 13); c.closePath(); c.fill();
+  c.fillStyle = P.bg; c.fillRect(x + 2, y + 2, 1, 3); c.fillRect(x + 4, y + 2, 1, 3); c.fillRect(x + 6, y + 2, 1, 3);
+}
+function drawHome(c, S, svcMsg){
+  var t = S.temp, heating = (t.tn && t.n < t.tn - 2) || (t.tb && t.b < t.tb - 2);
+  var cooling = !t.tn && !t.tb && (t.n > 45 || t.b > 45);
+  var st = heating ? tr('Heating', 'Calentando') : (cooling ? tr('Cooling', 'Enfriando') : (t.tn || t.tb ? tr('Ready', 'Lista') : tr('Idle', 'Reposo')));
+  var stc = heating ? P.warn : (cooling ? P.cold : (t.tn || t.tb ? P.hot : P.acc));
+  dot(c, 18, 17, 4, stc); bold(c, st, 28, 17, P.txt);
+  drawSDIcon(c, 226, 10, S.sdHas ? P.acc : P.dim); c.font = FONT; T(c, S.sdHas ? tr('SD ready', 'SD lista') : tr('No SD', 'Sin SD'), 310, 17, S.sdHas ? P.acc : P.dim, 'right');
+  gaugeCard(c, 10, tr('Nozzle', 'Boquilla'), t.n, t.tn, 250);
+  gaugeCard(c, 166, tr('Bed', 'Cama'), t.b, t.tb, 100);
+  RR(c, 10, 156, 300, 46, 10, P.card); R(c, 160, 164, 1, 30, P.line);
+  T(c, tr('Z offset', 'Desfase Z'), 24, 168, P.dim); bold(c, Model.num(S.zoff, 2) + ' mm', 24, 188, P.acc);
+  T(c, tr('Z height', 'Altura Z'), 176, 168, P.dim); bold(c, S.homed ? Model.num(S.pos.z, 1) + ' mm' : tr('Not homed', 'Sin origen'), 176, 188, S.homed ? P.txt : P.dim);
+  c.font = FONT; T(c, tr('Click: menu   Hold: help', 'Clic: menu   Mantener: ayuda'), 160, 214, P.dim, 'center');
+  var sm = svcMsg; // maintenance reminder replaces the welcome message
+  T(c, sm || tr('Ready.', 'Lista'), 160, 230, sm ? P.warn : P.dim, 'center');
+}
+function drawStart(c, S){
+  var j = S.job, ph = j.phase, i, steps, cur, tn = S.temp.tn;
+  header(c, S, trunc(j.file.name, 24));
+  if (j.resumed){
+    steps = [tr('Reheating', 'Recalentando'), tr('Printing', 'Imprimiendo')]; cur = ph === 'heatboth' ? 0 : 1;
+  } else if (j.mode === 'express'){
+    steps = [tr('Heating bed + nozzle', 'Calentando cama y boquilla'), tr('Using saved mesh', 'Usando malla guardada'), tr('Printing', 'Imprimiendo')]; cur = 0;
+  } else {
+    steps = [tr('Heating bed', 'Calentando cama'), tr('Heat soak wait (sim.)', 'Espera de calor (sim.)'), tr('Hot bed mesh', 'Malla en caliente'),
+             tr('Heating nozzle', 'Calentando boquilla'), tr('Printing', 'Imprimiendo')];
+    cur = {heatbed:0, soak:1, mesh:2, heatnozzle:3}[ph];
+  }
+  for (i = 0; i < steps.length; i++){
+    var skipped = j.mode === 'express' && !j.resumed && i === 1;
+    var mk = (i < cur || skipped) ? '✓' : (i === cur ? '>' : ' ');
+    T(c, mk + ' ' + (i + 1) + ' ' + steps[i], 8, 34 + i * 14, skipped ? P.ok : (i === cur ? P.warn : (i < cur ? P.ok : P.dim)));
+  }
+  var note = j.fellBack ? tr('No valid mesh: running Full', 'Sin malla valida: modo Completa') : (j.mode === 'express' ? tr('Skipping mesh and heat soak', 'Sin malla ni espera de calor') : '');
+  if (ph === 'mesh'){
+    drawGrid(c, 20, 104, 20, j.lvl);
+    var ml = Model.wrap(tr('Measuring the hot bed', 'Midiendo cama caliente'), 21);
+    for (i = 0; i < ml.length; i++) T(c, ml[i], 160, 112 + i * 16, P.txt);
+    T(c, tr('Point ', 'Punto ') + Math.min(36, j.lvl + 1) + tr(' of 36', ' de 36'), 160, 112 + ml.length * 16 + 4, P.dim);
+    bar(c, 160, 160, 150, 10, j.lvl / 36, P.ok);
+    if (note) T(c, trunc(note, 21), 160, 186, P.warn);
+  } else if (ph === 'soak'){
+    var left = Math.max(0, Model.SOAK - j.soakT), mm = Math.floor(left / 60), ss = Math.floor(left % 60);
+    T(c, tr('Letting the hot bed settle', 'Esperando calor parejo'), 160, 116, P.txt, 'center');
+    big(c, mm + ':' + (ss < 10 ? '0' : '') + ss, 160, 146, P.acc, 'center');
+    bar(c, 8, 170, 304, 12, j.soakT / Model.SOAK, P.cold);
+    T(c, tr('Bed ', 'Cama ') + Math.round(S.temp.b) + '/' + j.tb + '°', 160, 196, P.dim, 'center');
+    if (note) T(c, note, 160, 212, P.warn, 'center');
+  } else {
+    T(c, tr('Nozzle ', 'Boquilla ') + Math.round(S.temp.n) + '/' + (tn ? j.tn : tr('off', 'apag.')) + (tn ? '°' : ''), 8, 112); bar(c, 8, 122, 304, 12, tn ? S.temp.n / j.tn : 0, P.hot);
+    T(c, tr('Bed ', 'Cama ') + Math.round(S.temp.b) + '/' + j.tb + '°', 8, 150); bar(c, 8, 160, 304, 12, S.temp.b / j.tb, P.cold);
+    if (note) T(c, note, 160, 196, j.fellBack ? P.warn : P.dim, 'center');
+  }
+  footer(c, tr('Click: cancel', 'Clic: cancelar'));
+}
+function drawPrint(c, S){
+  var j = S.job, f = j.file, pct = Math.floor(j.prog * 100), left = j.est * (1 - j.prog);
+  header(c, S, j.paused ? tr('Paused', 'En pausa') : tr('Printing', 'Imprimiendo'), j.paused ? '#6b4a10' : null);
+  if (S.page === 0){
+    drawThumb(c, f.shape, 20, 36, 110, 110, j.prog);
+    big(c, pct + '%', 150, 52, P.acc);
+    T(c, tr('Remaining', 'Restante'), 150, 82, P.dim); bold(c, Model.fmtSec(left), 150, 98);
+    T(c, 'Total', 150, 120, P.dim); bold(c, Model.fmtSec(j.est), 150, 136);
+    T(c, tr('Z height ', 'Altura Z ') + Model.num(Math.min(f.h, Math.min(j.layers, Math.floor(j.prog * j.layers) + 1) * 0.2), 2) + ' / ' + Model.num(f.h, 2) + ' mm', 20, 168);
+    T(c, tr('Layer ', 'Capa ') + Math.min(j.layers, Math.floor(j.prog * j.layers) + 1) + ' / ' + j.layers, 20, 186);
+    bar(c, 20, 202, 280, 12, j.prog, P.acc);
+  } else if (S.page === 1){
+    var rows = [[tr('Nozzle', 'Boquilla'), Math.round(S.temp.n) + ' / ' + S.temp.tn + ' °C', S.temp.tn ? S.temp.n / S.temp.tn : 0, P.hot],
+                [tr('Bed', 'Cama'), Math.round(S.temp.b) + ' / ' + S.temp.tb + ' °C', S.temp.tb ? S.temp.b / S.temp.tb : 0, P.cold],
+                [tr('Speed', 'Velocidad'), j.speed + ' %', j.speed / 200, P.acc], [tr('Flow', 'Flujo'), j.flow + ' %', j.flow / 125, P.acc],
+                [tr('Fan', 'Ventilador'), j.fan + ' %', j.fan / 100, P.ok]];
+    for (var i = 0; i < rows.length; i++){
+      var y = 34 + i * 36; T(c, rows[i][0], 12, y, P.dim); T(c, rows[i][1], 308, y, P.txt, 'right'); bar(c, 12, y + 10, 296, 10, rows[i][2], rows[i][3]);
+    }
+  } else {
+    var lines = [[tr('Elapsed', 'Transcurrido'), Model.fmtSec(j.elapsed)], [tr('Remaining', 'Restante'), Model.fmtSec(left)], [tr('Est. total time', 'Tiempo total est.'), Model.fmtSec(j.est)],
+      [tr('Filament', 'Filamento'), Model.num(j.usedFil, 1) + tr(' of ', ' de ') + Model.num(f.fil, 1) + ' m'], [tr('Time factor', 'Ajuste de tiempos'), 'x' + Model.num(S.stats.factor, 2) + ' (' + S.stats.learnN + tr(' prints)', ' imp.)')],
+      [tr('Print #', 'Impresion #'), String(j.no)], [tr('Material', 'Material'), f.mat]];
+    for (var k = 0; k < lines.length; k++){ T(c, lines[k][0], 12, 38 + k * 22, P.dim); T(c, lines[k][1], 308, 38 + k * 22, P.txt, 'right'); }
+  }
+  if (j.paused){ R(c, 0, 206, W, 18, P.warn); bold(c, tr('Print Paused', 'Impresion Pausada'), 160, 216, '#201500', 'center'); }
+  var dots = ['○', '○', '○']; dots[S.page] = '●';
+  footer(c, dots.join('') + tr(' Turn: pages  Click: menu', ' Girar: paginas  Clic: menu'));
+}
+function drawEdit(c, S){
+  var e = S.edit; header(c, S, e.label);
+  big(c, Model.num(e.value, e.dec) + e.unit, 160, 54, P.acc, 'center');
+  bar(c, 30, 80, 260, 10, (e.value - e.min) / (e.max - e.min), P.sel);
+  T(c, Model.num(e.min, e.dec), 30, 100, P.dim); T(c, e.maxApprox ? 'n/a' : Model.num(e.max, e.dec), 290, 100, P.dim, 'right');
+  if (e.kind === 'z'){
+    R(c, 40, 140, 80, 5, '#c9ccd6'); R(c, 60, 124, 40, 12, P.hot); R(c, 76, 136, 8, 4, P.hot); R(c, 30, 146, 100, 8, '#555d73');
+    T(c, tr('Nozzle Z: ', 'Z boquilla: ') + Model.num(S.pos.z, 2) + ' mm', 150, 130, P.txt);
+    T(c, tr('1 Put paper under the nozzle', '1 Pon un papel bajo la boquilla'), 12, 170); T(c, tr('2 Turn until a slight drag', '2 Gira hasta un roce leve'), 12, 186); T(c, tr('3 Click: save', '3 Clic: guardar'), 12, 202);
+  } else if (e.kind === 'move'){
+    T(c, 'X ' + Model.num(S.pos.x, 0) + '   Y ' + Model.num(S.pos.y, 0) + '   Z ' + Model.num(S.pos.z, 0) + ' mm', 160, 150, P.txt, 'center');
+  }
+  footer(c, tr('Turn: change value  Click: confirm', 'Girar: cambiar valor  Clic: confirmar'));
+}
+function drawTask(c, S){
+  var k = S.task; if (!k){ header(c, S, tr('Task', 'Proceso')); return; }
+  header(c, S, k.title);
+  for (var i = 0; i < k.steps.length; i++){
+    var mark = i < k.i ? '✓' : (i === k.i ? '>' : ' ');
+    T(c, mark + ' ' + k.steps[i].l, 8, 36 + i * 18, i === k.i ? P.warn : (i < k.i ? P.ok : P.dim));
+  }
+  var st = k.steps[Math.min(k.i, k.steps.length - 1)], y0 = 36 + k.steps.length * 18 + 8;
+  var fr = Math.min(1, k.t / (st.d || 1)); if (st.until && S.temp.tn) fr = Math.min(1, S.temp.n / S.temp.tn);
+  bar(c, 8, y0, 304, 12, fr, P.acc);
+  if (st.grid || (k.wiz && k.i > 1)){ drawGrid(c, 20, y0 + 22, 20, st.grid ? Math.floor(fr * 36) : 36); }
+  T(c, tr('Nozzle ', 'Boquilla ') + Math.round(S.temp.n) + '°', 160, y0 + 34, P.dim);
+  footer(c, k.cancel ? tr('Click to cancel', 'Pulse para cancelar') : tr('Wait...', 'Espere...'));
+}
+function drawDone(c, S){
+  var j = S.job, r = j.result; header(c, S, tr('Finished', 'Terminada'), '#1f6b35');
+  drawThumb(c, j.file.shape, 16, 40, 80, 80, 1);
+  bold(c, tr('Finished', 'Terminada'), 112, 44, P.ok);
+  T(c, tr('Real time: ', 'Tiempo real: ') + Model.fmtMin(r.real), 112, 68); T(c, tr('Estimated:  ', 'Estimado:    ') + Model.fmtMin(r.est), 112, 84);
+  var d = Math.round(r.real - r.est); T(c, tr('Difference: ', 'Diferencia: ') + (d >= 0 ? '+' : '') + d + ' min', 112, 100, P.dim);
+  T(c, tr('Factor x', 'Ajuste x') + Model.num(r.before, 2) + ' -> x' + Model.num(r.after, 2), 16, 140, P.acc);
+  T(c, tr('Log saved to the SD', 'Registro guardado en la SD'), 16, 160, P.txt);
+  T(c, tr('Hour counter updated', 'Se actualizo el contador de horas'), 16, 178, P.dim);
+  footer(c, tr('Click: see cooldown', 'Clic: ver enfriamiento'));
+}
+function drawCooling(c, S){
+  header(c, S, tr('Cooling down', 'Enfriando')); var t = S.temp, ready = t.n <= 50 && t.b <= 50;
+  T(c, tr('Nozzle: ', 'Boquilla: ') + Math.round(t.n) + '°  ->  50°', 16, 44); bar(c, 16, 56, 288, 12, 1 - Math.max(0, (t.n - 50)) / 200, P.hot);
+  T(c, tr('Bed: ', 'Cama: ') + Math.round(t.b) + '°  ->  50°', 16, 88); bar(c, 16, 100, 288, 12, 1 - Math.max(0, (t.b - 50)) / 40, P.cold);
+  if (ready) bold(c, tr('You can switch the printer off', 'Ya puede apagar la impresora'), 160, 150, P.ok, 'center');
+  else { T(c, tr('You can switch the printer off', 'Puede apagar la impresora'), 160, 144, P.txt, 'center'); T(c, tr('when both drop below 50 °C', 'cuando ambas bajen de 50 °C'), 160, 160, P.txt, 'center'); }
+  footer(c, tr('Click: back to home', 'Clic: volver al inicio'));
+}
+function drawAlert(c, S, bg, title, lines, foot){
+  R(c, 0, 0, W, H, bg); bold(c, title, 160, 44, '#fff', 'center');
+  for (var i = 0; i < lines.length; i++) T(c, lines[i], 160, 84 + i * 18, '#fff', 'center');
+  footer(c, foot);
+}
+function drawGuide(c, S){
+  var g = Model.guide()[S.guideIdx], p = g.pages[S.page];
+  header(c, S, trunc(g.t, 27)); drawIcon(c, p.icon, 160, 62, 56);
+  var lines = Model.wrap(p.x, 33);
+  for (var i = 0; i < lines.length && i < 5; i++) T(c, lines[i], 160, 112 + i * 16, P.txt, 'center');
+  footer(c, '< ' + (S.page + 1) + '/' + g.pages.length + ' >  ' + tr('Click or turn past end: exit', 'Clic o girar al final: salir'));
+}
+function drawMenu(c, S, def){
+  header(c, S, def.title, def.alert ? '#6b1f2a' : null);
+  var y = 28, items = def.items, i;
+  if (def.thumb) drawThumb(c, def.thumb, 14, 32, 64, 64, 1);
+  if (def.info){
+    for (i = 0; i < def.info.length; i++) T(c, def.info[i], def.infoX || 8, y + 6 + i * 15, i === 0 && def.thumb ? P.acc : P.txt);
+    y += Math.max(def.thumb ? 76 : 0, def.info.length * 15) + 12;
+  }
+  var scrolls = items.length > Model.VIS, vis = Math.min(items.length, def.info ? items.length : Model.VIS);
+  var pw = scrolls ? 306 : 316, vx = scrolls ? 300 : 310;
+  for (i = 0; i < vis; i++){
+    var idx = def.info ? i : S.scroll + i, it = items[idx]; if (!it) break;
+    var ry = y + i * 20, selected = idx === S.sel;
+    if (selected) RR(c, 3, ry, pw - 2, 19, 5, P.sel);
+    var col = selected ? '#fff' : (it.act ? P.txt : P.dim), room = it.v ? 39 - String(it.v).length - 1 : 39;
+    if (it.st && it.inv){
+      if (!selected) RR(c, 3, ry, pw - 2, 19, 5, P.hdr);
+      T(c, trunc(it.t, 39), 160, ry + 10, selected ? '#fff' : P.acc, 'center');
+    } else T(c, trunc(it.t, room), 8, ry + 10, col);
+    if (it.v !== undefined) T(c, it.v, vx, ry + 10, selected ? '#fff' : P.acc, 'right');
+  }
+  if (scrolls){
+    RR(c, 314, 28, 3, Model.VIS * 20, 1.5, P.track);
+    var th = Math.max(10, Math.round(Model.VIS * 20 * Model.VIS / items.length));
+    RR(c, 314, 28 + Math.round((Model.VIS * 20 - th) * (S.scroll / (items.length - Model.VIS))), 3, th, 1.5, P.acc);
+  }
+  footer(c, tr('Turn:move  Click:pick  Hold:help', 'Girar:mover  Clic:elegir  Mantener:ayuda'));
+}
+function drawDlg(c, S){
+  var d = S.dlg; R(c, 0, 0, W, H, '#0b1730');
+  for (var i = 0; i < d.prompt.length; i++) bold(c, d.prompt[i], 160, 60 + i * 20, P.txt, 'center');
+  for (var b = 0; b < 2; b++){
+    var x = b === 0 ? 24 : 172, on = d.sel === b;
+    RR(c, x, 150, 124, 36, 8, on ? P.sel : P.card); if (on){ c.strokeStyle = P.acc; c.lineWidth = 2; c.strokeRect(x + 1, 151, 122, 34); }
+    bold(c, trunc(d.bt[b], 12), x + 62, 168, on ? '#fff' : P.dim, 'center');
+  }
+  footer(c, tr('Turn: select   Click: confirm', 'Girar: elegir   Clic: confirmar'));
+}
+function drawAbout(c, S){
+  R(c, 0, 0, W, H, '#0a1a3a');
+  bold(c, 'Kobra Neo Evolution', 160, 64, '#fff', 'center');
+  c.font = FONT; T(c, 'KNE 1.0.0', 160, 96, P.acc, 'center');
+  T(c, '220 x 220 x 250 (mm)', 160, 128, P.txt, 'center');
+  T(c, 'vdukerios/kobra-neo-evolution', 160, 160, P.txt, 'center');
+  footer(c, tr('Click: back to status screen', 'Clic: volver a la pantalla de estado'));
+}
+function drawOverlays(c, S){
+  if (S.toast){ R(c, 20, 190, 280, 22, '#000'); c.strokeStyle = P.warn; c.lineWidth = 1; c.strokeRect(20.5, 190.5, 279, 21); T(c, trunc(S.toast.t, 38), 160, 201, P.warn, 'center'); }
+  if (S.beep > 0 && Math.floor(S.beep * 6) % 2 === 0){ R(c, 292, 26, 24, 16, P.warn); T(c, '♪))', 304, 34, '#201500', 'center'); }
+  if (S.down !== null && !S.longFired && !S.swallow && S.realT - S.down > 0.2){
+    bar(c, 60, 210, 200, 10, (S.realT - S.down) / 0.8, P.warn); T(c, tr('Keep holding for help...', 'Manten para ver la ayuda...'), 160, 198, P.warn, 'center');
+  }
+  if (S.help){
+    var n = S.help.lines.length, h = 44 + n * 15;
+    R(c, 10, 36, 300, h, '#0b1730'); c.strokeStyle = P.acc; c.lineWidth = 2; c.strokeRect(11, 37, 298, h - 2);
+    bold(c, '? ' + trunc(S.help.title, 34), 18, 50, P.acc);
+    for (var i = 0; i < n; i++) T(c, S.help.lines[i], 18, 72 + i * 15, P.txt);
+    T(c, tr('Turn or click: close', 'Girar o clic: cerrar'), 18, 36 + h - 10, P.dim);
+  }
+}
+
+function draw(c, sim){
+  sim.sync(); var S = sim.S; c.textBaseline = 'middle'; c.font = FONT;
+  if (S.night){ R(c, 0, 0, W, H, '#07090f'); return; } // brillo residual: no es negro puro
+  R(c, 0, 0, W, H, P.bg);
+  var def = sim.menuDef();
+  if (def) drawMenu(c, S, def);
+  else switch (S.screen){
+    case 'boot': drawBoot(c, S); break;
+    case 'home': drawHome(c, S, sim.serviceMsg()); break;
+    case 'start': drawStart(c, S); break;
+    case 'print': drawPrint(c, S); break;
+    case 'edit': drawEdit(c, S); break;
+    case 'task': drawTask(c, S); break;
+    case 'done': drawDone(c, S); break;
+    case 'cooling': drawCooling(c, S); break;
+    case 'guidepage': drawGuide(c, S); break;
+    case 'dlg': drawDlg(c, S); break;
+    case 'about': drawAbout(c, S); break;
+    case 'err_temp': drawAlert(c, S, '#a31621', tr('TEMPERATURE FAULT', 'FALLA DE TEMPERATURA'), [tr('Nozzle turned off for safety.', 'Boquilla apagada por seguridad.'), tr('Check the sensor cable.', 'Revise el cable del sensor.'), tr('Print stopped and logged.', 'Impresion detenida y registrada.')], tr('Click: back to home', 'Clic: volver al inicio')); break;
+    case 'err_filament': drawAlert(c, S, '#7a4a00', tr('FILAMENT RUNOUT', 'SE ACABO EL FILAMENTO'), [tr('Print paused.', 'Impresion en pausa.'), tr('Load new filament and', 'Cargue filamento nuevo y'), tr('click to continue.', 'haga clic para continuar.')], tr('Click: load filament', 'Clic: cargar filamento')); break;
+    case 'shutdown': drawAlert(c, S, '#2a2f45', tr('IDLE SHUTDOWN', 'APAGADO POR INACTIVIDAD'), [tr('Heaters off.', 'Calentadores apagados.'), tr('Shutting down in ', 'Apagando en ') + Math.ceil(S.shutT) + ' s'], tr('Click: cancel', 'Clic: cancelar')); break;
+    case 'off':
+      R(c, 0, 0, W, H, '#000');
+      T(c, S.autoBoot === null ? tr('(simulator) Off - click: power on', '(simulador) Apagada - clic: encender') : tr('(simulator) no power...', '(simulador) sin energia...'), 160, 120, '#2b2f3a', 'center'); break;
+    default: header(c, S, S.screen);
+  }
+  drawOverlays(c, S);
+}
+
+return {draw:draw, drawThumb:drawThumb, drawIcon:drawIcon, P:P};
+})();
+</script>
+
+<script id="ui">
+/* ======================================================================
+   BROWSER UI: virtual knob, shortcuts and the simulator panel.
+   ====================================================================== */
+(function(){
+  'use strict';
+  if (typeof document === 'undefined') return;
+  var cv = document.getElementById('lcd'), ctx = cv.getContext('2d');
+  var sim = Model.createSim(), angle = 0;
+  var $ = function(id){ return document.getElementById(id); };
+
+  function turn(d){ sim.turn(d); angle += d * 24; $('dial').style.transform = 'rotate(' + angle + 'deg)'; }
+  function wire(el, down, up){
+    el.addEventListener('pointerdown', function(e){ e.preventDefault(); down(); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function(n){ el.addEventListener(n, up); });
+  }
+  $('bL').addEventListener('click', function(){ turn(-1); });
+  $('bR').addEventListener('click', function(){ turn(1); });
+  wire($('bC'), function(){ sim.clickDown(); }, function(){ sim.clickUp(); });
+  cv.addEventListener('wheel', function(e){ e.preventDefault(); turn(e.deltaY > 0 ? 1 : -1); }, {passive:false});
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowLeft'){ e.preventDefault(); turn(-1); }
+    else if (e.key === 'ArrowRight'){ e.preventDefault(); turn(1); }
+    else if (e.key === 'Enter'){ if (document.activeElement && document.activeElement.tagName === 'BUTTON') document.activeElement.blur(); e.preventDefault(); if (!e.repeat) sim.clickDown(); }
+  });
+  document.addEventListener('keyup', function(e){ if (e.key === 'Enter'){ e.preventDefault(); sim.clickUp(); } });
+
+  function msg(t){ $('msg').textContent = t; }
+  document.querySelectorAll('#speedRow button').forEach(function(b){
+    b.addEventListener('click', function(){
+      sim.setSpeed(Number(b.getAttribute('data-sp')));
+      document.querySelectorAll('#speedRow button').forEach(function(x){ x.classList.toggle('on', x === b); });
+    });
+  });
+  $('evDemo').addEventListener('click', function(){ msg(sim.simDemoPrint()); });
+  $('evPower').addEventListener('click', function(){ msg(sim.simPowerLoss()); });
+  $('evTemp').addEventListener('click', function(){ msg(sim.simTempFail()); });
+  $('evFil').addEventListener('click', function(){ msg(sim.simFilament()); });
+  $('evSD').addEventListener('click', function(){ msg(sim.setSD(!sim.S.sdHas)); });
+  $('evIdle').addEventListener('click', function(){ msg(sim.simIdleTimeout()); });
+  $('evMaint').addEventListener('click', function(){ msg(sim.simMaintenance()); });
+  document.querySelectorAll('#stRow button').forEach(function(b){
+    b.addEventListener('click', function(){ msg(sim.setPrinterState(b.getAttribute('data-st'))); });
+  });
+  function fresh(keepLang){
+    var o = sim.S; sim = Model.createSim(); sim.setSpeed(o.speed); sim.setSD(o.sdHas); sim.setMesh(o.meshValid);
+    if (keepLang) sim.S.lang = o.lang;
+    sim.S.visS = o.visS; sim.S.visI = o.visI; // coverage is per browser session
+  }
+  $('evReset').addEventListener('click', function(){ fresh(true); msg('Simulation restarted (language kept).'); });
+  $('evMesh').addEventListener('click', function(){ msg(sim.setMesh(!sim.S.meshValid)); });
+  $('evFactory').addEventListener('click', function(){ fresh(false); msg('Factory defaults: English, all settings reset.'); });
+
+  /* debug / screenshot hook: #seq=c,r,t3,... runs fixed tokens (c click, r/l turn, h hold, x release, tN wait N s, sN speed, demo, m0/m1 mesh) */
+  (function(){
+    var m = /seq=([^&]*)/.exec(location.hash || ''); if (!m) return;
+    m[1].split(',').forEach(function(tok){
+      var n;
+      if (tok === 'c') sim.click(); else if (tok === 'r') sim.turn(1); else if (tok === 'l') sim.turn(-1);
+      else if (tok === 'h'){ sim.clickDown(); sim.tick(0.9); } else if (tok === 'x') sim.clickUp();
+      else if (tok === 'demo') sim.simDemoPrint(); else if (tok.indexOf('go:') === 0) sim.debugGo(tok.slice(3)); else if (tok.indexOf('st:') === 0) sim.setPrinterState(tok.slice(3)); else if (tok === 'es') sim.S.lang = 'es'; else if (tok === 'sd0') sim.setSD(false); else if (tok === 'sd1') sim.setSD(true); else if (tok === 'idle') sim.simIdleTimeout(); else if (tok === 'maint') sim.simMaintenance(); else if (tok === 'night') sim.S.nightMode = true; else if (tok === 'm0') sim.setMesh(false); else if (tok === 'm1') sim.setMesh(true);
+      else if (tok[0] === 't'){ n = Number(tok.slice(1)); for (var i = 0; i < n; i++) sim.tick(1); }
+      else if (tok[0] === 's') sim.setSpeed(Number(tok.slice(1)));
+    });
+  })();
+
+  var allf = $('allfeat');
+  Object.keys(Model.FEATURE_NAMES).forEach(function(k){
+    var li = document.createElement('li'); li.id = 'f' + k; li.textContent = k + ' · ' + Model.FEATURE_NAMES[k]; allf.appendChild(li);
+  });
+  var fid = $('fid');
+  sim.fidelity().forEach(function(t){ var li = document.createElement('li'); li.textContent = t; fid.appendChild(li); });
+  var lastPanel = 0;
+  function panel(){
+    $('scr').textContent = sim.screenName();
+    $('evMesh').textContent = 'Valid saved mesh: ' + (sim.S.meshValid ? 'yes' : 'no');
+    $('evSD').textContent = 'SD card: ' + (sim.S.sdHas ? 'present' : 'absent');
+    var stn = !sim.active() ? 'idle' : (sim.S.job.paused ? 'paused' : 'printing');
+    document.querySelectorAll('#stRow button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-st') === stn); });
+    var cv2 = sim.coverage();
+    $('cov').textContent = 'Screens ' + cv2.screensSeen + ' / ' + cv2.screens + ' · items ' + cv2.itemsSeen + ' / ' + cv2.items + ' reachable (' + cv2.activeTotal + ' active in the inventory; visited = selected at least once)';
+    var cl = $('covList'); cl.innerHTML = '';
+    cv2.unseenScreens.forEach(function(k){ var li = document.createElement('li'); li.textContent = k; cl.appendChild(li); });
+    var f = sim.features(), ul = $('feat'); ul.innerHTML = '';
+    if (!f.length){ var l0 = document.createElement('li'); l0.textContent = '(none on this screen)'; ul.appendChild(l0); }
+    f.forEach(function(k){ var li = document.createElement('li'); li.className = 'act'; li.textContent = k + ' · ' + Model.FEATURE_NAMES[k]; ul.appendChild(li); });
+    Object.keys(Model.FEATURE_NAMES).forEach(function(k){ $('f' + k).className = f.indexOf(Number(k)) >= 0 ? 'act' : ''; });
+  }
+  var last = performance.now();
+  function frame(now){
+    var dt = Math.min(0.25, (now - last) / 1000); last = now;
+    sim.tick(dt); Render.draw(ctx, sim);
+    if (now - lastPanel > 250){ lastPanel = now; panel(); }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

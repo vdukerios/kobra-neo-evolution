@@ -1,0 +1,1 @@
+864c0c8815857d68a1bbba2e5e2782255bb922845c71c97636004a3d74f60986 *arm-gnu-toolchain-14.3.rel1-mingw-w64-x86_64-arm-none-eabi.zip   (published at developer.arm.com ... .zip.sha256asc)
