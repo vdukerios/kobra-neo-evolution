@@ -32,6 +32,10 @@
 #include "tft.h"
 #include "../../MarlinCore.h"          // printingIsActive(), printingIsPaused()
 #include "../../module/settings.h"      // save_estable()
+#include "../../gcode/queue.h"
+#if HAS_LEVELING
+  #include "../../feature/bedlevel/bedlevel.h"
+#endif
 
 #if HAS_FILAMENT_SENSOR
   #include "../../feature/runout.h"
@@ -61,7 +65,13 @@
 #define HAS_DEBUG_MENU ENABLED(LCD_PROGRESS_BAR_TEST)
 
 void menu_advanced_settings();
-void menu_bed_leveling();
+void kne_menu_calibrar_extrusor();
+void kne_menu_calibrar_temperatura();
+void menu_edit_mesh();
+void _lcd_level_bed_corners();
+#if ENABLED(LCD_INFO_MENU)
+  void menu_kne_service_data();
+#endif
 void menu_language();
 void menu_info();
 void version_message();
@@ -346,7 +356,7 @@ void menu_temperature();
       EDIT_ITEM(int3, MSG_BED, &ui.material_preset[m].bed_temp, BED_MINTEMP, BED_MAX_TARGET);
     #endif
     #if ENABLED(EEPROM_SETTINGS)
-      ACTION_ITEM(MSG_STORE_EEPROM, ui.store_settings);
+      STATIC_ITEM_P(ui.language == 1 ? PSTR("Guarda en Ajustes") : PSTR("Save in Saved settings"));
     #endif
     END_MENU();
   }
@@ -477,24 +487,27 @@ void menu_temperature();
 #if ENABLED(MODOS_MOTOR)
 
   // Modos de motor X/Y (ver inc/valentin/modos_motor.h). El extrusor y Z no se tocan.
-  enum : uint8_t { MM_SILENCIOSO, MM_MIXTO, MM_FUERZA };
-
-  // Se deduce del estado real del driver X (X e Y se cambian siempre juntos).
+  enum : uint8_t { MM_SILENCIOSO, MM_MIXTO, MM_FUERZA, MM_PERSONALIZADO };
   static uint8_t modos_motor_actual() {
-    #if AXIS_HAS_STEALTHCHOP(X) && ENABLED(HYBRID_THRESHOLD)
-      if (!stepperX.get_stored_stealthChop()) return MM_FUERZA;
-      // Tolerancia: 255 (o valores guardados antiguos cercanos al tope de 8 bits) = Silencioso
-      return (stepperX.stored.hybrid_thrs >= (MODOS_MOTOR_UMBRAL_SILENCIOSO - 5)) ? MM_SILENCIOSO : MM_MIXTO;
-    #else
-      return MM_SILENCIOSO;
+    #if AXIS_HAS_STEALTHCHOP(X) && AXIS_HAS_STEALTHCHOP(Y) && ENABLED(HYBRID_THRESHOLD)
+      const bool sx = stepperX.get_stored_stealthChop(), sy = stepperY.get_stored_stealthChop();
+      const uint16_t cx = stepperX.getMilliamps(), cy = stepperY.getMilliamps();
+      const uint8_t tx = stepperX.stored.hybrid_thrs, ty = stepperY.stored.hybrid_thrs;
+      if (sx && sy && cx == MODOS_MOTOR_CORRIENTE_SILENCIOSO && cy == cx
+          && tx == MODOS_MOTOR_UMBRAL_SILENCIOSO && ty == tx) return MM_SILENCIOSO;
+      if (sx && sy && cx == MODOS_MOTOR_CORRIENTE_MIXTO && cy == cx
+          && tx == MODOS_MOTOR_UMBRAL_MIXTO && ty == tx) return MM_MIXTO;
+      if (!sx && !sy && cx == MODOS_MOTOR_CORRIENTE_FUERZA && cy == cx
+          && tx == MODOS_MOTOR_UMBRAL_FUERZA && ty == tx) return MM_FUERZA;
     #endif
+    return MM_PERSONALIZADO;
   }
 
   // Equivale a M569 S<0|1> X Y + M913 X Y + M906 X Y, aplicado directo a los drivers,
   // y despues M500 (guardar en EEPROM).
   static void modos_motor_aplicar(const uint8_t modo) {
     // Cambiar stealthChop/corriente con una impresion en curso o en pausa puede dar tirones o perdida de pasos
-    if (printingIsActive() || printingIsPaused()) {
+    if (printer_busy() || printingIsPaused() || queue.has_commands_queued()) {
       ui.set_status_P(GET_TEXT(MSG_KNE_MOTORS_BLOCKED));
       ui.return_to_status();
       return;
@@ -524,7 +537,11 @@ void menu_temperature();
       UNUSED(stealth); UNUSED(umbral);
     #endif
     #if ENABLED(EEPROM_SETTINGS)
-      (void)settings.save_estable();   // no vuelca aceleraciones transitorias del G-code
+      if (!settings.save_estable()) {
+        ui.set_status_P(GET_TEXT(MSG_KNE_MOTOR_SAVING_FAILED));
+        ui.return_to_status();
+        return;
+      }
     #endif
     ui.set_status_P(modo == MM_SILENCIOSO ? GET_TEXT(MSG_KNE_MOTORS_SAVED_SILENT)
                   : modo == MM_MIXTO      ? GET_TEXT(MSG_KNE_MOTORS_SAVED_MIXED)
@@ -536,9 +553,11 @@ void menu_temperature();
     const uint8_t modo = modos_motor_actual();
     START_MENU();
     BACK_ITEM(MSG_CONFIGURATION);
+    STATIC_ITEM(MSG_KNE_MOTOR_XY_SAVED);
     STATIC_ITEM_P(modo == MM_SILENCIOSO ? GET_TEXT(MSG_KNE_MOTORS_NOW_SILENT)
                 : modo == MM_MIXTO      ? GET_TEXT(MSG_KNE_MOTORS_NOW_MIXED)
-                                        : GET_TEXT(MSG_KNE_MOTORS_NOW_FAST));
+                : modo == MM_FUERZA     ? GET_TEXT(MSG_KNE_MOTORS_NOW_FAST)
+                                        : GET_TEXT(MSG_KNE_CUSTOM_MOTORS));
     ACTION_ITEM(MSG_KNE_MOTOR_SILENT, []{ modos_motor_aplicar(MM_SILENCIOSO); });
     ACTION_ITEM(MSG_KNE_MOTOR_MIXED,[]{ modos_motor_aplicar(MM_MIXTO); });
     ACTION_ITEM(MSG_KNE_MOTOR_FAST,[]{ modos_motor_aplicar(MM_FUERZA); });
@@ -547,134 +566,158 @@ void menu_temperature();
 
 #endif // MODOS_MOTOR
 
-void menu_configuration() {
-  const bool busy = printer_busy();
+static bool kne_configuration_blocked() {
+  if (!(printer_busy() || printingIsPaused() || queue.has_commands_queued())) return false;
+  ui.set_status_P(GET_TEXT(MSG_BNC_OCUPADO));
+  ui.return_to_status();
+  return true;
+}
 
+static void menu_kne_calibration() {
+  if (kne_configuration_blocked()) return;
   START_MENU();
-  BACK_ITEM(MSG_BACK);
-
-  //
-  // Debug Menu when certain options are enabled
-  //
-
-  #if HAS_TEMPERATURE
-    SUBMENU(MSG_TEMPERATURE, menu_temperature);   //温度放到工具
-  #endif
-  #if HAS_DEBUG_MENU
-    SUBMENU(MSG_DEBUG_MENU, menu_debug);
-  #endif
-
-  #if ENABLED(CUSTOM_MENU_CONFIG)
-    if (TERN1(CUSTOM_MENU_CONFIG_ONLY_IDLE, !busy)) {
-      #ifdef CUSTOM_MENU_CONFIG_TITLE
-        SUBMENU_P(PSTR(CUSTOM_MENU_CONFIG_TITLE), custom_menus_configuration);
-      #else
-        SUBMENU(MSG_CUSTOM_COMMANDS, custom_menus_configuration);
-      #endif
-    }
-  #endif
-  SUBMENU(MSG_ADVANCED_SETTINGS, menu_advanced_settings);
-  #if ENABLED(MODOS_MOTOR)
-    SUBMENU_P(modos_motor_actual() == MM_SILENCIOSO ? GET_TEXT(MSG_KNE_MOTOR_MODE_SILENT)
-            : modos_motor_actual() == MM_MIXTO      ? GET_TEXT(MSG_KNE_MOTOR_MODE_MIXED)
-                                                    : GET_TEXT(MSG_KNE_MOTOR_MODE_FAST), menu_modos_motor);
-  #endif
-  
-
+  BACK_ITEM(MSG_CONFIGURATION);
   #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
-    SUBMENU(MSG_ZPROBE_ZOFFSET, lcd_babystep_zoffset);
+    SUBMENU(MSG_KNE_FIRST_LAYER, []{
+      if (kne_configuration_blocked()) return;
+      extern float Beforeprobe_offset;
+      Beforeprobe_offset = probe.offset.z;
+      ui.goto_screen(lcd_babystep_zoffset);
+    });
   #elif HAS_BED_PROBE
-    EDIT_ITEM(LCD_Z_OFFSET_TYPE, MSG_ZPROBE_ZOFFSET, &probe.offset.z, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX);
+    EDIT_ITEM(float42_52, MSG_KNE_FIRST_LAYER, &probe.offset.z, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX);
   #endif
-
-  //
-  // Set Fan Controller speed
-  //
-  #if ENABLED(CONTROLLER_FAN_MENU)
-    SUBMENU(MSG_CONTROLLER_FAN, menu_controller_fan);
+  #if HAS_EXTRUDERS
+    SUBMENU(MSG_KNE_EXTRUSION_CAL, kne_menu_calibrar_extrusor);
   #endif
-
-  if (!busy) {
-    #if EITHER(DELTA_CALIBRATION_MENU, DELTA_AUTO_CALIBRATION)
-      SUBMENU(MSG_DELTA_CALIBRATE, menu_delta_calibrate);
-    #endif
-
-    #if HAS_HOTEND_OFFSET
-      SUBMENU(MSG_OFFSETS_MENU, menu_tool_offsets);
-    #endif
-
-    #if ENABLED(DUAL_X_CARRIAGE)
-      SUBMENU(MSG_IDEX_MENU, menu_idex);
-    #endif
-
-    #if ENABLED(BLTOUCH)
-      SUBMENU(MSG_BLTOUCH, menu_bltouch);
-    #endif
-
-    #if ENABLED(TOUCH_MI_PROBE)
-      SUBMENU(MSG_TOUCHMI_PROBE, menu_touchmi);
-    #endif
-  }
-
-  //
-  // Set single nozzle filament retract and prime length
-  //
-  #if HAS_MULTI_EXTRUDER
-    SUBMENU(MSG_TOOL_CHANGE, menu_tool_change);
-    #if ENABLED(TOOLCHANGE_MIGRATION_FEATURE)
-      SUBMENU(MSG_TOOL_MIGRATION, menu_toolchange_migration);
-    #endif
+  #if EITHER(PIDTEMP, PIDTEMPBED)
+    SUBMENU(MSG_KNE_TEMP_CAL, kne_menu_calibrar_temperatura);
   #endif
+  END_MENU();
+}
 
+static void menu_kne_materials() {
+  START_MENU();
+  BACK_ITEM(MSG_CONFIGURATION);
+  #if PREHEAT_COUNT && DISABLED(SLIM_LCD_MENUS)
+    LOOP_L_N(m, PREHEAT_COUNT)
+      SUBMENU_N_S(m, ui.get_preheat_label(m), MSG_PREHEAT_M_SETTINGS, _menu_configuration_preheat_settings);
+  #endif
+  END_MENU();
+}
+
+static void menu_kne_preferences() {
+  START_MENU();
+  BACK_ITEM(MSG_CONFIGURATION);
+  #if HAS_MULTI_LANGUAGE
+    SUBMENU(LANGUAGE_choose, menu_language);
+  #endif
+  #if ENABLED(SOUND_MENU_ITEM)
+    EDIT_ITEM(bool, MSG_SOUND, &ui.buzzer_enabled, []{ ui.chirp(); });
+  #endif
   #if HAS_LCD_BRIGHTNESS
     EDIT_ITEM_FAST(uint8, MSG_BRIGHTNESS, &ui.brightness, LCD_BRIGHTNESS_MIN, LCD_BRIGHTNESS_MAX, ui.refresh_brightness, true);
   #endif
   #if HAS_LCD_CONTRAST
     EDIT_ITEM_FAST(uint8, MSG_CONTRAST, &ui.contrast, LCD_CONTRAST_MIN, LCD_CONTRAST_MAX, ui.refresh_contrast, true);
   #endif
-  #if ENABLED(FWRETRACT)
-    SUBMENU(MSG_RETRACT, menu_config_retract);
-  #endif
+  END_MENU();
+}
 
-  #if HAS_FILAMENT_SENSOR
-    EDIT_ITEM(bool, MSG_RUNOUT_SENSOR, &runout.enabled, runout.reset);
+static void menu_kne_saved_settings() {
+  if (kne_configuration_blocked()) return;
+  START_MENU();
+  BACK_ITEM(MSG_CONFIGURATION);
+  #if ENABLED(EEPROM_SETTINGS)
+    ACTION_ITEM(MSG_STORE_EEPROM, []{ if (!kne_configuration_blocked()) ui.store_settings(); });
+    ACTION_ITEM(MSG_LOAD_EEPROM, []{ if (!kne_configuration_blocked()) ui.load_settings(); });
   #endif
+  CONFIRM_ITEM(MSG_RESTORE_DEFAULTS, MSG_KNE_CONFIRM, MSG_BUTTON_CANCEL,
+    []{ if (!kne_configuration_blocked()) ui.reset_settings(); }, ui.goto_previous_screen,
+    GET_TEXT(MSG_KNE_RESTORE_WARNING));
+  END_MENU();
+}
 
+// Visible service route. Mesh editing requires a valid mesh; corner travel requires a physical adjustment procedure.
+static void menu_kne_service() {
+  if (kne_configuration_blocked()) return;
+  START_MENU();
+  BACK_ITEM(MSG_CONFIGURATION);
+  SUBMENU(MSG_ADVANCED_SETTINGS, menu_advanced_settings);
+  #if ENABLED(CONTROLLER_FAN_MENU)
+    SUBMENU(MSG_CONTROLLER_FAN, menu_controller_fan);
+  #endif
   #if ENABLED(POWER_LOSS_RECOVERY)
     EDIT_ITEM(bool, MSG_OUTAGE_RECOVERY, &recovery.enabled, recovery.changed);
   #endif
-
-  // Preheat configurations
-  #if PREHEAT_COUNT && DISABLED(SLIM_LCD_MENUS)
-    LOOP_L_N(m, PREHEAT_COUNT)
-      SUBMENU_N_S(m, ui.get_preheat_label(m), MSG_PREHEAT_M_SETTINGS, _menu_configuration_preheat_settings);
+  #if HAS_FILAMENT_SENSOR
+    STATIC_ITEM(MSG_KNE_INSTALLATION_REQUIRED);
+    EDIT_ITEM(bool, MSG_RUNOUT_SENSOR, &runout.enabled, runout.reset);
   #endif
-
-  #if ENABLED(SOUND_MENU_ITEM)
-    EDIT_ITEM(bool, MSG_SOUND, &ui.buzzer_enabled, []{ ui.chirp(); });
+  #if ENABLED(MESH_EDIT_MENU) && HAS_LEVELING
+    if (leveling_is_valid()) SUBMENU(MSG_EDIT_MESH, menu_edit_mesh);
   #endif
-
-  #if HAS_MODO_NOCHE
-    EDIT_ITEM(bool, MSG_KNE_NIGHT_MODE, &ui.noche_activo, []{ ui.noche_aplicar(); });
-  #endif
-
-  // Reubicados desde el menu principal
-  SUBMENU(MSG_BED_LEVELING, menu_bed_leveling);
-  #if HAS_MULTI_LANGUAGE
-    SUBMENU(LANGUAGE_choose, menu_language);
+  #if ENABLED(LEVEL_BED_CORNERS)
+    CONFIRM_ITEM(MSG_BED_TRAMMING, MSG_KNE_CONFIRM, MSG_BUTTON_CANCEL,
+      []{ if (!kne_configuration_blocked()) ui.goto_screen(_lcd_level_bed_corners); }, ui.goto_previous_screen,
+      GET_TEXT(MSG_KNE_PHYSICAL_BED));
   #endif
   #if ENABLED(LCD_INFO_MENU)
+    SUBMENU(MSG_KNE_SERVICE_DATA, menu_kne_service_data);
+  #endif
+  #if HAS_DEBUG_MENU
+    SUBMENU(MSG_DEBUG_MENU, menu_debug);
+  #endif
+  #if ENABLED(CUSTOM_MENU_CONFIG)
+    SUBMENU(MSG_CUSTOM_COMMANDS, custom_menus_configuration);
+  #endif
+  #if EITHER(DELTA_CALIBRATION_MENU, DELTA_AUTO_CALIBRATION)
+    SUBMENU(MSG_DELTA_CALIBRATE, menu_delta_calibrate);
+  #endif
+  #if HAS_HOTEND_OFFSET
+    SUBMENU(MSG_OFFSETS_MENU, menu_tool_offsets);
+  #endif
+  #if ENABLED(DUAL_X_CARRIAGE)
+    SUBMENU(MSG_IDEX_MENU, menu_idex);
+  #endif
+  #if ENABLED(BLTOUCH)
+    SUBMENU(MSG_BLTOUCH, menu_bltouch);
+  #endif
+  #if ENABLED(TOUCH_MI_PROBE)
+    SUBMENU(MSG_TOUCHMI_PROBE, menu_touchmi);
+  #endif
+  #if HAS_MULTI_EXTRUDER
+    SUBMENU(MSG_TOOL_CHANGE, menu_tool_change);
+    #if ENABLED(TOOLCHANGE_MIGRATION_FEATURE)
+      SUBMENU(MSG_TOOL_MIGRATION, menu_toolchange_migration);
+    #endif
+  #endif
+  #if ENABLED(FWRETRACT)
+    SUBMENU(MSG_RETRACT, menu_config_retract);
+  #endif
+  END_MENU();
+}
+
+void menu_configuration() {
+  START_MENU();
+  BACK_ITEM(MSG_BACK);
+  SUBMENU(MSG_KNE_CALIBRATION, menu_kne_calibration);
+  SUBMENU(MSG_KNE_MATERIALS, menu_kne_materials);
+  #if ENABLED(MODOS_MOTOR)
+    const uint8_t modo = modos_motor_actual();
+    SUBMENU_P(modo == MM_SILENCIOSO ? GET_TEXT(MSG_KNE_MOTOR_MODE_SILENT)
+            : modo == MM_MIXTO      ? GET_TEXT(MSG_KNE_MOTOR_MODE_MIXED)
+            : modo == MM_FUERZA     ? GET_TEXT(MSG_KNE_MOTOR_MODE_FAST)
+                                    : GET_TEXT(MSG_KNE_MOTOR_MODE_CUSTOM), menu_modos_motor);
+  #endif
+  SUBMENU(MSG_KNE_PREFERENCES, menu_kne_preferences);
+  SUBMENU(MSG_KNE_SAVED_SETTINGS, menu_kne_saved_settings);
+  #if ENABLED(LCD_INFO_MENU)
     SUBMENU(MSG_INFO_MENU, menu_info);
+  #else
+    SUBMENU(MSG_INFO_MENU, version_message);
   #endif
-  SUBMENU(MSG_ABOUT, version_message);
-
-  #if ENABLED(EEPROM_SETTINGS)
-    ACTION_ITEM(MSG_STORE_EEPROM, ui.store_settings);
-    if (!busy) ACTION_ITEM(MSG_LOAD_EEPROM, ui.load_settings);
-  #endif
-
-  if (!busy) ACTION_ITEM(MSG_RESTORE_DEFAULTS, ui.reset_settings);
-
+  SUBMENU(MSG_KNE_SERVICE, menu_kne_service);
   END_MENU();
 }
 

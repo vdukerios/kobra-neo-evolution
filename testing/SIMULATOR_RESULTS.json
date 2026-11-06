@@ -1,0 +1,548 @@
+{
+  "fecha": "2026-11-06",
+  "modo": "integracion completa",
+  "resultados": {
+    "pasa": 88,
+    "no verificado": 2
+  },
+  "registros": [
+    {
+      "id": "guardar-cargar-reinicio",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "persistencia-versionada",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "restaurar-cancelar-y-confirmar",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicializar-retirado",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "altura-fina-misma-precision",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "aceleracion-pasos-y-maximos-dinamicos",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "malla-36-puntos-y-origen-real",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "perfiles-y-personalizado",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "motores-completos-y-limites",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "ejes-completos-y-unidades",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "pid-completo-y-separado",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "autoajuste-confirmar-cancelar",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "autoajuste-resultado-simulado-guardar",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "recetas-editar-no-calienta-y-aplicar-ventilador",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "petg-acceso-normal",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "sensor-apagado-y-estado-prueba",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "minimo-no-supera-maximo",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "extrusion-guia-medida-calculo-guardar",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "accesos-unicos-y-mantenimiento-principal",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "configuracion-siete-grupos-y-servicio",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "idioma-noche-ayuda-e-impresion",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "cancelar-nivelacion-conserva-malla",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "mantenimiento-preparacion-pausa-reposo",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "mantenimiento-limites-prioridad-y-reinicio-independiente",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "mantenimiento-persiste-separado-de-ajustes",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "mantenimiento-guardar-al-terminar-y-parar",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "cargar-descargar-siempre-material-y-temperatura",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "calibracion-purga-no-extruye-en-frio",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "esquinas-confirmar-cancelar-avance-manual",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "ayuda-solo-opcion-valida-y-salida-lecciones",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "doble-clic-sin-atajo-altura",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-seis-focos-y-menu-original",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-precalentar-pla-confirmar-y-receta",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-cargar-retirar-pla-y-precalentar-boquilla",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "carga-finalizada-precalienta-receta-ambas-rutas",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "carga-respeta-receta-editada-y-boquilla-elegida",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "cancelar-carga-antes-de-extruir-no-precalienta",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "retirar-y-calor-apagado-no-disparan-precalentado",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-nivelar-confirmacion-y-cancelar",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-zoffset-clic-editar-y-un-solo-editor",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-no-atajos-durante-impresion",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "falla-termica-bloquea-hasta-reinicio-externo",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "fin-filamento-insertar-purgar-reanudar",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "fidelidad-candidato-sin-compilar",
+      "idioma": "es",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "guardar-cargar-reinicio",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "persistencia-versionada",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "restaurar-cancelar-y-confirmar",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicializar-retirado",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "altura-fina-misma-precision",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "aceleracion-pasos-y-maximos-dinamicos",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "malla-36-puntos-y-origen-real",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "perfiles-y-personalizado",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "motores-completos-y-limites",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "ejes-completos-y-unidades",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "pid-completo-y-separado",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "autoajuste-confirmar-cancelar",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "autoajuste-resultado-simulado-guardar",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "recetas-editar-no-calienta-y-aplicar-ventilador",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "petg-acceso-normal",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "sensor-apagado-y-estado-prueba",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "minimo-no-supera-maximo",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "extrusion-guia-medida-calculo-guardar",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "accesos-unicos-y-mantenimiento-principal",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "configuracion-siete-grupos-y-servicio",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "idioma-noche-ayuda-e-impresion",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "cancelar-nivelacion-conserva-malla",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "mantenimiento-preparacion-pausa-reposo",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "mantenimiento-limites-prioridad-y-reinicio-independiente",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "mantenimiento-persiste-separado-de-ajustes",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "mantenimiento-guardar-al-terminar-y-parar",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "cargar-descargar-siempre-material-y-temperatura",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "calibracion-purga-no-extruye-en-frio",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "esquinas-confirmar-cancelar-avance-manual",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "ayuda-solo-opcion-valida-y-salida-lecciones",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "doble-clic-sin-atajo-altura",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-seis-focos-y-menu-original",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-precalentar-pla-confirmar-y-receta",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-cargar-retirar-pla-y-precalentar-boquilla",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "carga-finalizada-precalienta-receta-ambas-rutas",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "carga-respeta-receta-editada-y-boquilla-elegida",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "cancelar-carga-antes-de-extruir-no-precalienta",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "retirar-y-calor-apagado-no-disparan-precalentado",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-nivelar-confirmacion-y-cancelar",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-zoffset-clic-editar-y-un-solo-editor",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "inicio-no-atajos-durante-impresion",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "falla-termica-bloquea-hasta-reinicio-externo",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "fin-filamento-insertar-purgar-reanudar",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "fidelidad-candidato-sin-compilar",
+      "idioma": "en",
+      "resultado": "pasa",
+      "alcance": "Modelo puro; no acredita pantalla ni impresora"
+    },
+    {
+      "id": "pantalla-grafica",
+      "resultado": "no verificado",
+      "detalle": "Este script no abre navegador ni acredita legibilidad; pendiente prueba visual."
+    },
+    {
+      "id": "impresora-real",
+      "resultado": "no verificado",
+      "detalle": "Sin compilacion ni hardware; ninguna calibracion fisica acreditada."
+    }
+  ]
+}

@@ -72,7 +72,16 @@ void menu_item(const uint8_t row, bool sel ) {
     }
   #endif
 
-  menu_line(row, sel ? COLOR_SELECTION_BG : COLOR_BACKGROUND);
+  #if HAS_UI_320x240 && ENABLED(PANTALLA_NUEVA)
+    menu_line(row);
+    tft.add_round(4, 1, TFT_WIDTH - 8, MENU_ITEM_HEIGHT - 2, 5, sel ? KNE_UI_ACC : KNE_UI_CARD);
+    if (sel) {
+      tft.add_round(5, 2, TFT_WIDTH - 10, MENU_ITEM_HEIGHT - 4, 4, COLOR_SELECTION_BG);
+      tft.add_bar(5, 8, 3, MENU_ITEM_HEIGHT - 16, KNE_UI_ACC);
+    }
+  #else
+    menu_line(row, sel ? COLOR_SELECTION_BG : COLOR_BACKGROUND);
+  #endif
   #if ENABLED(TOUCH_SCREEN)
     const TouchControlType tct = TERN(SINGLE_TOUCH_NAVIGATION, true, sel) ? MENU_CLICK : MENU_ITEM;
     touch.add_control(tct, 0, TFT_TOP_LINE_Y + row * MENU_LINE_HEIGHT, TFT_WIDTH, MENU_ITEM_HEIGHT, encoderTopLine + row);
@@ -147,7 +156,14 @@ void MenuItemBase::_draw(const bool sel, const uint8_t row, PGM_P const pstr, co
   }
 
   tft_string.set(string, itemIndex, itemString);
-  tft.add_text(offset, MENU_TEXT_Y_OFFSET, COLOR_MENU_TEXT, tft_string);
+  #if HAS_UI_320x240 && ENABLED(PANTALLA_NUEVA)
+    tft.add_text(offset, MENU_TEXT_Y_OFFSET, COLOR_MENU_TEXT, tft_string, TFT_WIDTH - offset - 26);
+    if (post_char == LCD_STR_UPLEVEL[0] || post_char == LCD_STR_ARROW_RIGHT[0])
+      tft.add_text(TFT_WIDTH - 23, MENU_TEXT_Y_OFFSET, sel ? KNE_UI_ACC : KNE_UI_DIM,
+        post_char == LCD_STR_UPLEVEL[0] ? "<" : ">");
+  #else
+    tft.add_text(offset, MENU_TEXT_Y_OFFSET, COLOR_MENU_TEXT, tft_string);
+  #endif
   
 }
 
@@ -155,8 +171,18 @@ void MenuItemBase::_draw(const bool sel, const uint8_t row, PGM_P const pstr, co
 void MenuEditItemBase::draw(const bool sel, const uint8_t row, PGM_P const pstr, const char * const data, const bool pgm) {
   menu_item(row, sel);
 
+  #if HAS_UI_320x240 && ENABLED(PANTALLA_NUEVA)
+    uint16_t value_width = 0;
+    if (data) { tft_string.set(data); value_width = tft_string.width(); }
+    const int16_t label_width = TFT_WIDTH - 2 * MENU_TEXT_X_OFFSET - (data ? value_width + 12 : 0);
+  #endif
   tft_string.set(pstr, itemIndex, itemString);
-  tft.add_text(MENU_TEXT_X_OFFSET, MENU_TEXT_Y_OFFSET, COLOR_MENU_TEXT, tft_string);
+  #if HAS_UI_320x240 && ENABLED(PANTALLA_NUEVA)
+    if (label_width > 0)
+      tft.add_text(MENU_TEXT_X_OFFSET, MENU_TEXT_Y_OFFSET, COLOR_MENU_TEXT, tft_string, label_width);
+  #else
+    tft.add_text(MENU_TEXT_X_OFFSET, MENU_TEXT_Y_OFFSET, COLOR_MENU_TEXT, tft_string);
+  #endif
   if (data) {
     tft_string.set(data);
     tft.add_text(TFT_WIDTH - MENU_TEXT_X_OFFSET - tft_string.width(), MENU_TEXT_Y_OFFSET, COLOR_MENU_VALUE, tft_string);
@@ -169,7 +195,12 @@ void MenuItem_static::draw(const uint8_t row, PGM_P const pstr, const uint8_t st
   tft_string.set(pstr, itemIndex, itemString);
   if (vstr)
     tft_string.add(vstr);
-  tft.add_text(tft_string.center(TFT_WIDTH), MENU_TEXT_Y_OFFSET, COLOR_WHITE, tft_string);
+  #if HAS_UI_320x240 && ENABLED(PANTALLA_NUEVA)
+    tft.add_text(tft_string.width() > TFT_WIDTH - 28 ? 14 : tft_string.center(TFT_WIDTH), MENU_TEXT_Y_OFFSET,
+      style & SS_INVERT ? KNE_UI_ACC : COLOR_MENU_TEXT, tft_string, TFT_WIDTH - 28);
+  #else
+    tft.add_text(tft_string.center(TFT_WIDTH), MENU_TEXT_Y_OFFSET, COLOR_WHITE, tft_string);
+  #endif
 }
 
 #if ENABLED(SDSUPPORT)

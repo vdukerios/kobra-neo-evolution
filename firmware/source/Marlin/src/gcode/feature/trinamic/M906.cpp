@@ -26,6 +26,7 @@
 
 #include "../../gcode.h"
 #include "../../../feature/tmc_util.h"
+#include "../../../inc/valentin/kne_limits.h"
 #include "../../../module/stepper/indirection.h"
 
 /**
@@ -52,7 +53,13 @@ void GcodeSuite::M906() {
     const uint8_t index = parser.byteval('I');
   #endif
 
-  LOOP_XYZE(i) if (uint16_t value = parser.intval(axis_codes[i])) {
+  LOOP_XYZE(i) if (parser.seenval(axis_codes[i])) {
+    const long requested = parser.value_long();
+    if (!kne_current_valid(requested)) {
+      SERIAL_ECHOLNPGM("M906: project range 400..1200 mA; value rejected");
+      continue;
+    }
+    const uint16_t value = uint16_t(requested);
     report = false;
     switch (i) {
       case X_AXIS:

@@ -233,15 +233,7 @@ void PrintCounter::tick() {
     millis_t delta = deltaDuration();
     data.printTime += delta;
 
-    #if SERVICE_INTERVAL_1 > 0
-      data.nextService1 -= _MIN(delta, data.nextService1);
-    #endif
-    #if SERVICE_INTERVAL_2 > 0
-      data.nextService2 -= _MIN(delta, data.nextService2);
-    #endif
-    #if SERVICE_INTERVAL_3 > 0
-      data.nextService3 -= _MIN(delta, data.nextService3);
-    #endif
+    TERN_(HAS_SERVICE_INTERVALS, updateServiceIntervals(delta));
 
     update_next = now + updateInterval * 1000;
   }
@@ -279,7 +271,9 @@ bool PrintCounter::stop() {
 
   if (super::stop()) {
     data.finishedPrints++;
-    data.printTime += deltaDuration();
+    const millis_t delta = deltaDuration();
+    data.printTime += delta;
+    TERN_(HAS_SERVICE_INTERVALS, updateServiceIntervals(delta));
 
     if (duration() > data.longestPrint)
       data.longestPrint = duration();
@@ -303,16 +297,29 @@ void PrintCounter::reset() {
 
 #if HAS_SERVICE_INTERVALS
 
+  // Shared by periodic updates and the last partial interval on stop.
+  void PrintCounter::updateServiceIntervals(const uint32_t delta) {
+    #if SERVICE_INTERVAL_1 > 0
+      data.nextService1 -= _MIN(delta, data.nextService1);
+    #endif
+    #if SERVICE_INTERVAL_2 > 0
+      data.nextService2 -= _MIN(delta, data.nextService2);
+    #endif
+    #if SERVICE_INTERVAL_3 > 0
+      data.nextService3 -= _MIN(delta, data.nextService3);
+    #endif
+  }
+
   void PrintCounter::resetServiceInterval(const int index) {
     switch (index) {
       #if SERVICE_INTERVAL_1 > 0
-        case 1: data.nextService1 = SERVICE_INTERVAL_SEC_1;
+        case 1: data.nextService1 = SERVICE_INTERVAL_SEC_1; break;
       #endif
       #if SERVICE_INTERVAL_2 > 0
-        case 2: data.nextService2 = SERVICE_INTERVAL_SEC_2;
+        case 2: data.nextService2 = SERVICE_INTERVAL_SEC_2; break;
       #endif
       #if SERVICE_INTERVAL_3 > 0
-        case 3: data.nextService3 = SERVICE_INTERVAL_SEC_3;
+        case 3: data.nextService3 = SERVICE_INTERVAL_SEC_3; break;
       #endif
     }
     saveStats();

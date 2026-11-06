@@ -47,9 +47,9 @@
   #include "../../module/delta.h"
 #endif
 
-#if ENABLED(PREVENT_COLD_EXTRUSION)
-  #include "../../module/temperature.h"
-#endif
+#include "../../module/temperature.h"
+#include "../../MarlinCore.h"
+#include "../../gcode/queue.h"
 
 #if HAS_LEVELING
   #include "../../module/planner.h"
@@ -240,32 +240,79 @@ void _menu_move_distance(const AxisEnum axis, const screenFunc_t func, const int
 
 #if E_MANUAL
 
-  inline void _goto_menu_move_distance_e(uint8_t state) {
-    ui.goto_screen([]{ _menu_move_distance(E_AXIS, []{ lcd_move_e(); }); });
+  static int16_t kne_filament_temperature = PREHEAT_1_TEMP_HOTEND;
+  static uint8_t kne_filament_material_index = 0;
+  extern uint8_t filament_cmd;
+
+  static bool kne_filament_blocked() {
+    if (!(printer_busy() || printingIsPaused() || queue.has_commands_queued())) return false;
+    ui.set_status_P(GET_TEXT(MSG_BNC_OCUPADO));
+    ui.return_to_status();
+    return true;
   }
 
-   void _menu_move_distance_e_maybe() {
-  
+  void _menu_move_distance_e_maybe() {
+    if (kne_filament_blocked()) return;
     #if ENABLED(PREVENT_COLD_EXTRUSION)
-      //const bool too_cold = thermalManager.tooColdToExtrude(active_extruder);
-      const bool too_cold = thermalManager.degHotend(active_extruder)<230 && thermalManager.degTargetHotend(active_extruder)!=230;
-      if (too_cold) {
-        ui.goto_screen([]{
-          MenuItem_confirm::select_screen(
-            GET_TEXT(MSG_BUTTON_PROCEED), GET_TEXT(MSG_BACK),
-          //  _goto_menu_move_distance_e, ui.goto_previous_screen,       
-           []{ thermalManager.setTargetHotend(230, 0);  ui.goto_screen(preheat_to_move_E);},        //
-           ui.goto_previous_screen,
-            GET_TEXT(MSG_HOTEND_TOO_COLD), (const char *)nullptr, PSTR(GET_TEXT(MSG_Aotu_set_temp))
-          );
-        });
+      if (kne_filament_temperature < thermalManager.extrude_min_temp) {
+        ui.set_status_P(GET_TEXT(MSG_HOTEND_TOO_COLD));
         return;
       }
     #endif
-//    _goto_menu_move_distance_e();
- //     LCD_goto_manual_move(0.1,E_AXIS);
- 	thermalManager.setTargetHotend(230, 0);
- 	ui.goto_screen(draw_unload_load_filament);
+    thermalManager.setTargetHotend(_MIN(kne_filament_temperature, thermalManager.hotend_max_target(0)), 0);
+    ui.goto_screen(preheat_to_move_E);
+  }
+
+  // Called only when the user finishes manual loading after the hot extrusion step.
+  bool kne_filament_prepare_print() {
+    if (printer_busy() || printingIsPaused()
+        || thermalManager.degTargetHotend(0) < EXTRUDE_MINTEMP
+        || thermalManager.tooColdToExtrude(0)) return false;
+    thermalManager.setTargetHotend(_MIN(kne_filament_temperature, thermalManager.hotend_max_target(0)), 0);
+    #if PREHEAT_COUNT
+      const uint8_t material = _MIN(kne_filament_material_index, PREHEAT_COUNT - 1);
+      #if HAS_HEATED_BED
+        thermalManager.setTargetBed(_MIN(ui.material_preset[material].bed_temp, BED_MAX_TARGET));
+      #endif
+      #if HAS_FAN
+        thermalManager.set_fan_speed(0, ui.material_preset[material].fan_speed);
+      #endif
+    #endif
+    ui.set_status_P(GET_TEXT(MSG_KNE_LOAD_COMPLETE));
+    ui.return_to_status();
+    return true;
+  }
+
+  static void menu_kne_filament_temperature() {
+    if (kne_filament_blocked()) return;
+    START_MENU();
+    BACK_ITEM(MSG_BACK);
+    #if ENABLED(PREVENT_COLD_EXTRUSION)
+      const int16_t minimum = thermalManager.extrude_min_temp;
+    #else
+      const int16_t minimum = EXTRUDE_MINTEMP;
+    #endif
+    if (filament_cmd == FILA_IN) STATIC_ITEM(MSG_KNE_AFTER_LOAD_HEAT);
+    EDIT_ITEM(int3, MSG_KNE_FILAMENT_TEMP, &kne_filament_temperature, minimum, thermalManager.hotend_max_target(0));
+    ACTION_ITEM(MSG_BUTTON_PROCEED, _menu_move_distance_e_maybe);
+    END_MENU();
+  }
+
+  void menu_kne_filament_material() {
+    if (kne_filament_blocked()) return;
+    START_MENU();
+    BACK_ITEM(MSG_BACK);
+    #if PREHEAT_COUNT
+      LOOP_L_N(m, PREHEAT_COUNT)
+        SUBMENU_N_S(m, ui.get_preheat_label(m), MSG_KNE_MATERIAL_CHOICE, []{
+          kne_filament_material_index = MenuItemBase::itemIndex;
+          kne_filament_temperature = ui.material_preset[kne_filament_material_index].hotend_temp;
+          ui.goto_screen(menu_kne_filament_temperature);
+        });
+    #else
+      SUBMENU(MSG_KNE_FILAMENT_TEMP, menu_kne_filament_temperature);
+    #endif
+    END_MENU();
   }
 
 #endif // E_MANUAL
@@ -432,7 +479,6 @@ void menu_xyz_home()
     #if ENABLED(INDIVIDUAL_AXIS_HOMING_SUBMENU)
     SUBMENU(MSG_HOMING, menu_home);
   #else
-    GCODES_ITEM(MSG_AUTO_HOME, G28_STR);
     #if ENABLED(INDIVIDUAL_AXIS_HOMING_MENU)  
       GCODES_ITEM(MSG_AUTO_HOME_X, PSTR("G28X"));
       #if HAS_Y_AXIS
@@ -595,49 +641,49 @@ void LCD_goto_manual_move(const_float_t scale,const AxisEnum axis) {
    }
 }
 
-void preheat_to_move_E()
-{
-   int16_t currentTemperature =  thermalManager.temp_hotend[0].celsius;
-   int16_t targetTemperature =   thermalManager.temp_hotend[0].target;
-//   START_SCREEN();
-
-      ui.defer_status_screen();
-
-   
-     if (ui.should_draw())
-     {
-         if(currentTemperature<220)
-           {
-
-              tft.canvas(110, 80, 160, 30);
-              tft.set_background(COLOR_BACKGROUND);
-              tft_string.set(GET_TEXT(MSG_HEATING));
-              tft_string.trim();
-              tft.add_text(0,5,COLOR_WHITE,tft_string);     
-              
-              
-              tft.canvas(110, 110, 160, 30);
-              tft.set_background(COLOR_BACKGROUND);
-              tft_string.set(GET_TEXT(heat_waitMSG));
-              tft_string.trim();
-              tft.add_text(0,5,COLOR_WHITE,tft_string);     
-
-               
-              tft.canvas(110, 140, 160, 30);
-              tft.set_background(COLOR_BACKGROUND); 
-              tft.add_text(0,0,COLOR_WHITE, "E :");              
-              tft.add_text(30,0,COLOR_WHITE, i16tostr3rj(currentTemperature));
-              tft.add_text(70,0,COLOR_WHITE, "/"); 
-              tft.add_text(80,0,COLOR_WHITE, i16tostr3rj(targetTemperature));
-          }     
-          else if(currentTemperature>= 220)
-          {
-             ui.goto_screen(draw_unload_load_filament);
-          }
-    }
-     ui.refresh(LCDVIEW_CALL_REDRAW_NEXT);  
-//     END_SCREEN(); 
-  
-
+#if E_MANUAL
+void preheat_to_move_E() {
+  ui.defer_status_screen();
+  if (ui.use_click()) {
+    thermalManager.setTargetHotend(0, 0);
+    filament_cmd = FILA_NO_ACT;
+    ui.goto_previous_screen_no_defer();
+    return;
+  }
+  if (kne_filament_blocked()) {
+    thermalManager.setTargetHotend(0, 0);
+    filament_cmd = FILA_NO_ACT;
+    return;
+  }
+  const int16_t currentTemperature = thermalManager.degHotend(0),
+                targetTemperature = thermalManager.degTargetHotend(0);
+  if (targetTemperature <= 0) {
+    filament_cmd = FILA_NO_ACT;
+    ui.goto_previous_screen_no_defer();
+    return;
+  }
+  if (currentTemperature >= targetTemperature - 2
+    #if ENABLED(PREVENT_COLD_EXTRUSION)
+      && !thermalManager.tooColdToExtrude(0)
+    #endif
+  ) {
+    ui.goto_screen(draw_unload_load_filament);
+    return;
+  }
+  if (ui.should_draw()) {
+    tft.canvas(30, 80, TFT_WIDTH - 60, 90);
+    tft.set_background(COLOR_BACKGROUND);
+    tft_string.set(GET_TEXT(MSG_KNE_HEATING));
+    tft_string.trim();
+    tft.add_text(0, 5, COLOR_WHITE, tft_string);
+    tft.add_text(0, 40, COLOR_WHITE, i16tostr3rj(currentTemperature));
+    tft.add_text(40, 40, COLOR_WHITE, "/");
+    tft.add_text(60, 40, COLOR_WHITE, i16tostr3rj(targetTemperature));
+    tft_string.set(GET_TEXT(MSG_KNE_CANCEL));
+    tft_string.trim();
+    tft.add_text(0, 65, COLOR_WHITE, tft_string);
+  }
+  ui.refresh(LCDVIEW_CALL_REDRAW_NEXT);
 }
+#endif // E_MANUAL
 #endif // HAS_LCD_MENU

@@ -1,6 +1,6 @@
 # Architecture: switches, texts and file map
 
-> **Version 1.0.0 boots and runs on the author's printer; features are still being validated** (see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md)). This page is for people who want to change or disable parts of the firmware. Changing any setting requires a rebuild ([`BUILD.md`](BUILD.md)). Some source comments and header names are in Spanish (the author's language); identifiers are kept as they are.
+> **Current source uncompiled and untested on hardware; an earlier Keil build booted** (see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md)). This page is for people who want to change or disable parts of the firmware. Changing any setting requires a rebuild ([`BUILD.md`](BUILD.md)). Some source comments and header names are in Spanish (the author's language); identifiers are kept as they are.
 
 All paths are relative to `firmware/source/Marlin/`.
 
@@ -14,7 +14,7 @@ The new features are controlled from small header files in `src/inc/valentin/`. 
 | "Level and center" button | `boton_nivelar.h` | `BOTON_NIVELAR_CENTRAR` | Requires `BABYSTEP_ZPROBE_OFFSET` (build stops with an error if missing). Heights, speeds and the bed-center position are set here |
 | Night mode | `modo_noche.h` | `MODO_NOCHE` | Timings are set here. Optional, off by default: `NOCHE_PERFIL_SUAVE` (lower speed in night mode), `NOCHE_LUZ_FONDO` (switch the backlight pin off; 320x240 only, not validated) |
 | Model thumbnail | `miniatura.h` | `MINIATURA_GCODE` | Maximum side 80 px (a larger side costs RAM) and search window of 24 KB |
-| New home and print screens | `pantalla.h` | `PANTALLA_NUEVA` | Commenting it restores the original interface |
+| Home, print screens and shared menu theme | `pantalla.h` | `PANTALLA_NUEVA` | Shared palette in `tft_color.h`, cards in `ui_common.cpp`, editors/confirmations in `ui_320x240.cpp`; existing font and display buffer |
 | Guide and long-press help | `guia_ayuda.h` | `GUIA_AYUDA` (guide menu), `GUIA_AYUDA_LARGA` (long press) | Long press needs the guide; `GUIA_AYUDA_MS` (800) is the hold time. Disabling the long press also restores "click on press" in menus |
 | Motor modes | `modos_motor.h` | `MODOS_MOTOR` | Thresholds and currents per mode are in the same header |
 | Print modes (`M1100` and Confirm print) | `modos_impresion.h` | `MODOS_IMPRESION` | |
@@ -35,9 +35,13 @@ Other features are standard Marlin switches in `Configuration.h` / `Configuratio
 
 ## Language string tables
 
-- User-interface texts: `src/lcd/language/language_en.h` and `src/lcd/language/language_es.h`. The new texts are named `MSG_KNE_*` (57 in each file, for example `MSG_KNE_GUIDE`, `MSG_KNE_MOTOR_MIXED`, `MSG_KNE_CONFIRM_PRINT`). The "Level and center" texts are `MSG_NIVELAR_CENTRAR` and `MSG_BNC_*`. Every `MSG_KNE_*` must exist in both files; use it in code with `GET_TEXT(MSG_KNE_...)`.
+- User-interface texts: `src/lcd/language/language_en.h` and `src/lcd/language/language_es.h`. The new texts are named `MSG_KNE_*` (for example `MSG_KNE_GUIDE`, `MSG_KNE_MOTOR_MIXED`, `MSG_KNE_CONFIRM_PRINT`). The "Level and center" texts are `MSG_NIVELAR_CENTRAR` and `MSG_BNC_*`. Every `MSG_KNE_*` must exist in both files; use it in code with `GET_TEXT(MSG_KNE_...)`.
 - Guide and help texts: `src/lcd/menu/menu_guia_textos.h`. They are plain ASCII (no accents) so they do not depend on the screen font, at most 33 characters per line and 5 lines per page. Only English and Spanish exist; any other interface language shows English.
 - To add a language, add a `language_xx.h` with all the strings, select it in `LCD_LANGUAGE_n` (up to 5 slots) and extend the guide text table.
+
+## Candidate menus and validation
+
+[Current changes](CHANGES_2026-11-06.md) describe the seven Configuration groups and the explicit exception for additional Home shortcuts. `src/inc/valentin/kne_limits.h` centralizes project current limits. Maintenance fixes are in `src/module/printcounter.cpp` / `.h`. The [simulator generator and checks](../simulator/README.md) use a preserved baseline plus source-reviewed corrections, not a new compiled inventory.
 
 ## File map of the new code
 

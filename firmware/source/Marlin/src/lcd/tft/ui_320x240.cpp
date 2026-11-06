@@ -285,16 +285,17 @@ void draw_fan_status(uint16_t x, uint16_t y, const bool blink,char flag) {
   #include "../../feature/gcode_thumb.h"
 #endif
 
+extern uint8_t pantalla_inicio_foco;
 extern uint8_t pantalla_pagina;   // definida en marlinui.cpp (la cambia la rueda)
 
-#define PN_CARD   0x1906   // tarjeta  #182030
-#define PN_TRACK  0x31CC   // pista de barra
-#define PN_ACC    0x3EF8   // acento   #3DDCC0
-#define PN_DIM    0x8CD6   // texto secundario
-#define PN_TXT    0xFFFF
-#define PN_WARN   0xFDC7   // calentando
-#define PN_COLD   0x5D5F   // frio
-#define PN_HOT    0xFAC9   // caliente
+#define PN_CARD   KNE_UI_CARD
+#define PN_TRACK  KNE_UI_TRACK
+#define PN_ACC    KNE_UI_ACC
+#define PN_DIM    KNE_UI_DIM
+#define PN_TXT    KNE_UI_TEXT
+#define PN_WARN   KNE_UI_WARN
+#define PN_COLD   KNE_UI_COLD
+#define PN_HOT    KNE_UI_HOT
 
 static void pn_band(uint16_t y, uint16_t h) {
   tft.canvas(0, y, TFT_WIDTH, h);
@@ -394,18 +395,38 @@ static uint32_t pn_restante(uint8_t pct) {
   #endif
 }
 
-static void pn_card_temp(uint16_t x, const char *label, float cur, int16_t tgt, float maxv) {
-  char b[16];
-  const uint16_t cx = x + 74, col = pn_tcol(cur, tgt);
-  int16_t ci = int16_t(cur + 0.5f);
-  if (ci < 0) ci = 0;
-  tft.add_round(x, 2, 148, 98, 10, PN_CARD);
-  pn_txt_c(cx, 4, PN_DIM, label);
-  *pn_u(b, ci) = 0;
-  pn_big_c(cx, 24, col, b);
-  if (tgt > 0) { char *p = pn_s(b, GET_TEXT(MSG_KNE_TARGET)); *pn_u(p, tgt) = 0; pn_txt_c(cx, 66, col, b); }
-  else pn_txt_c(cx, 66, PN_DIM, GET_TEXT(MSG_KNE_OFF));
-  pn_bar(x + 14, 90, 120, 6, tgt > 0 ? cur / tgt : cur / maxv, col);
+static void pn_card_temp(uint16_t x, const char *label, float cur, int16_t tgt, float maxv, uint16_t accent) {
+  char b[24];
+  tft.add_round(x, 6, 148, 64, 6, PN_CARD);
+  tft.add_bar(x + 10, 6, 128, 2, accent);
+  pn_txt(x + 10, 9, PN_DIM, label, 128);
+  char *p = pn_u(b, pn_r(cur));
+  p = pn_s(p, " / ");
+  p = pn_u(p, tgt);
+  *pn_s(p, " C") = 0;
+  pn_txt(x + 10, 31, accent, b, 128);
+  pn_bar(x + 10, 62, 128, 3, tgt > 0 ? cur / tgt : cur / maxv, accent);
+}
+
+static void pn_inicio_button(uint16_t x, uint8_t foco, const char *label, uint16_t color) {
+  const bool selected = pantalla_inicio_foco == foco;
+  tft.add_round(x, 3, 70, 48, 5, selected ? PN_TXT : PN_TRACK);
+  tft.add_round(x + 2, 5, 66, 44, 4, color);
+  if (!foco) {
+    for (uint8_t j = 0; j < 3; j++) tft.add_bar(x + 27, 10 + j * 4, 16, 2, PN_TXT);
+  }
+  else if (foco == 1) {
+    tft.add_bar(x + 26, 12, 3, 10, PN_TXT);
+    tft.add_bar(x + 33, 8, 3, 14, PN_TXT);
+    tft.add_bar(x + 40, 12, 3, 10, PN_TXT);
+  }
+  else {
+    tft.add_bar(x + 34, 8, 2, 13, PN_TXT);
+    const uint16_t y = foco == 2 ? 18 : 8;
+    tft.add_bar(x + 29, y, 12, 2, PN_TXT);
+    tft.add_bar(x + 31, foco == 2 ? 20 : 6, 8, 2, PN_TXT);
+  }
+  pn_txt_c(x + 35, 26, PN_TXT, pn_fit(label, 66));
 }
 
 // ------------------------------- INICIO ------------------------------------
@@ -415,32 +436,48 @@ static void pn_inicio(const char *msg) {
   const int16_t tn = int16_t(thermalManager.degTargetHotend(0)), tb = int16_t(thermalManager.degTargetBed());
   const bool heating = (tn > 0 && cn < tn - 2) || (tb > 0 && cb < tb - 2),
              cooling = !tn && !tb && (cn > 45 || cb > 45),
-             ready   = !heating && (tn > 0 || tb > 0);
+             ready = !heating && (tn > 0 || tb > 0);
   const uint16_t stc = heating ? PN_WARN : cooling ? PN_COLD : ready ? PN_HOT : PN_ACC;
 
-  pn_band(0, 26);                                   // estado + SD
-  tft.add_round(14, 8, 10, 10, 5, stc);
-  pn_txt(32, 3, PN_TXT, heating ? GET_TEXT(MSG_KNE_HEATING) : cooling ? GET_TEXT(MSG_KNE_COOLING) : ready ? GET_TEXT(MSG_KNE_READY) : GET_TEXT(MSG_KNE_IDLE));
-  if (card.isMounted()) pn_txt_r(312, 3, PN_ACC, GET_TEXT(MSG_KNE_SD_READY));
-  else                  pn_txt_r(312, 3, PN_DIM, GET_TEXT(MSG_KNE_NO_SD));
+  pn_band(0, 22);
+  if (msg[0]) pn_txt(8, 0, PN_TXT, pn_fit(msg, 218));
+  else {
+    pn_txt(8, 0, PN_TXT, "KNE");
+    pn_txt(54, 0, stc, pn_fit(heating ? GET_TEXT(MSG_KNE_HEATING) : cooling ? GET_TEXT(MSG_KNE_COOLING) : ready ? GET_TEXT(MSG_KNE_READY) : GET_TEXT(MSG_KNE_IDLE), 164));
+  }
+  pn_txt_r(312, 0, card.isMounted() ? PN_ACC : PN_DIM,
+    card.isMounted() ? GET_TEXT(MSG_KNE_SD_READY) : GET_TEXT(MSG_KNE_NO_SD));
 
-  pn_band(26, 102);                                 // tarjetas de temperatura
-  pn_card_temp(8,   GET_TEXT(MSG_KNE_NOZZLE), cn, tn, 250);
-  pn_card_temp(164, GET_TEXT(MSG_KNE_BED),     cb, tb, 100);
+  pn_band(22, 74);
+  pn_card_temp(8, GET_TEXT(MSG_KNE_NOZZLE), cn, tn, 250, PN_HOT);
+  pn_card_temp(164, GET_TEXT(MSG_KNE_BED), cb, tb, 100, PN_COLD);
 
-  pn_band(128, 62);                                 // Z offset y altura Z
-  tft.add_round(8, 2, 304, 56, 10, PN_CARD);
-  tft.add_bar(160, 12, 1, 36, PN_TRACK);
-  pn_txt(20, 6, PN_DIM, GET_TEXT(MSG_KNE_Z_OFFSET));
-  pn_txt(176, 6, PN_DIM, GET_TEXT(MSG_KNE_Z_HEIGHT));
-  { char *p = pn_dec(b, probe.offset.z, 2); pn_s(p, " mm")[0] = 0; }
-  pn_txt(20, 30, PN_ACC, b);
-  if (axis_should_home(Z_AXIS)) pn_txt(176, 30, PN_DIM, GET_TEXT(MSG_KNE_NOT_HOMED));
-  else { char *p = pn_dec(b, LOGICAL_Z_POSITION(current_position.z), 1); *pn_s(p, " mm") = 0; pn_txt(176, 30, PN_TXT, b); }
+  pn_band(96, 46);
+  tft.add_round(8, 2, 148, 40, 5, pantalla_inicio_foco == 5 ? PN_ACC : PN_TRACK);
+  tft.add_round(10, 4, 144, 36, 4, PN_CARD);
+  tft.add_round(164, 2, 148, 40, 5, PN_CARD);
+  pn_txt(18, 2, PN_DIM, GET_TEXT(MSG_KNE_Z_OFFSET));
+  pn_txt(174, 2, PN_DIM, GET_TEXT(MSG_KNE_Z_HEIGHT));
+  { char *p = pn_dec(b, probe.offset.z, 2); *pn_s(p, " mm") = 0; }
+  pn_txt(18, 21, PN_ACC, b);
+  if (axis_should_home(Z_AXIS)) pn_txt(174, 21, PN_DIM, GET_TEXT(MSG_KNE_NOT_HOMED));
+  else { char *p = pn_dec(b, LOGICAL_Z_POSITION(current_position.z), 1); *pn_s(p, " mm") = 0; pn_txt(174, 21, PN_TXT, b); }
 
-  pn_band(190, 50);                                 // ayuda discreta y mensaje
-  pn_txt_c(160, 4, PN_DIM, GET_TEXT(MSG_KNE_HINT_HOME));
-  if (msg[0]) pn_txt_c(160, 26, PN_TXT, pn_fit(msg, 316));
+  pn_band(142, 54);
+  pn_inicio_button(8, 0, GET_TEXT(MSG_KNE_QUICK_MENU), 0x2253);
+  pn_inicio_button(86, 1, GET_TEXT(MSG_KNE_QUICK_PREHEAT), 0xB246);
+  pn_inicio_button(164, 2, GET_TEXT(MSG_KNE_QUICK_LOAD), 0x0472);
+  pn_inicio_button(242, 3, GET_TEXT(MSG_KNE_QUICK_UNLOAD), 0x6A91);
+
+  pn_band(196, 32);
+  tft.add_round(8, 3, 304, 26, 5, pantalla_inicio_foco == 4 ? PN_TXT : PN_TRACK);
+  tft.add_round(10, 5, 300, 22, 4, 0x2352);
+  pn_txt_c(160, 5, PN_TXT, GET_TEXT(MSG_KNE_QUICK_LEVEL));
+
+  // The existing font is 20 px high: the 12 px footer uses focus dots, not clipped text.
+  pn_band(228, 12);
+  for (uint8_t j = 0; j < 6; j++)
+    tft.add_round(119 + j * 14, 4, 10, 4, 2, pantalla_inicio_foco == j ? PN_ACC : PN_TRACK);
 }
 
 // ------------------------------ IMPRESION ----------------------------------
@@ -682,7 +719,7 @@ void MarlinUI::draw_status_screen(char seclect) {
       #endif
     }
   } 
-  #if 1
+  #if 1  // Keep the matching legacy #else / #endif below.
   //***********z.offset**************************
 //    if((seclect==4)&&( blink))
 //    {
@@ -1049,20 +1086,35 @@ void MenuEditItemBase::draw_edit_screen(PGM_P const pstr, const char * const val
 	{
 	
 	
+    #if ENABLED(PANTALLA_NUEVA)
+      tft.canvas(0, 74, TFT_WIDTH, 42);
+      tft.set_background(COLOR_BACKGROUND);
+      tft.add_round(8, 2, 304, 38, 6, KNE_UI_CARD);
+      tft.add_bar(18, 2, 284, 2, KNE_UI_ACC);
+    #else
 		tft.canvas(0, 90, 320, 25);
 		tft.set_background(COLOR_BACKGROUND);
+    #endif
 		tft_string.set(pstr, itemIndex, itemString);
 		tft_string.trim();
-		tft.add_text(tft_string.center(TFT_WIDTH), 5, COLOR_MENU_TEXT, tft_string);
+    tft.add_text(tft_string.width() > 284 ? 18 : tft_string.center(TFT_WIDTH), 5, COLOR_MENU_TEXT, tft_string, 284);
 
 		TERN_(AUTO_BED_LEVELING_UBL, if (ui.external_control) line++);  // ftostr52() will overwrite *value so *value has to be displayed first
 
 
+    #if ENABLED(PANTALLA_NUEVA)
+      tft.canvas(0, 120, TFT_WIDTH, 54);
+      tft.set_background(COLOR_BACKGROUND);
+      tft.add_round(8, 2, 304, 50, 6, KNE_UI_SELECT);
+      tft.add_bar(8, 12, 3, 30, KNE_UI_ACC);
+    #else
 		tft.canvas(0, 125, 320, 25);
 		tft.set_background(COLOR_BACKGROUND);
+    #endif
 		tft_string.set(value);
 		tft_string.trim();
-		tft.add_text(tft_string.center(TFT_WIDTH), 5, COLOR_MENU_VALUE, tft_string);
+    tft.add_text(tft_string.width() > 284 ? 18 : tft_string.center(TFT_WIDTH),
+      TERN(PANTALLA_NUEVA, 16, 5), COLOR_MENU_VALUE, tft_string, 284);
 	}
 	else
 	{
@@ -1135,6 +1187,39 @@ void TFT::draw_edit_screen_buttons() {
 
 // The Select Screen presents a prompt and two "buttons"
 void MenuItem_confirm::draw_select_screen(PGM_P const yes, PGM_P const no, const bool yesno, PGM_P const pref, const char * const string/*=nullptr*/, PGM_P const suff/*=nullptr*/) {
+  #if ENABLED(PANTALLA_NUEVA) && DISABLED(TOUCH_SCREEN)
+    tft.canvas(0, 22, TFT_WIDTH, 56);
+    tft.set_background(COLOR_BACKGROUND);
+    tft.add_round(8, 2, 304, 52, 6, KNE_UI_CARD);
+    tft.add_bar(18, 2, 284, 2, KNE_UI_WARN);
+    tft_string.set(pref); tft_string.trim();
+    tft.add_text(tft_string.width() > 280 ? 20 : tft_string.center(TFT_WIDTH), 18, COLOR_MENU_TEXT, tft_string, 280);
+
+    tft.canvas(0, 78, TFT_WIDTH, 58);
+    tft.set_background(COLOR_BACKGROUND);
+    tft.add_round(8, 0, 304, 56, 6, KNE_UI_CARD);
+    if (string) {
+      tft_string.set(string); tft_string.trim();
+      tft.add_text(tft_string.width() > 280 ? 20 : tft_string.center(TFT_WIDTH), 3, COLOR_MENU_TEXT, tft_string, 280);
+    }
+    if (suff) {
+      tft_string.set(suff); tft_string.trim();
+      tft.add_text(tft_string.width() > 280 ? 20 : tft_string.center(TFT_WIDTH), 29, COLOR_MENU_TEXT, tft_string, 280);
+    }
+    tft.canvas(0, 154, TFT_WIDTH, 52);
+    tft.set_background(COLOR_BACKGROUND);
+    for (uint8_t b = 0; b < 2; b++) {
+      const uint16_t x = b ? 170 : 8;
+      const bool selected = b ? yesno : !yesno;
+      tft.add_round(x, 2, 142, 46, 6, selected ? KNE_UI_WARN : KNE_UI_CARD);
+      tft.add_round(x + 1, 3, 140, 44, 5, selected ? KNE_UI_SELECT : KNE_UI_CARD);
+      tft_string.set(b ? yes : no); tft_string.trim();
+      const uint16_t w = tft_string.width();
+      tft.add_text(w > 126 ? x + 8 : x + (142 - w) / 2, 15,
+        selected ? KNE_UI_TEXT : KNE_UI_DIM, tft_string, 126);
+    }
+    return;
+  #endif
   uint16_t line = 1;
 
   if (!string) line++;

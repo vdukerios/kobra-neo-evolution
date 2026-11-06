@@ -39,6 +39,10 @@
 
 #include "../../queue.h"
 
+#if ENABLED(SDSUPPORT)
+  #include "../../../sd/cardreader.h"
+#endif
+
 #if ENABLED(PROBE_TEMP_COMPENSATION)
   #include "../../../feature/probe_temp_comp.h"
   #include "../../../module/temperature.h"
@@ -167,6 +171,16 @@
 #if BOTH(BOTON_NIVELAR_CENTRAR, HAS_LCD_MENU)
   extern bool boton_nivelar_cancelado; // definida en menu_main.cpp
 #endif
+
+static bool g29_cancelado() {
+  #if BOTH(BOTON_NIVELAR_CENTRAR, HAS_LCD_MENU)
+    if (boton_nivelar_cancelado) return true;
+  #endif
+  #if ENABLED(SDSUPPORT)
+    if (card.flag.abort_sd_printing) return true;
+  #endif
+  return false;
+}
 
 // Bandera de fallo de la ULTIMA nivelacion: la rama de fallo llama a "G29 J" (que reinicia probe.status),
 // asi que probe.status no sirve para saber si la medicion fallo. La usan M1100 y "Nivelar y centrar".
@@ -684,6 +698,8 @@ G29_TYPE GcodeSuite::G29() {
         // Inner loop is X with PROBE_Y_FIRST disabled
         for (PR_INNER_VAR = inStart; PR_INNER_VAR != inStop; pt_index++, PR_INNER_VAR += inInc) {
 
+          if (g29_cancelado()) { measured_z = NAN; probe.status = -1; break; }
+
           probePos.x = probe_position_lf.x + gridSpacing.x * meshCount.x;
           probePos.y = probe_position_lf.y + gridSpacing.y * meshCount.y;
 
@@ -697,10 +713,8 @@ G29_TYPE GcodeSuite::G29() {
 
           measured_z = faux ? 0.001f * random(-100, 101) : probe.probe_at_point(probePos, raise_after, verbose_level);
 
-          #if BOTH(BOTON_NIVELAR_CENTRAR, HAS_LCD_MENU)
-            // Cancelado desde la pantalla "Nivelar y centrar": se trata como fallo de sondeo
-            if (boton_nivelar_cancelado) { measured_z = NAN; probe.status = -1; }
-          #endif
+          // Cancelar desde Nivelar y centrar o Parar: no medir mas puntos ni guardar una malla parcial.
+          if (g29_cancelado()) { measured_z = NAN; probe.status = -1; }
 
           if (isnan(measured_z)) {
             set_bed_leveling_enabled(abl_should_enable);
@@ -946,8 +960,8 @@ G29_TYPE GcodeSuite::G29() {
   #ifdef Z_PROBE_END_SCRIPT
     if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("Z Probe End Script: ", Z_PROBE_END_SCRIPT);
     
-  if(probe.status != -1) {
-    planner.synchronize();
+  planner.synchronize(); // puede atender un clic de Parar: comprobarlo despues, antes de guardar
+  if (probe.status != -1 && !isnan(measured_z) && !g29_cancelado()) {
 	(void)settings.save_estable();   // equivale a M500 pero sin guardar aceleraciones transitorias del G-code (P2)
     process_subcommands_now_P(PSTR(Z_PROBE_END_SCRIPT));
   	LCD_ALERTMESSAGEPGM(MSG_LEVEL_FINSH);

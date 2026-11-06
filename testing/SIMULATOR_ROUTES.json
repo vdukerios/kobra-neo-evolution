@@ -1,0 +1,79 @@
+{
+  "date": "2026-11-06",
+  "scope": "Actual model menu clicks; not browser rendering or compiled firmware",
+  "generatedScreens": 42,
+  "scenarios": [
+    {
+      "lang": "en",
+      "state": "idle",
+      "configured": false,
+      "visits": 59
+    },
+    {
+      "lang": "en",
+      "state": "idle",
+      "configured": true,
+      "visits": 59
+    },
+    {
+      "lang": "en",
+      "state": "printing",
+      "configured": false,
+      "visits": 5
+    },
+    {
+      "lang": "en",
+      "state": "printing",
+      "configured": true,
+      "visits": 5
+    },
+    {
+      "lang": "en",
+      "state": "paused",
+      "configured": false,
+      "visits": 5
+    },
+    {
+      "lang": "en",
+      "state": "paused",
+      "configured": true,
+      "visits": 5
+    },
+    {
+      "lang": "es",
+      "state": "idle",
+      "configured": false,
+      "visits": 59
+    },
+    {
+      "lang": "es",
+      "state": "idle",
+      "configured": true,
+      "visits": 59
+    },
+    {
+      "lang": "es",
+      "state": "printing",
+      "configured": false,
+      "visits": 5
+    },
+    {
+      "lang": "es",
+      "state": "printing",
+      "configured": true,
+      "visits": 5
+    },
+    {
+      "lang": "es",
+      "state": "paused",
+      "configured": false,
+      "visits": 5
+    },
+    {
+      "lang": "es",
+      "state": "paused",
+      "configured": true,
+      "visits": 5
+    }
+  ]
+}

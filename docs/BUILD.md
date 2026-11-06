@@ -1,8 +1,8 @@
 # Building KNE from source
 
-You do **not** need to build anything to try KNE: the release binary `KNE-1.0.0.bin` is in [`../releases/v1.0.0/`](../releases/v1.0.0/). Build it yourself if you want to change the code or check that the binary matches the source.
+No firmware binary is published. You can try the [screen simulator](../simulator/README.md) without building anything. The current source, including the latest menu changes, has not been compiled or validated on hardware.
 
-> **Status of the two build paths.** The **Keil MDK + Arm Compiler 5** build below is the one used for the release; the resulting firmware boots and runs on the author's Kobra Neo. The **GCC (Arm GNU Toolchain) build is experimental and currently does NOT boot** on the printer; see the last section.
+> **Status of the two build paths.** The **Keil MDK + Arm Compiler 5** path below produced the earlier build that booted on the author's Kobra Neo. The latest candidate still needs its first build and hardware tests. The **GCC (Arm GNU Toolchain) build is experimental and currently does NOT boot** on the printer; see the last section.
 
 ## 1. Primary build: Keil MDK (uVision) with Arm Compiler 5
 

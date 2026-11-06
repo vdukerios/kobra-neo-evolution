@@ -36,6 +36,7 @@ li{color:var(--dim)}
 </style>
 </head>
 <body>
+<div style="background:#ffcc66;color:#171717;padding:14px;font:700 16px sans-serif;text-align:center">SOURCE PREVIEW: NOT COMPILED OR VALIDATED ON A PRINTER. Layouts and timings are approximations.</div>
 <div class="wrap">
 <section class="printer">
   <h1>Kobra Neo Evolution · screen simulator (KNE 1.0.0)</h1>
@@ -74,7 +75,7 @@ li{color:var(--dim)}
    <button id="evMaint">Simulate maintenance due</button>
    <button id="evFactory">Reset to factory defaults</button>
   </div>
-  <div class="hint">Menus show or hide items exactly as the firmware conditions say (e.g. Tune only while printing, Resume Print only when paused). Heat soak is a simulated wait (90 s); use x60 to skip it.</div>
+  <div class="hint">Menus show or hide items using candidate source data, without compilation (e.g. Tune only while printing, Resume Print only when paused). Heat soak is a simulated wait (90 s); use x60 to skip it.</div>
   <div id="msg"></div>
   <h2>Coverage</h2>
   <div id="cov">-</div>
@@ -90,9 +91,8 @@ li{color:var(--dim)}
 </div>
 
 <script id="menu-data">
-/* BEGIN GENERATED MENU DATA (tools/gen_menu_data.py) */
-var MENU_DATA = {"meta":{"screens":39,"items":236,"active_items":249,"overlay":true,"unreachable":["_lcd_pause_message","menu_motion","menu_pause_option","menu_power_monitor"],"inventory_screens":97},"screens":{"menu_advanced_filament":{"id":"menu_advanced_filament","t":["Filament","Filamento"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"tog","en":"E in mm","es":"E en mm","v":"&parser.volumetric_enabled"},{"k":"edit","en":"Fil. Dia.","es":"Diametro Fil.","c":["volumetric"],"min":1.5,"max":3.25,"d":3,"live":1,"v":"&planner.filament_size[active_extruder]"},{"k":"edit","en":"Unload mm","es":"Descarga mm","min":0,"max":100,"d":0,"ap":1,"live":1,"v":"&fc_settings[active_extruder].unload_length"},{"k":"edit","en":"Load mm","es":"Carga mm","min":0,"max":100,"d":0,"ap":1,"live":1,"v":"&fc_settings[active_extruder].load_length"}]},"menu_advanced_temperature":{"id":"menu_advanced_temperature","t":["Temperature","Temperatura"],"items":[{"k":"back","en":"Advanced Settings","es":"Ajustes avanzados"},{"k":"tog","en":"Autotemp","es":"Temp. Autom.","v":"&planner.autotemp_enabled"},{"k":"edit","en":" Min","es":"  Min","min":0,"max":260,"d":0,"u":"°C","v":"(MenuEditItemInfo_int3::type_t*)&planner.autotemp_min"},{"k":"edit","en":" Max","es":"  Max","min":0,"max":260,"d":0,"u":"°C","v":"(MenuEditItemInfo_int3::type_t*)&planner.autotemp_max"},{"k":"edit","en":" Fact","es":"  Factor","min":0,"max":10,"d":2,"u":"°C","v":"&planner.autotemp_factor"},{"k":"edit","en":"PID-P *","es":"PID-P *","min":1,"max":9990,"d":1,"live":1,"v":"&PID_PARAM(Kp,0)"},{"k":"edit","en":"PID-D *","es":"PID-D *","min":1,"max":9990,"d":1,"live":1,"v":"&raw_Kd"},{"k":"edit","en":"PID-P *","es":"PID-P *","min":1,"max":9990,"d":1,"u":"°C","live":1,"v":"&thermalManager.temp_bed.pid.Kp"},{"k":"edit","en":"PID-D *","es":"PID-D *","min":1,"max":9990,"d":1,"live":1,"v":"&raw_Kd"},{"k":"edit","en":"PID Autotune *","es":"PID Auto-ajuste *","min":60,"max":110,"d":0,"u":"°C","live":1,"v":"&autotune_temp_bed"}]},"menu_advanced_velocity":{"id":"menu_advanced_velocity","t":["Velocity","Velocidad"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Max  Vel","es":"Vel. max ","min":1,"max":600.0,"d":0,"ap":1,"u":"mm/s","live":1,"df":300.0,"v":"&planner.settings.max_feedrate_mm_s[_AXIS(A)]"},{"k":"edit","en":"Max  Vel","es":"Vel. max ","min":1,"max":8.0,"d":0,"ap":1,"u":"mm/s","live":1,"df":4.0,"v":"&planner.settings.max_feedrate_mm_s[_AXIS(C)]"},{"k":"edit","en":"Max  Vel","es":"Vel. max ","min":1,"max":100.0,"d":0,"ap":1,"u":"mm/s","live":1,"df":50.0,"v":"&planner.settings.max_feedrate_mm_s[E_AXIS_N(active_extruder"},{"k":"edit","en":"Min Velocity","es":"Vmin","min":0,"max":9999,"d":0,"u":"mm/s","live":1,"df":0.0,"v":"&planner.settings.min_feedrate_mm_s"},{"k":"edit","en":"Min Travel Vel","es":"Vel. viaje min","min":0,"max":9999,"d":0,"u":"mm/s","live":1,"df":0.0,"v":"&planner.settings.min_travel_feedrate_mm_s"}]},"menu_advanced_acceleration":{"id":"menu_advanced_acceleration","t":["Acceleration","Acceleracion"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Accel","es":"Aceleracion","min":25,"max":1000,"d":0,"ap":1,"u":"mm/s²","live":1,"df":500.0,"v":"&planner.settings.acceleration"},{"k":"edit","en":"Retract Accel","es":"Acel. retrac.","min":100,"max":500,"d":0,"u":"mm/s²","live":1,"df":500.0,"v":"&planner.settings.retract_acceleration"},{"k":"edit","en":"Travel Accel","es":"Acel. Viaje","min":25,"max":1000,"d":0,"ap":1,"u":"mm/s²","live":1,"df":1000.0,"v":"&planner.settings.travel_acceleration"},{"k":"edit","en":"Max  Accel","es":"Acel. max","min":100,"max":2000.0,"d":0,"ap":1,"u":"mm/s²","live":1,"df":1000.0,"v":"&planner.settings.max_acceleration_mm_per_s2[_AXIS(A)]"},{"k":"edit","en":"Max  Accel","es":"Acel. max","min":10,"max":200.0,"d":0,"ap":1,"u":"mm/s²","live":1,"df":100.0,"v":"&planner.settings.max_acceleration_mm_per_s2[_AXIS(C)]"},{"k":"edit","en":"Max  Accel","es":"Acel. max","min":100,"max":1000.0,"d":0,"ap":1,"u":"mm/s²","live":1,"df":500.0,"v":"&planner.settings.max_acceleration_mm_per_s2[E_AXIS]"}]},"menu_probe_offsets":{"id":"menu_probe_offsets","t":["Probe Offsets","Desfases sonda"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Probe X Offset","es":"Desfase X sonda","min":-220,"max":220,"d":1,"u":"mm","v":"&probe.offset.x"},{"k":"edit","en":"Probe Y Offset","es":"Desfase Y sonda","min":-220,"max":220,"d":1,"u":"mm","v":"&probe.offset.y"},{"k":"edit","en":"Probe Z Offset","es":"Desfase Z sonda","min":-10,"max":10,"d":0,"u":"mm","df":0.0,"v":"&probe.offset.z"}]},"menu_advanced_steps_per_mm":{"id":"menu_advanced_steps_per_mm","t":["Steps/mm","Pasos/mm"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":" Steps/mm","es":" pasos/mm","min":5,"max":9999,"d":1,"u":"pasos/mm","live":1,"df":80.0,"v":"&planner.settings.axis_steps_per_mm[_AXIS(A)]"},{"k":"edit","en":" Steps/mm","es":" pasos/mm","min":5,"max":9999,"d":1,"u":"pasos/mm","live":1,"df":80.0,"v":"&planner.settings.axis_steps_per_mm[_AXIS(B)]"},{"k":"edit","en":"E steps/mm","es":"E pasos/mm","min":5,"max":9999,"d":1,"u":"pasos/mm","live":1,"df":390.0,"v":"&planner.settings.axis_steps_per_mm[E_AXIS]"}]},"menu_advanced_settings":{"id":"menu_advanced_settings","t":["Advanced Settings","Ajustes avanzados"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"homeoff","en":"Set Home Offsets","es":"Ajustar desfases"},{"k":"sub","to":"menu_advanced_velocity","en":"Velocity","es":"Velocidad"},{"k":"sub","to":"menu_advanced_acceleration","en":"Acceleration","es":"Acceleracion"},{"k":"edit","en":"Junction Dev","es":"Desvi. Union","min":0.001,"max":0.3,"d":3,"df":0.013,"v":"&planner.junction_deviation_mm"},{"k":"sub","to":"menu_probe_offsets","en":"Probe Offsets","es":"Desfases sonda","c":["idle"]},{"k":"sub","to":"menu_advanced_steps_per_mm","en":"Steps/mm","es":"Pasos/mm","c":["idle"]},{"k":"sub","to":"menu_tmc","en":"TMC Drivers","es":"Controladores TMC"},{"k":"sub","to":"menu_advanced_temperature","en":"Temperature","es":"Temperatura"},{"k":"sub","to":"menu_advanced_filament","en":"Filament","es":"Filamento"},{"k":"conf","en":"Initialize EEPROM","es":"Inicializar EEPROM","bt":[["Init","Iniciar"],["Cancel","Cancelar"]],"pr":[["Initialize EEPROM","Inicializar EEPROM"]]}]},"menu_edit_mesh":{"id":"menu_edit_mesh","t":["Edit Mesh","Editar Mallado"],"items":[{"k":"back","en":"Bed Leveling","es":"Nivelando Cama"},{"k":"edit","en":"Index X","es":"Indice X","min":0,"max":5,"d":0,"v":"&xind"},{"k":"edit","en":"Index Y","es":"Indice Y","min":0,"max":5,"d":0,"v":"&yind"},{"k":"edit","en":"Z Value","es":"Valor Z","min":-2,"max":2,"d":3,"live":1,"v":"&Z_VALUES(xind,yind)"}]},"menu_bed_leveling":{"id":"menu_bed_leveling","t":["Bed Leveling","Nivelando Cama"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"menu_edit_mesh","en":"Edit Mesh","es":"Editar Mallado","c":["mesh"]},{"k":"sub","to":"zoffset","en":"Probe Z Offset","es":"Desfase Z sonda"},{"k":"sub","to":"tramming","en":"Bed Tramming","es":"Recorrido Cama"}]},"menu_controller_fan":{"id":"menu_controller_fan","t":["Controller Fan","Controlador Vent."],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Idle Speed","es":"Velocidad en reposo","min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&controllerFan.settings.idle_speed"},{"k":"tog","en":"Auto Mode","es":"Modo Auto","v":"&controllerFan.settings.auto_mode"},{"k":"edit","en":"Active Speed","es":"Velocidad Activa","c":["fan_auto"],"min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&controllerFan.settings.active_speed"},{"k":"edit","en":"Idle Period","es":"Periodo de reposo","c":["fan_auto"],"min":0,"max":4800,"d":0,"v":"&controllerFan.settings.duration"}]},"_menu_configuration_preheat_settings":{"id":"_menu_configuration_preheat_settings","t":["Preheat $ Conf","Precal. $ Ajuste"],"items":[{"k":"info","x":"ui.get_preheat_label(m)"},{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Fan Speed","es":"Ventilador","min":0,"max":255,"d":0,"u":"%","pct":1,"v":"&editable.uint8"},{"k":"edit","en":"Nozzle","es":"Boquilla","min":5,"max":260,"d":0,"u":"°C","v":"&ui.material_preset[m].hotend_temp"},{"k":"edit","en":"Bed","es":"Cama","min":5,"max":110,"d":0,"u":"°C","v":"&ui.material_preset[m].bed_temp"},{"k":"act","a":"store","en":"Store Settings","es":"Guardar EEPROM"}]},"menu_modos_motor":{"id":"menu_modos_motor","t":["Motor mode: Silent","Modo de motores: Silencioso"],"items":[{"k":"back","en":"Configuration","es":"Configuracion"},{"k":"info","en":"Current: SILENT","es":"Actual: Silencioso"},{"k":"act","a":"motor:silent","en":"Silent","es":"Silencioso"},{"k":"act","a":"motor:mixed","en":"Mixed","es":"Mixto"},{"k":"act","a":"motor:high","en":"High speed","es":"Alta velocidad"}]},"menu_configuration":{"id":"menu_configuration","t":["Configuration","Configuracion"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"menu_temperature","en":"Temperature","es":"Temperatura"},{"k":"sub","to":"menu_advanced_settings","en":"Advanced Settings","es":"Ajustes avanzados"},{"k":"sub","to":"menu_modos_motor","en":"Motor mode: Silent","es":"Modo de motores: Silencioso"},{"k":"sub","to":"zoffset","en":"Probe Z Offset","es":"Desfase Z sonda"},{"k":"sub","to":"menu_controller_fan","en":"Controller Fan","es":"Controlador Vent."},{"k":"tog","en":"Runout Sensor","es":"Sensor de filamento","v":"&runout.enabled"},{"k":"tog","en":"Power Outage","es":"Recuperar tras corte de luz","v":"&recovery.enabled"},{"k":"sub","to":"_menu_configuration_preheat_settings","en":"Preheat $ Conf","es":"Precal. $ Ajuste","lp":1},{"k":"tog","en":"Sound","es":"Sonido","v":"&ui.buzzer_enabled"},{"k":"tog","en":"Night mode","es":"Modo noche","v":"&ui.noche_activo"},{"k":"sub","to":"menu_bed_leveling","en":"Bed Leveling","es":"Nivelando Cama"},{"k":"sub","to":"menu_language","en":"Language","es":"Idioma"},{"k":"sub","to":"menu_info","en":"About Printer","es":"Info. Impresora"},{"k":"sub","to":"about","en":"About","es":"Acerca de"},{"k":"act","a":"store","en":"Store Settings","es":"Guardar EEPROM"},{"k":"act","a":"load","en":"Load Settings","es":"Cargar EEPROM","c":["idle"]},{"k":"act","a":"restore","en":"Restore Defaults","es":"Restaurar a fabrica","c":["idle"]}]},"_menu_temp_filament_op":{"id":"_menu_temp_filament_op","items":[{"k":"info","x":"change_filament_header(mode)"},{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"filop_preset","en":"Preheat $","es":"Precal. $","lp":1},{"k":"edit","en":"Preheat Custom","es":"Precal. manual","min":170,"max":260,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_hotend[extruder].target"}]},"menu_guia":{"id":"menu_guia","t":["Guide and help","Guia y ayuda"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"guide:0","en":"First print","es":"Primera impresion"},{"k":"sub","to":"guide:1","en":"Load filament","es":"Cargar filamento"},{"k":"sub","to":"guide:2","en":"Level & height (paper)","es":"Nivelar y altura (papel)"},{"k":"sub","to":"guide:3","en":"If power is cut","es":"Si se corta la luz"},{"k":"sub","to":"guide:4","en":"If the part lifts off","es":"Si se despega la pieza"},{"k":"sub","to":"guide:5","en":"Basic maintenance","es":"Mantenimiento basico"},{"k":"sub","to":"guide:6","en":"What each menu does","es":"Que significa cada menu"}]},"menu_info_stats":{"id":"menu_info_stats","t":["Printer Stats","Estadisticas Imp."],"items":[{"k":"info","en":"Prints","es":"Impresiones"},{"k":"info","en":"Completed","es":"Completadas"},{"k":"info","en":"Total","es":"Total"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Longest","es":"Mas larga"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Extruded","es":"Extruido"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Lubricate axes","es":"Lubricar ejes"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Check belts","es":"Revisar correas"},{"k":"info","en":"> ","es":"> "}],"static":1},"menu_info_thermistors":{"id":"menu_info_thermistors","t":["Thermistors","Termistores"],"items":[{"k":"info","en":"E1: ATC 104GT-2","es":"E1: ATC 104GT-2"},{"k":"info","en":"Min Temp","es":"Temp. Minima"},{"k":"info","en":"Max Temp","es":"Temp. Maxima"},{"k":"info","x":"TERN(WATCH_HOTENDS, MSG_INFO_RUNAWAY_ON, MSG_INFO_RUNAWAY_OFF)"},{"k":"info","x":"bed_label"},{"k":"info","en":"Min Temp","es":"Temp. Minima"},{"k":"info","en":"Max Temp","es":"Temp. Maxima"},{"k":"info","x":"TERN(WATCH_BED, MSG_INFO_RUNAWAY_ON, MSG_INFO_RUNAWAY_OFF)"}],"static":1},"menu_info_board":{"id":"menu_info_board","t":["Board Info","Info. Controlador"],"items":[{"k":"info","en":"AC_TRI_F1","es":"AC_TRI_F1"},{"k":"info","en":"Baud","es":"Baudios"},{"k":"info","en":"Protocol","es":"Protocolo"},{"k":"info","en":"PSU","es":"F. Aliment."}],"static":1},"menu_info_printer":{"id":"menu_info_printer","t":["Printer Info","Info. Impresora"],"items":[{"k":"info","en":"Kobra Neo Evolution","es":"Kobra Neo Evolution"},{"k":"info","en":"KNE 1.0.0","es":"KNE 1.0.0"},{"k":"info","en":"Nov  6 2026","es":"Nov  6 2026"},{"k":"info","en":"Kobra Neo","es":"Kobra Neo"},{"k":"info","en":"github.com/vdukerios","es":"github.com/vdukerios"},{"k":"info","en":"kobra-neo-evolution","es":"kobra-neo-evolution"},{"k":"info","en":"Extruders","es":"Extrusores"},{"k":"info","x":"TERN_(AUTO_BED_LEVELING_3POINT, MSG_3POINT_LEVELING) TERN_(AUTO_BED_LEVELING_LINEAR, MSG_LINEAR_LEVELING) TERN_(AUTO_BED_LEVELING_BILINEAR, MSG_BILINEAR_LEVELING) TERN_(AUTO_BED_LEVELING_UBL, MSG_UBL_LEVELING) TERN_(MESH_BED_LEVELING, MSG_MESH_LEVELING)"}],"static":1},"menu_info_registro":{"id":"menu_info_registro","items":[{"k":"info","en":"Print log","es":"Registro de impresiones"},{"k":"info","en":"> ","es":"> ","c":["reglines"]},{"k":"info","en":"No records","es":"Sin registros","c":["nolog"]},{"k":"info","en":"Time factor","es":"Factor de tiempo"},{"k":"info","en":"Data points","es":"Datos usados"}],"static":1},"menu_info":{"id":"menu_info","t":["About Printer","Info. Impresora"],"items":[{"k":"back","en":"Main Menu","es":"Menu principal"},{"k":"sub","to":"menu_info_printer","en":"Printer Info","es":"Info. Impresora"},{"k":"sub","to":"menu_info_board","en":"Board Info","es":"Info. Controlador"},{"k":"sub","to":"menu_info_thermistors","en":"Thermistors","es":"Termistores"},{"k":"sub","to":"menu_info_stats","en":"Printer Stats","es":"Estadisticas Imp."},{"k":"act","a":"goto:menu_info_registro","en":"Print log","es":"Registro de impresiones"}]},"menu_job_recovery":{"id":"menu_job_recovery","items":[{"k":"info","en":"Power Outage","es":"Recuperar tras corte de luz"},{"k":"act","a":"recov_resume","en":"Resume Print","es":"Reanudar impresion"},{"k":"act","a":"recov_cancel","en":"Stop Print","es":"Detener impresion"}]},"menu_language":{"id":"menu_language","t":["Language","Idioma"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"lang:en","en":"English","es":"English"},{"k":"act","a":"lang:es","en":"Espanol","es":"Espanol"}]},"menu_main":{"id":"menu_main","items":[{"k":"back","en":"Info Screen","es":"Pantalla de inicio"},{"k":"act","a":"resume","en":"Resume Print","es":"Reanudar impresion","c":["busy","paused"]},{"k":"act","a":"pause","en":"Pause Print","es":"Pausar impresion","c":["busy","notpaused"]},{"k":"confsub","en":"Stop Print","es":"Detener impresion","c":["busy"],"bt":[["Stop","Parar"],["Back","Atras"]],"pr":[["Stop Print","Detener impresion"]]},{"k":"act","a":"repeat_cancel","en":"End Repeat Loops","es":"Fin de bucles","c":["busy","repeat"]},{"k":"sub","to":"menu_tune","en":"Tune","es":"Ajustar","c":["busy"]},{"k":"tog","en":"Night mode","es":"Modo noche","c":["busy"],"v":"&ui.noche_activo"},{"k":"sub","to":"menu_guia","en":"Guide and help","es":"Guia y ayuda","c":["busy"]},{"k":"sub","to":"menu_media","en":" Print","es":"Imprimir desde SD/USB","c":["idle"]},{"k":"sub","to":"menu_move","en":"Move Axis","es":"Mover ejes","c":["idle"]},{"k":"act","a":"level_center","en":"Level and center","es":"Nivelar y centrar","c":["idle"]},{"k":"act","a":"resume","en":"Resume Print","es":"Reanudar impresion","c":["idle","paused"]},{"k":"sub","to":"menu_ready","en":"Prepare","es":"Preparar","c":["idle"]},{"k":"sub","to":"menu_configuration","en":"Configuration","es":"Configuracion","c":["idle"]},{"k":"sub","to":"menu_maintenance","en":"Maintenance","es":"Mantenimiento","c":["idle"]},{"k":"tog","en":"Night mode","es":"Modo noche","c":["idle"],"v":"&ui.noche_activo"},{"k":"sub","to":"menu_guia","en":"Guide and help","es":"Guia y ayuda","c":["idle"]}]},"menu_ready":{"id":"menu_ready","t":["Prepare","Preparar"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"preheat:0","en":"Preheat PLA","es":"Precalentar PLA"},{"k":"sub","to":"preheat:1","en":"Preheat ABS","es":"Precalentar ABS"},{"k":"sub","to":"filop:load","en":"Load Filament","es":"Cargar filamento"},{"k":"sub","to":"filop:unload","en":"Unload Filament","es":"Descargar filamento"}]},"menu_confirmar_impresion":{"id":"menu_confirmar_impresion","items":[{"k":"info","en":"Confirm print","es":"Confirmar impresion"},{"k":"info","en":"File: ","es":"Archivo: "},{"k":"act","a":"[]{ __L114__ print_mode = (pri","en":"Mode: Express","es":"Modo: Express"},{"k":"act","a":"sdcard_start_selected_file","en":"Print","es":"Imprimir"},{"k":"act","a":"[]{ __L119__ ui . goto_previou","en":"Cancel","es":"Cancelar"}]},"menu_media_filelist":{"id":"menu_media_filelist","items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"updir","en":"\\x02 ..","es":"\\x02 ..","c":["subdir"]},{"k":"folder","en":" Print","es":"Imprimir desde SD/USB","c":["isdir"]},{"k":"file","en":"<nombre del archivo en la SD>","es":"<nombre del archivo en la SD>"}]},"menu_media":{"id":"menu_media","t":[" Print","Imprimir desde SD/USB"],"items":[{"k":"back","en":"Back","es":"Atras","c":["card","cardopen"]},{"k":"back","en":"Back","es":"Atras","c":["nocard"]},{"k":"info","a":"attach","en":"Attach ","es":"Iniciar SD/USB","c":["nocard"]}]},"_menu_move_distance":{"id":"_menu_move_distance","items":[{"k":"info","en":"Move X","es":"Mover X","c":["axis"]},{"k":"info","en":"Move Y","es":"Mover Y","c":["axis"]},{"k":"info","en":"Move Z","es":"Mover Z","c":["axis"]},{"k":"info","en":"Move Extruder","es":"Extrusor","c":["axis"]},{"k":"back","en":"Move Axis","es":"Mover ejes"},{"k":"sub","to":"dist:10","en":"Move 10mm","es":"Mover 10mm"},{"k":"sub","to":"dist:1","en":"Move 1mm","es":"Mover 1mm"},{"k":"sub","to":"dist:0.1","en":"Move 0.1mm","es":"Mover 0.1mm"},{"k":"sub","to":"dist:z","x":"tmp","c":["axisZ"]}]},"menu_move":{"id":"menu_move","t":["Move Axis","Mover ejes"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"move:x","en":"Move X","es":"Mover X"},{"k":"sub","to":"move:y","en":"Move Y","es":"Mover Y"},{"k":"sub","to":"move:z","en":"Move Z","es":"Mover Z"},{"k":"act","a":"gcode:home","en":"Auto Home","es":"Llevar al origen"},{"k":"sub","to":"menu_xyz_home","en":"Home","es":"Origen"},{"k":"act","a":"gcode:m84","en":"Disable Steppers","es":"Apagar motores"}]},"menu_xyz_home":{"id":"menu_xyz_home","t":["Home","Origen"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"gcode:home","en":"Auto Home","es":"Llevar al origen"},{"k":"act","a":"gcode:homex","en":"Home X","es":"Origen X"},{"k":"act","a":"gcode:homey","en":"Home Y","es":"Origen Y"},{"k":"act","a":"gcode:homez","en":"Home Z","es":"Origen Z"}]},"menu_preheat_m":{"id":"menu_preheat_m","items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"preheat_both","en":"Preheat $","es":"Precal. $"},{"k":"act","a":"preheat_end","en":"Preheat $ End","es":"Precal. $ Fusor"},{"k":"act","a":"preheat_bed","en":"Preheat $ Bed","es":"Precal. $ Cama"}]},"menu_temperature":{"id":"menu_temperature","t":["Temperature","Temperatura"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Nozzle","es":"Boquilla","min":0,"max":260,"d":0,"u":"°C","live":1,"v":"&editable.celsius"},{"k":"edit","en":"Bed","es":"Cama","min":0,"max":110,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_bed.target"},{"k":"edit","x":"MSG_FIRST_FAN_SPEED","min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&editable.uint8"},{"k":"act","a":"cooldown","en":"Cooldown","es":"Enfriar"}]},"menu_tmc_current":{"id":"menu_tmc_current","t":["Driver Current","Amperaje Controlador"],"items":[{"k":"back","en":"TMC Drivers","es":"Controladores TMC"},{"k":"edit","en":"X","es":"X","min":100,"max":3000,"d":0,"v":"&stepperX.val_mA"},{"k":"edit","en":"Y","es":"Y","min":100,"max":3000,"d":0,"v":"&stepperY.val_mA"},{"k":"edit","en":"Z","es":"Z","min":100,"max":3000,"d":0,"v":"&stepperZ.val_mA"},{"k":"edit","en":"E1","es":"E1","min":100,"max":3000,"d":0,"v":"&stepperE0.val_mA"}]},"menu_tmc_hybrid_thrs":{"id":"menu_tmc_hybrid_thrs","t":["Hybrid Threshold","Limite Hibrido"],"items":[{"k":"back","en":"TMC Drivers","es":"Controladores TMC"}]},"menu_tmc_step_mode":{"id":"menu_tmc_step_mode","t":["Stepping Mode","Modo de pasos"],"items":[{"k":"info","en":"StealthChop Enabled","es":"StealthChop Habilit."},{"k":"back","en":"TMC Drivers","es":"Controladores TMC"}]},"menu_tmc":{"id":"menu_tmc","t":["TMC Drivers","Controladores TMC"],"items":[{"k":"back","en":"Advanced Settings","es":"Ajustes avanzados"},{"k":"sub","to":"menu_tmc_current","en":"Driver Current","es":"Amperaje Controlador"},{"k":"sub","to":"menu_tmc_hybrid_thrs","en":"Hybrid Threshold","es":"Limite Hibrido"},{"k":"sub","to":"menu_tmc_step_mode","en":"Stepping Mode","es":"Modo de pasos"}]},"menu_tune":{"id":"menu_tune","t":["Tune","Ajustar"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Speed","es":"Velocidad","min":10,"max":300,"d":0,"u":"%","live":1,"v":"&feedrate_percentage"},{"k":"edit","en":"Nozzle","es":"Boquilla","min":0,"max":260,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_hotend[0].target"},{"k":"edit","en":"Bed","es":"Cama","min":0,"max":110,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_bed.target"},{"k":"edit","x":"MSG_FIRST_FAN_SPEED","min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&editable.uint8"},{"k":"edit","en":"Flow","es":"Flujo","min":10,"max":300,"d":0,"u":"%","v":"&planner.flow_percentage[active_extruder]"},{"k":"sub","to":"zoffset","en":"Probe Z Offset","es":"Desfase Z sonda"}]},"menu_maintenance":{"id":"menu_maintenance","t":["Maintenance","Mantenimiento"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"conf","en":"Lubricate axes","es":"Lubricar ejes","bt":[["Reset","Reiniciar"],["Cancel","Cancelar"]],"pr":[["Reset","Reiniciar"],["Lubricate axes","Lubricar ejes"]]},{"k":"conf","en":"Check belts","es":"Revisar correas","bt":[["Reset","Reiniciar"],["Cancel","Cancelar"]],"pr":[["Reset","Reiniciar"],["Check belts","Revisar correas"]]}]}},"notes":["menu_advanced_filament: default of 'Fil. Dia.' is n/d in the inventory (shown as n/a)","menu_advanced_filament: range max of 'Unload mm' is an expression (extrude_maxlength), approximated as 100","menu_advanced_filament: default of 'Unload mm' is n/d in the inventory (shown as n/a)","menu_advanced_filament: range max of 'Load mm' is an expression (extrude_maxlength), approximated as 100","menu_advanced_filament: default of 'Load mm' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Min' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Max' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Fact' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-P *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-D *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-P *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-D *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID Autotune *' is n/d in the inventory (shown as n/a)","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled[(A_AXIS)]), approximated as 600.0","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled[(C_AXIS)]), approximated as 8.0","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled . e), approximated as 100.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled[(A_AXIS)]), approximated as 2000.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled[(C_AXIS)]), approximated as 200.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled . e), approximated as 1000.0","menu_probe_offsets: default of 'Probe X Offset' is n/d in the inventory (shown as n/a)","menu_probe_offsets: default of 'Probe Y Offset' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Index X' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Index Y' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Z Value' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Idle Speed' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Active Speed' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Idle Period' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Fan Speed' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Nozzle' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Bed' is n/d in the inventory (shown as n/a)","_menu_temp_filament_op: default of 'Preheat Custom' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'Nozzle' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'Bed' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'MSG_FIRST_FAN_SPEED' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'X' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'Y' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'Z' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'E1' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Speed' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Nozzle' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Bed' is n/d in the inventory (shown as n/a)","menu_tune: default of 'MSG_FIRST_FAN_SPEED' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Flow' is n/d in the inventory (shown as n/a)","PENDING OVERLAY 'Menu restructure' is applied by the generator (APPLY_PENDING_RESTRUCTURE): Maintenance submenu; Bed Leveling, Language, About Printer and About moved to Configuration; Level Bed removed. Disable the flag once the inventory is regenerated from that firmware.","Visibility conditions not understood by the generator (treated as always true): [condicion: !still_out]; [condicion: has2]; [condicion: has3 && (7) >= 5]; [condicion: still_out]"]};
-/* END GENERATED MENU DATA */
+/* LOCAL CANDIDATE: SOURCE NOT COMPILED */
+var MENU_DATA = {"meta":{"screens":42,"items":244,"home_shortcuts":{"focus_order":["menu","preheat","load","unload","level_center","zoffset"],"default_focus":"menu","default_material":"PLA","allowed_duplicates":["preheat","load","unload","level_center","zoffset"],"preserve_original_menu_entries":true,"authorization":"User explicitly requested additional home shortcuts; keep original entries"},"maintenance":{"interval_hours":[100.0,200.0],"clock":"Print job, including preparation; excludes pause and idle","save_interval_seconds":3600},"context_help":{"Back":["Returns to the previous screen\nwithout changing anything.\nIt is always the first option\nof every menu.","Regresa a la pantalla anterior\nsin cambiar nada. Es siempre\nla primera opcion de cada menu."],"Atras":["Returns to the previous screen\nwithout changing anything.\nIt is always the first option\nof every menu.","Regresa a la pantalla anterior\nsin cambiar nada. Es siempre\nla primera opcion de cada menu."],"Advanced Settings":["Advanced settings: acceleration,\nspeeds and more. For experienced\nusers only.","Ajustes avanzados: aceleracion,\nvelocidades y otros. Solo para\nusuarios con experiencia."],"Ajustes avanzados":["Advanced settings: acceleration,\nspeeds and more. For experienced\nusers only.","Ajustes avanzados: aceleracion,\nvelocidades y otros. Solo para\nusuarios con experiencia."],"Probe Z Offset":["Raises or lowers the nozzle in\n0.01 mm steps. Put paper between\nthe nozzle and the bed and look\nfor a slight drag.","Sube o baja la boquilla de a\n0,01 mm. Pon un papel entre la\nboquilla y la cama y busca un\nroce leve."],"Desfase Z sonda":["Raises or lowers the nozzle in\n0.01 mm steps. Put paper between\nthe nozzle and the bed and look\nfor a slight drag.","Sube o baja la boquilla de a\n0,01 mm. Pon un papel entre la\nboquilla y la cama y busca un\nroce leve."],"Temperature":["Adjusts the nozzle and bed\ntemperatures.","Ajusta las temperaturas de la\nboquilla y de la cama."],"Temperatura":["Adjusts the nozzle and bed\ntemperatures.","Ajusta las temperaturas de la\nboquilla y de la cama."],"Bed Leveling":["Advanced bed tools: edit the mesh,\nadjust the Z offset and level the\nbed corners (bed tramming).","Herramientas de cama: editar la\nmalla, ajustar el desfase Z y\nnivelar las esquinas (recorrido)."],"Nivelando Cama":["Advanced bed tools: edit the mesh,\nadjust the Z offset and level the\nbed corners (bed tramming).","Herramientas de cama: editar la\nmalla, ajustar el desfase Z y\nnivelar las esquinas (recorrido)."],"Level Bed":["Homes, probes the bed at several\npoints and moves to the center\nso you can set the height.","Va a origen, mide la cama en\nvarios puntos y se coloca al\ncentro para ajustar la altura."],"Nivelar Cama":["Homes, probes the bed at several\npoints and moves to the center\nso you can set the height.","Va a origen, mide la cama en\nvarios puntos y se coloca al\ncentro para ajustar la altura."],"Bed Tramming":["Guides you through the bed\ncorners to level its height\nwith the screws.","Te guia por las esquinas de la\ncama para igualar su altura\ncon los tornillos."],"Recorrido Cama":["Guides you through the bed\ncorners to level its height\nwith the screws.","Te guia por las esquinas de la\ncama para igualar su altura\ncon los tornillos."],"Store Settings":["Saves all settings to the\nprinter's memory so they are\nkept after power off.","Guarda todos los ajustes en la\nmemoria de la impresora para\nque sigan al apagarla."],"Guardar EEPROM":["Saves all settings to the\nprinter's memory so they are\nkept after power off.","Guarda todos los ajustes en la\nmemoria de la impresora para\nque sigan al apagarla."],"Configuration":["Sound, power outage recovery,\nfilament sensor and more\nprinter settings.","Sonido, recuperacion tras corte\nde luz, sensor de filamento y\nmas ajustes de la impresora."],"Configuracion":["Sound, power outage recovery,\nfilament sensor and more\nprinter settings.","Sonido, recuperacion tras corte\nde luz, sensor de filamento y\nmas ajustes de la impresora."],"Runout Sensor":["If on, the printer stops when\nthe filament runs out so you\ncan change it.","Si esta activado, la impresora\nse detiene al acabarse el\nfilamento para que lo cambies."],"Sensor de filamento":["If on, the printer stops when\nthe filament runs out so you\ncan change it.","Si esta activado, la impresora\nse detiene al acabarse el\nfilamento para que lo cambies."],"Power Outage":["If on, the printer records its\nprogress and, if power fails,\noffers to continue the part.","Si esta activado, la impresora\nanota el avance y, si se va la\nluz, ofrece continuar la pieza."],"Recuperar tras corte de luz":["If on, the printer records its\nprogress and, if power fails,\noffers to continue the part.","Si esta activado, la impresora\nanota el avance y, si se va la\nluz, ofrece continuar la pieza."],"Sound":["Turns the printer beeps on or\noff. A click switches it.","Activa o desactiva los pitidos\nde la impresora. Un clic\nalterna entre Si y No."],"Sonido":["Turns the printer beeps on or\noff. A click switches it.","Activa o desactiva los pitidos\nde la impresora. Un clic\nalterna entre Si y No."],"Load Settings":["Loads the saved settings from\nmemory, discarding unsaved\nchanges.","Carga los ajustes guardados en\nla memoria, descartando los\ncambios no guardados."],"Cargar EEPROM":["Loads the saved settings from\nmemory, discarding unsaved\nchanges.","Carga los ajustes guardados en\nla memoria, descartando los\ncambios no guardados."],"Restore Defaults":["Resets settings to factory\nvalues. Does not delete files\non the SD card.","Devuelve los ajustes a los\nvalores de fabrica. No borra\nlos archivos de la SD."],"Restaurar a fabrica":["Resets settings to factory\nvalues. Does not delete files\non the SD card.","Devuelve los ajustes a los\nvalores de fabrica. No borra\nlos archivos de la SD."],"Resume Print":["Continues the print from where\nit was paused.","Continua la impresion desde\ndonde se pauso."],"Reanudar impresion":["Continues the print from where\nit was paused.","Continua la impresion desde\ndonde se pauso."],"Stop Print":["Cancels the print. Asks for\nconfirmation. The print cannot\nbe resumed afterwards.","Cancela la impresion. Pide\nconfirmacion. La impresion no\nse puede reanudar despues."],"Detener impresion":["Cancels the print. Asks for\nconfirmation. The print cannot\nbe resumed afterwards.","Cancela la impresion. Pide\nconfirmacion. La impresion no\nse puede reanudar despues."],"Info Screen":["Returns to the main screen with\ntemperatures and print progress.","Vuelve a la pantalla principal\ncon las temperaturas y el\navance de la impresion."],"Pantalla de inicio":["Returns to the main screen with\ntemperatures and print progress.","Vuelve a la pantalla principal\ncon las temperaturas y el\navance de la impresion."],"Pause Print":["Stops the print without losing\nprogress. Resume from this same\nmenu.","Detiene la impresion sin perder\nel avance. Reanuda desde este\nmismo menu."],"Pausar impresion":["Stops the print without losing\nprogress. Resume from this same\nmenu.","Detiene la impresion sin perder\nel avance. Reanuda desde este\nmismo menu."],"Tune":["Changes speed, flow or fine Z\nheight live, without stopping\nthe print.","Cambia en vivo la velocidad, el\nflujo o la altura Z fina sin\ndetener la impresion."],"Ajustar":["Changes speed, flow or fine Z\nheight live, without stopping\nthe print.","Cambia en vivo la velocidad, el\nflujo o la altura Z fina sin\ndetener la impresion."],"Print":["Lists the files on the SD card.\nPick one to print it. Filament\nmust be loaded beforehand.","Muestra los archivos de la\ntarjeta SD. Elige uno para\nimprimirlo. Antes debes tener\nfilamento cargado."],"Imprimir desde SD/USB":["Lists the files on the SD card.\nPick one to print it. Filament\nmust be loaded beforehand.","Muestra los archivos de la\ntarjeta SD. Elige uno para\nimprimirlo. Antes debes tener\nfilamento cargado."],"Move Axis":["Moves the head or the bed by\nhand. Pick an axis, turn the\nwheel to move, click to finish.","Mueve la cabeza o la cama a\nmano. Elige un eje, gira la\nrueda para avanzar o retroceder\ny clic para terminar."],"Mover ejes":["Moves the head or the bed by\nhand. Pick an axis, turn the\nwheel to move, click to finish.","Mueve la cabeza o la cama a\nmano. Elige un eje, gira la\nrueda para avanzar o retroceder\ny clic para terminar."],"Level and center":["Homes, measures the bed mesh\nand moves the nozzle to the\ncenter to set the Z height.\nClick to cancel.","Va a origen, mide la malla de la\ncama y lleva la boquilla al\ncentro para ajustar la altura Z.\nClic para cancelar."],"Nivelar y centrar":["Homes, measures the bed mesh\nand moves the nozzle to the\ncenter to set the Z height.\nClick to cancel.","Va a origen, mide la malla de la\ncama y lleva la boquilla al\ncentro para ajustar la altura Z.\nClic para cancelar."],"Prepare":["Heat, load and unload filament.\nUsed before printing.","Calienta, carga y descarga\nfilamento. Se usa antes de\nimprimir."],"Preparar":["Heat, load and unload filament.\nUsed before printing.","Calienta, carga y descarga\nfilamento. Se usa antes de\nimprimir."],"About":["Shows the project name, the\nsoftware version, the build\nvolume and the project link.","Muestra el nombre del proyecto,\nla version del programa, el\nvolumen de impresion y el enlace\ndel proyecto."],"Acerca de":["Shows the project name, the\nsoftware version, the build\nvolume and the project link.","Muestra el nombre del proyecto,\nla version del programa, el\nvolumen de impresion y el enlace\ndel proyecto."],"Preheat PLA":["Heats nozzle and bed to the\ntypical PLA temperature\n(200 and 60 degrees).","Calienta boquilla y cama a la\ntemperatura tipica de PLA\n(200 y 60 grados)."],"Precalentar PLA":["Heats nozzle and bed to the\ntypical PLA temperature\n(200 and 60 degrees).","Calienta boquilla y cama a la\ntemperatura tipica de PLA\n(200 y 60 grados)."],"Preheat ABS":["Heats nozzle and bed to the\ntypical ABS temperature\n(240 and 110 degrees).","Calienta boquilla y cama a la\ntemperatura tipica de ABS\n(240 y 110 grados)."],"Precalentar ABS":["Heats nozzle and bed to the\ntypical ABS temperature\n(240 and 110 degrees).","Calienta boquilla y cama a la\ntemperatura tipica de ABS\n(240 y 110 grados)."],"Load Filament":["Heats the nozzle and lets you\npush the filament in by hand\nwhile the motor pulls it until\nplastic comes out.\nClick to stop.","Calienta la boquilla y te deja\nempujar el filamento a mano\nmientras el motor lo jala hasta\nque salga plastico.\nClic para parar."],"Cargar filamento":["Heats the nozzle and lets you\npush the filament in by hand\nwhile the motor pulls it until\nplastic comes out.\nClick to stop.","Calienta la boquilla y te deja\nempujar el filamento a mano\nmientras el motor lo jala hasta\nque salga plastico.\nClic para parar."],"Unload Filament":["Heats the nozzle and retracts\nthe filament until you click.\nThen pull it out by hand.","Calienta la boquilla y retrae el\nfilamento hasta que hagas clic.\nLuego sacalo con la mano."],"Descargar filamento":["Heats the nozzle and retracts\nthe filament until you click.\nThen pull it out by hand.","Calienta la boquilla y retrae el\nfilamento hasta que hagas clic.\nLuego sacalo con la mano."],"Mode: Express":["Express uses the saved bed mesh\nand skips measuring. Full\nmeasures the bed hot before\nprinting (slower, more exact).\nNo saved mesh: runs Full.","Express usa la malla guardada y\nno mide. Completo mide la cama\nen caliente antes de imprimir\n(mas lento, mas exacto).\nSin malla guardada, hace Completo"],"Modo: Express":["Express uses the saved bed mesh\nand skips measuring. Full\nmeasures the bed hot before\nprinting (slower, more exact).\nNo saved mesh: runs Full.","Express usa la malla guardada y\nno mide. Completo mide la cama\nen caliente antes de imprimir\n(mas lento, mas exacto).\nSin malla guardada, hace Completo"],"Move X":["Moves the head sideways. Turn\nthe wheel to move; click ends.","Mueve la cabeza en horizontal.\nGira la rueda para avanzar o\nretroceder; clic termina."],"Mover X":["Moves the head sideways. Turn\nthe wheel to move; click ends.","Mueve la cabeza en horizontal.\nGira la rueda para avanzar o\nretroceder; clic termina."],"Move Y":["Moves the bed forward or back.\nTurn the wheel; click ends.","Mueve la cama hacia adelante o\natras. Gira la rueda; clic\ntermina."],"Mover Y":["Moves the bed forward or back.\nTurn the wheel; click ends.","Mueve la cama hacia adelante o\natras. Gira la rueda; clic\ntermina."],"Move Z":["Raises or lowers the nozzle.\nTurn the wheel; click ends.\nCareful not to hit the bed.","Sube o baja la boquilla. Gira\nla rueda; clic termina. Cuidado\nde no chocar con la cama."],"Mover Z":["Raises or lowers the nozzle.\nTurn the wheel; click ends.\nCareful not to hit the bed.","Sube o baja la boquilla. Gira\nla rueda; clic termina. Cuidado\nde no chocar con la cama."],"Move Extruder":["Moves the extruder motor to\npush or retract filament. The\nnozzle must be hot.","Mueve el motor del extrusor para\nempujar o retraer filamento.\nLa boquilla debe estar caliente."],"Extrusor":["Moves the extruder motor to\npush or retract filament. The\nnozzle must be hot.","Mueve el motor del extrusor para\nempujar o retraer filamento.\nLa boquilla debe estar caliente."],"Move 10mm":["Each wheel turn moves 10 mm.\nFor long moves.","Cada giro de la rueda mueve\n10 mm. Para recorridos largos."],"Mover 10mm":["Each wheel turn moves 10 mm.\nFor long moves.","Cada giro de la rueda mueve\n10 mm. Para recorridos largos."],"Move 1mm":["Each wheel turn moves 1 mm.\nGeneral use.","Cada giro de la rueda mueve\n1 mm. Uso general."],"Mover 1mm":["Each wheel turn moves 1 mm.\nGeneral use.","Cada giro de la rueda mueve\n1 mm. Uso general."],"Move 0.1mm":["Each wheel turn moves 0.1 mm.\nFor very fine adjustments.","Cada giro de la rueda mueve\n0,1 mm. Sirve para ajustes\nmuy finos."],"Mover 0.1mm":["Each wheel turn moves 0.1 mm.\nFor very fine adjustments.","Cada giro de la rueda mueve\n0,1 mm. Sirve para ajustes\nmuy finos."],"Auto Home":["Sends all three axes to their\norigin. Needed before moving\naxes by hand or printing.","Lleva los tres ejes a su origen.\nNecesario antes de mover ejes\na mano o de imprimir."],"Llevar al origen":["Sends all three axes to their\norigin. Needed before moving\naxes by hand or printing.","Lleva los tres ejes a su origen.\nNecesario antes de mover ejes\na mano o de imprimir."],"Disable Steppers":["Releases the motors so you can\nmove the head by hand. You must\nhome the axes again afterwards.","Libera los motores para mover la\ncabeza con la mano. Despues hay\nque ir a origen otra vez."],"Apagar motores":["Releases the motors so you can\nmove the head by hand. You must\nhome the axes again afterwards.","Libera los motores para mover la\ncabeza con la mano. Despues hay\nque ir a origen otra vez."],"Flow":["Percentage of plastic extruded.\n100% is normal. Increase it if\nthe print lacks material.","Porcentaje de plastico que se\nextruye. 100% es lo normal.\nSubir si falta material."],"Flujo":["Percentage of plastic extruded.\n100% is normal. Increase it if\nthe print lacks material.","Porcentaje de plastico que se\nextruye. 100% es lo normal.\nSubir si falta material."],"Maintenance":["Reminders to lubricate the axes\nand check the belts. Reset a\nreminder after doing the task.","Avisos para lubricar los ejes\ny revisar las correas. Reinicia\nun aviso al hacer la tarea."],"Z offset":["Raises or lowers the nozzle in\n0.01 mm steps. Put paper between\nthe nozzle and the bed and look\nfor a slight drag.","Sube o baja la boquilla de a\n0,01 mm. Pon un papel entre la\nboquilla y la cama y busca un\nroce leve."],"Babystep Z":["Live fine adjustment of the Z\nheight during the first layer.","Ajuste fino de la altura Z en\nvivo, durante la primera capa."],"Mode: Full":["Express uses the saved bed mesh\nand skips measuring. Full\nmeasures the bed hot before\nprinting (slower, more exact).\nNo saved mesh: runs Full.","Express usa la malla guardada y\nno mide. Completo mide la cama\nen caliente antes de imprimir\n(mas lento, mas exacto).\nSin malla guardada, hace Completo"],"Mantenimiento":["Reminders to lubricate the axes\nand check the belts. Reset a\nreminder after doing the task.","Avisos para lubricar los ejes\ny revisar las correas. Reinicia\nun aviso al hacer la tarea."],"Micropaso Z":["Live fine adjustment of the Z\nheight during the first layer.","Ajuste fino de la altura Z en\nvivo, durante la primera capa."],"Guardar ajustes":["Saves all settings to the\nprinter's memory so they are\nkept after power off.","Guarda todos los ajustes en la\nmemoria de la impresora para\nque sigan al apagarla."],"Recargar guardados":["Loads the saved settings from\nmemory, discarding unsaved\nchanges.","Carga los ajustes guardados en\nla memoria, descartando los\ncambios no guardados."],"Borrar todo (fabrica)":["Resets settings to factory\nvalues. Does not delete files\non the SD card.","Devuelve los ajustes a los\nvalores de fabrica. No borra\nlos archivos de la SD."],"Modo: Completo":["Express uses the saved bed mesh\nand skips measuring. Full\nmeasures the bed hot before\nprinting (slower, more exact).\nNo saved mesh: runs Full.","Express usa la malla guardada y\nno mide. Completo mide la cama\nen caliente antes de imprimir\n(mas lento, mas exacto).\nSin malla guardada, hace Completo"]},"active_items":244,"overlay":false,"unreachable":[],"inventory_screens":97,"uniqueness":{"duplicate_routes":0,"scenarios":768,"scope":"Standard menus by printer state; explicit user-approved home shortcuts are additional entries","reviewed_source_checks":{"no_hidden_height_double_click":true,"maintenance_main":true,"information_single_route":true,"recipe_without_save":true,"calibration_without_save_shortcuts":true,"extruder_steps_only_in_calibration":true,"automatic_tuning_only_in_calibration":true,"cooldown_only_in_prepare":true,"home_all_only_in_move":true}},"provenance":{"state":"local_source_candidate_not_compiled","firmware_commit":"0bc2e73","source_hashes":{"firmware\\source\\Marlin\\Configuration.h":"2c1de28f171846075d2b04139dfb257d06190916379f017e8152eda928ee133b","firmware\\source\\Marlin\\Configuration_adv.h":"eb6ec7c7f04622ecc18162aeb817d2ff662f58d518bfbb7c1c6304e402de08be","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_advanced.cpp":"cc642eaa9904ed4905ae5ac0f15bf2678aa1da745afa6688991c7cf86a0e53cc","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_backlash.cpp":"396eb0ba12335655e8456de8aa3a8cf5e6a43f9bc95b94f80ce7f49cc137260e","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_bed_corners.cpp":"a29e9204c43bcc99f934f3ac449239be4a8b0366ad00576bac5689b04a2ce7d0","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_bed_leveling.cpp":"7cf7a7d61525f6e8f232793b3e48ddefbf0ef643a17b1d919bbfa43370f598d5","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_cancelobject.cpp":"d3924eee7eeea65fa929b4c50732aab164576f284819c6d4a120ffc606a959f2","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_configuration.cpp":"ea2f798ff81377a1145b18cce25322132c4d61e3accce291d52da61c2832ba92","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_delta_calibrate.cpp":"26752c45ab2f4a400e7923cd568742a537968ca8e0e76255236b51607fb9e30b","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_filament.cpp":"40787475105514f39eec43327f85efd91d2e27d1b7536678246b749c04686016","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_game.cpp":"4fc3d7cc4c76ed2809539bbb7e8759ef886051cb1f9008e3ff50e7bc14c66914","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_guia.cpp":"502a1b7c19284b48e5feaf9ba8b1a0ac37fc32c64c2bc84d665ef1f2694600b8","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_info.cpp":"6329d4906be9b59d8ea17f94bc328cf4e3443c758e5610b094ecb9002634c0ef","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_job_recovery.cpp":"bae241ddb796245a748b2ef490d8ad9760216772effcc0cf466c86306e220fe4","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_language.cpp":"fd31aee286256c048d779a4e5e86e6cbedf48acff5e040ca60cda54330072f62","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_led.cpp":"e157f3490565c405425ff8fcff3b33256e83653f7c79be22a78927c0bc3b0b10","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_main.cpp":"1274770371802acc8f336cc818b9a9f937a7f1ecf037d782fc233bc388bbd97c","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_media.cpp":"ca60969ab2d219b49b9c95ff028992d59887335f8e212ae51b6c70f379217aee","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_mixer.cpp":"f70e184b93bbaf2da67317c9dc0adec627954800bba98bfc32a555664ca6d1f3","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_mmu2.cpp":"6a7128f8672fc1618ea000683aebf0015f927dfbfbc771ed377c1f5d15526c6d","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_motion.cpp":"30f70d32812713211f8f367034d18a1df2c5b57550a79eb18437f523a94a75f7","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_password.cpp":"a710e2b77c5cdb399a6ee4ec3031ee3cce7275988e60f9591ea0b73306d4709d","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_power_monitor.cpp":"9a6322c1527974bac4dbce17e779d438f3b3d3f5079aa4afd7d20709a2407dd9","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_probe_offset.cpp":"c744f86fdabd50b0f5019168fd8dbd9e833128664b8ffdd079dd397b9afe2402","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_spindle_laser.cpp":"9feb9ef4e5103139756eb0136285098150c4c4486c4ec6ff10e84740ebbb58b6","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_temperature.cpp":"2de63b09d9c6079bf7ed7f12c046dfbfd3f6d1d64b30691cac624d806e4b7f90","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_tmc.cpp":"9d8df5d9daff87fd245efdda2a5fb22a262da94b423cb45ddecd471e8ae1319a","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_touch_screen.cpp":"2694eb4e7d095ccca51d7d36504c02e4c573524e68587ba4ab3b7eaa46c4f6cb","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_tramming.cpp":"1c976f63346162416cedf2c8f4c52ad35b28fcb8166d4251afebcd38e3e95f66","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_tune.cpp":"dc0cbbfc4702026b6f0f8af8c71f6431a66c83868b6c854c47d58df5979dd58c","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_ubl.cpp":"0bc6e12e741f24b6ca28ec9162a859b1bd4f25060e345a452a465a77758a5034","firmware\\source\\Marlin\\src\\module\\settings.cpp":"9e2f42da890649576b53216960b66967adf75660ed2e66c3ccbb57cf36876067","firmware\\source\\Marlin\\src\\module\\printcounter.cpp":"df35597e85fb3ae8dcdb81748d5aff9790953f3da6ede20dd78c0fb37927bca1","firmware\\source\\Marlin\\src\\module\\printcounter.h":"6872b89d60f62b3010dbb9ac63d1426ccd27d741b63a191dd6d26e8644410524","firmware\\source\\Marlin\\src\\inc\\valentin\\kne_limits.h":"ebe1e904bf78ca066fb91517eb53ef80d1b55e0d565de686008463c20fcaa1c7","firmware\\source\\Marlin\\src\\lcd\\menu\\menu_guia_textos.h":"c01a52165773cd2ae66cdba13cef073297142730bbc1e5387d83aa74dccc3a52","firmware\\source\\Marlin\\src\\lcd\\language\\language_en.h":"882f0befeedc88815f34e139bb603e7523d5242b99547b7c58be7e22249ec250","firmware\\source\\Marlin\\src\\lcd\\language\\language_es.h":"5c0ea9a4b1966ed53c60a9f810768061a984503989ccd07c92286d63bd2a22e6","firmware\\source\\Marlin\\src\\lcd\\marlinui.cpp":"ee5240e5b9bc6d40beb8ead3594a5055685a91f5b47555c0d0125ca67c2cf54e","firmware\\source\\Marlin\\src\\lcd\\tft\\ui_320x240.cpp":"1dc775bcf0f187edaf5891c1c88c80998d7174edf11bbbb7b7085e48900ea1e8","firmware\\source\\Marlin\\src\\lcd\\tft\\ui_320x240.h":"3ad9ca94787c1b2c3bf8960f37446fb65cc3aea501a2bd3ab45de72c653cddbe","firmware\\source\\Marlin\\src\\lcd\\tft\\ui_common.cpp":"fa40cfe2260756220df6df8eb7065db9086d9f13187c446a3802cabe52cac10c","firmware\\source\\Marlin\\src\\lcd\\tft\\tft_color.h":"29a7eb4720fb19db1fe3973e09e8eb094746119ebc4f18c55bbe707daae6b468"},"source_dirty":true,"inventory_sha256":"f512d746144d966373c1c6f63515b35952211b74b0a9f8f32f94173fcc995b7b","generator":"build_kne_candidate.py","inventory_regenerated":false}},"screens":{"menu_advanced_filament":{"id":"menu_advanced_filament","t":["Filament","Filamento"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"tog","en":"E in mm","es":"E en mm","v":"&parser.volumetric_enabled"},{"k":"edit","en":"Fil. Dia.","es":"Diametro Fil.","c":["volumetric"],"min":1.5,"max":3.25,"d":2,"live":1,"v":"&planner.filament_size[active_extruder]","df":1.75,"u":"mm"},{"k":"edit","en":"Unload mm","es":"Descarga mm","min":0,"max":300.0,"d":0,"ap":1,"live":1,"v":"&fc_settings[active_extruder].unload_length","df":100.0,"u":"mm"},{"k":"edit","en":"Load mm","es":"Carga mm","min":0,"max":300.0,"d":0,"ap":1,"live":1,"v":"&fc_settings[active_extruder].load_length","df":0.0,"u":"mm"}]},"menu_advanced_temperature":{"id":"menu_advanced_temperature","t":["Temperature service","Servicio de temperatura"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"tog","en":"Automatic temperature","es":"Temperatura automatica","v":"&planner.autotemp_enabled"},{"k":"edit","en":"Automatic minimum","es":"Minimo automatico","v":"&planner.autotemp_min","min":0,"max":260,"df":210,"d":0,"u":"C"},{"k":"edit","en":"Automatic maximum","es":"Maximo automatico","v":"&planner.autotemp_max","min":0,"max":260,"df":250,"d":0,"u":"C"},{"k":"edit","en":"Automatic factor","es":"Factor automatico","v":"&planner.autotemp_factor","min":0,"max":10,"df":0.1,"d":2},{"k":"edit","en":"Hotend PID P","es":"Boquilla PID P","v":"&PID_PARAM(Kp,0)","min":1,"max":9990,"df":18.09,"d":2},{"k":"edit","en":"Hotend PID I","es":"Boquilla PID I","v":"&PID_PARAM(Ki,0)","min":0.01,"max":9990,"df":1.14,"d":2},{"k":"edit","en":"Hotend PID D","es":"Boquilla PID D","v":"&PID_PARAM(Kd,0)","min":1,"max":9990,"df":71.47,"d":2},{"k":"edit","en":"Bed PID P","es":"Cama PID P","v":"&thermalManager.temp_bed.pid.Kp","min":1,"max":9990,"df":97.1,"d":2},{"k":"edit","en":"Bed PID I","es":"Cama PID I","v":"&thermalManager.temp_bed.pid.Ki","min":0.01,"max":9990,"df":1.41,"d":2},{"k":"edit","en":"Bed PID D","es":"Cama PID D","v":"&thermalManager.temp_bed.pid.Kd","min":1,"max":9990,"df":1675.16,"d":2}]},"menu_advanced_velocity":{"id":"menu_advanced_velocity","t":["Motion speed limits","Limites de velocidad"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Max X speed","es":"Vel. maxima X","v":"&planner.settings.max_feedrate_mm_s[_AXIS(A)]","min":1,"max":600.0,"df":300.0,"d":0,"u":"mm/s"},{"k":"edit","en":"Max Y speed","es":"Vel. maxima Y","v":"&planner.settings.max_feedrate_mm_s[_AXIS(B)]","min":1,"max":600.0,"df":300.0,"d":0,"u":"mm/s"},{"k":"edit","en":"Max Z speed","es":"Vel. maxima Z","v":"&planner.settings.max_feedrate_mm_s[_AXIS(C)]","min":1,"max":10.0,"df":4.0,"d":0,"u":"mm/s"},{"k":"edit","en":"Max E speed","es":"Vel. maxima E","v":"&planner.settings.max_feedrate_mm_s[E_AXIS]","min":1,"max":50.0,"df":50.0,"d":0,"u":"mm/s"},{"k":"edit","en":"Minimum print speed","es":"Vel. minima impresion","v":"&planner.settings.min_feedrate_mm_s","min":0,"max":9999,"df":0.0,"d":0,"u":"mm/s"},{"k":"edit","en":"Minimum travel speed","es":"Vel. minima viaje","v":"&planner.settings.min_travel_feedrate_mm_s","min":0,"max":9999,"df":0.0,"d":0,"u":"mm/s"}]},"menu_advanced_acceleration":{"id":"menu_advanced_acceleration","t":["Acceleration","Aceleracion"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Print acceleration","es":"Aceleracion impresion","v":"&planner.settings.acceleration","min":25,"max":1000.0,"df":500.0,"d":0,"step":25,"max_from":"xy_acceleration","u":"mm/s2"},{"k":"edit","en":"Retract acceleration","es":"Aceleracion retraccion","v":"&planner.settings.retract_acceleration","min":100,"max":500.0,"df":500.0,"d":0,"max_from":"e_acceleration","u":"mm/s2"},{"k":"edit","en":"Travel acceleration","es":"Aceleracion viaje","v":"&planner.settings.travel_acceleration","min":25,"max":1000.0,"df":1000.0,"d":0,"step":25,"max_from":"xy_acceleration","u":"mm/s2"},{"k":"edit","en":"Max X acceleration","es":"Acel. maxima X","v":"&planner.settings.max_acceleration_mm_per_s2[_AXIS(A)]","min":100,"max":6000.0,"df":1000.0,"d":0,"step":25,"u":"mm/s2"},{"k":"edit","en":"Max Y acceleration","es":"Acel. maxima Y","v":"&planner.settings.max_acceleration_mm_per_s2[_AXIS(B)]","min":100,"max":6000.0,"df":1000.0,"d":0,"step":25,"u":"mm/s2"},{"k":"edit","en":"Max Z acceleration","es":"Acel. maxima Z","v":"&planner.settings.max_acceleration_mm_per_s2[_AXIS(C)]","min":10,"max":200.0,"df":100.0,"d":0,"step":25,"u":"mm/s2"},{"k":"edit","en":"Max E acceleration","es":"Acel. maxima E","v":"&planner.settings.max_acceleration_mm_per_s2[E_AXIS]","min":100,"max":10000.0,"df":500.0,"d":0,"step":25,"u":"mm/s2"}]},"menu_probe_offsets":{"id":"menu_probe_offsets","t":["Probe Offsets","Desfases sonda"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Probe X Offset","es":"Desfase X sonda","min":-220,"max":220,"d":2,"u":"mm","v":"&probe.offset.x","df":37.5},{"k":"edit","en":"Probe Y Offset","es":"Desfase Y sonda","min":-220,"max":220,"d":2,"u":"mm","v":"&probe.offset.y","df":4.5}]},"menu_advanced_steps_per_mm":{"id":"menu_advanced_steps_per_mm","t":["Steps per mm","Pasos por mm"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"X steps","es":"Pasos X","v":"&planner.settings.axis_steps_per_mm[_AXIS(A)]","min":5,"max":9999,"df":80.0,"d":1,"u":"steps/mm"},{"k":"edit","en":"Y steps","es":"Pasos Y","v":"&planner.settings.axis_steps_per_mm[_AXIS(B)]","min":5,"max":9999,"df":80.0,"d":1,"u":"steps/mm"},{"k":"edit","en":"Z steps","es":"Pasos Z","v":"&planner.settings.axis_steps_per_mm[_AXIS(C)]","min":5,"max":9999,"df":400.0,"d":1,"u":"steps/mm"}]},"menu_advanced_settings":{"id":"menu_advanced_settings","t":["Manual adjustments","Ajustes manuales"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"homeoff","en":"Set Home Offsets","es":"Ajustar desfases"},{"k":"sub","to":"menu_advanced_velocity","en":"Velocity","es":"Velocidad"},{"k":"sub","to":"menu_advanced_acceleration","en":"Acceleration","es":"Acceleracion"},{"k":"edit","en":"Junction Dev","es":"Desvi. Union","min":0.001,"max":0.3,"d":3,"df":0.013,"v":"&planner.junction_deviation_mm"},{"k":"sub","to":"menu_probe_offsets","en":"Probe Offsets","es":"Desfases sonda","c":["idle"]},{"k":"sub","to":"menu_advanced_steps_per_mm","en":"Steps/mm","es":"Pasos/mm","c":["idle"]},{"k":"sub","to":"menu_tmc","en":"TMC Drivers","es":"Controladores TMC"},{"k":"sub","to":"menu_advanced_temperature","en":"Temperature","es":"Temperatura"},{"k":"sub","to":"menu_advanced_filament","en":"Filament","es":"Filamento"}]},"menu_edit_mesh":{"id":"menu_edit_mesh","t":["Edit Mesh","Editar Mallado"],"items":[{"k":"back","en":"Bed Leveling","es":"Nivelando Cama"},{"k":"edit","en":"Index X","es":"Indice X","min":0,"max":5,"d":0,"v":"&xind"},{"k":"edit","en":"Index Y","es":"Indice Y","min":0,"max":5,"d":0,"v":"&yind"},{"k":"edit","en":"Z Value","es":"Valor Z","min":-2,"max":2,"d":3,"live":1,"v":"&Z_VALUES(xind,yind)"}]},"menu_controller_fan":{"id":"menu_controller_fan","t":["Controller Fan","Controlador Vent."],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Idle Speed","es":"Velocidad en reposo","min":0,"max":100,"d":0,"u":"%","pct":1,"live":1,"v":"&controllerFan.settings.idle_speed","df":0},{"k":"tog","en":"Auto Mode","es":"Modo Auto","v":"&controllerFan.settings.auto_mode"},{"k":"edit","en":"Active Speed","es":"Velocidad Activa","c":["fan_auto"],"min":0,"max":100,"d":0,"u":"%","pct":1,"live":1,"v":"&controllerFan.settings.active_speed","df":100},{"k":"edit","en":"Idle Period","es":"Periodo de reposo","c":["fan_auto"],"min":0,"max":4800,"d":0,"v":"&controllerFan.settings.duration","df":60,"u":"s"}]},"_menu_configuration_preheat_settings":{"id":"_menu_configuration_preheat_settings","t":["Preheat $ Conf","Precal. $ Ajuste"],"items":[{"k":"info","x":"ui.get_preheat_label(m)"},{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Fan Speed","es":"Ventilador","min":0,"max":255,"d":0,"u":"%","pct":1,"v":"&editable.uint8","df":0},{"k":"edit","en":"Nozzle","es":"Boquilla","min":5,"max":260,"d":0,"u":"°C","v":"&ui.material_preset[m].hotend_temp"},{"k":"edit","en":"Bed","es":"Cama","min":5,"max":110,"d":0,"u":"°C","v":"&ui.material_preset[m].bed_temp"},{"k":"info","en":"Save in Saved settings","es":"Guarda en Ajustes guardados"}]},"menu_modos_motor":{"id":"menu_modos_motor","t":["Motor mode: Silent","Modo de motores: Silencioso"],"items":[{"k":"back","en":"Configuration","es":"Configuracion"},{"k":"info","en":"Current: SILENT","es":"Actual: Silencioso"},{"k":"act","a":"motor:silent","en":"Silent","es":"Silencioso"},{"k":"act","a":"motor:mixed","en":"Mixed","es":"Mixto"},{"k":"act","a":"motor:high","en":"Force","es":"Fuerza"}]},"menu_configuration":{"id":"menu_configuration","t":["Configuration","Configuracion"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","en":"Calibration","es":"Calibracion","to":"menu_kne_calibration"},{"k":"sub","en":"Materials","es":"Materiales","to":"menu_kne_materials"},{"k":"sub","en":"Motor mode","es":"Modo de motores","to":"menu_modos_motor"},{"k":"sub","en":"Preferences","es":"Preferencias","to":"menu_kne_preferences"},{"k":"sub","en":"Saved settings","es":"Ajustes guardados","to":"menu_kne_saved_settings"},{"k":"sub","en":"Information","es":"Informacion","to":"menu_info"},{"k":"sub","en":"Service","es":"Servicio","to":"menu_kne_service"}]},"menu_guia":{"id":"menu_guia","t":["Guide and help","Guia y ayuda"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"guide:0","en":"First print","es":"Primera impresion"},{"k":"sub","to":"guide:1","en":"Load filament","es":"Cargar filamento"},{"k":"sub","to":"guide:2","en":"Level & height (paper)","es":"Nivelar y altura (papel)"},{"k":"sub","to":"guide:3","en":"If power is cut","es":"Si se corta la luz"},{"k":"sub","to":"guide:4","en":"If the part lifts off","es":"Si se despega la pieza"},{"k":"sub","to":"guide:5","en":"Basic maintenance","es":"Mantenimiento basico"},{"k":"sub","to":"guide:6","en":"What each menu does","es":"Que significa cada menu"}]},"menu_info_stats":{"id":"menu_info_stats","t":["Printer Stats","Estadisticas Imp."],"items":[{"k":"info","en":"Prints","es":"Impresiones"},{"k":"info","en":"Completed","es":"Completadas"},{"k":"info","en":"Total","es":"Total"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Longest","es":"Mas larga"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Extruded","es":"Extruido"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Lubricate axes","es":"Lubricar ejes"},{"k":"info","en":"> ","es":"> "},{"k":"info","en":"Check belts","es":"Revisar correas"},{"k":"info","en":"> ","es":"> "}],"static":1},"menu_info_thermistors":{"id":"menu_info_thermistors","t":["Thermistors","Termistores"],"items":[{"k":"info","en":"E1: ATC 104GT-2","es":"E1: ATC 104GT-2"},{"k":"info","en":"Min Temp","es":"Temp. Minima"},{"k":"info","en":"Max Temp","es":"Temp. Maxima"},{"k":"info","x":"TERN(WATCH_HOTENDS, MSG_INFO_RUNAWAY_ON, MSG_INFO_RUNAWAY_OFF)"},{"k":"info","x":"bed_label"},{"k":"info","en":"Min Temp","es":"Temp. Minima"},{"k":"info","en":"Max Temp","es":"Temp. Maxima"},{"k":"info","x":"TERN(WATCH_BED, MSG_INFO_RUNAWAY_ON, MSG_INFO_RUNAWAY_OFF)"}],"static":1},"menu_info_board":{"id":"menu_info_board","t":["Board Info","Info. Controlador"],"items":[{"k":"info","en":"AC_TRI_F1","es":"AC_TRI_F1"},{"k":"info","en":"Baud","es":"Baudios"},{"k":"info","en":"Protocol","es":"Protocolo"},{"k":"info","en":"PSU","es":"F. Aliment."}],"static":1},"menu_info_printer":{"id":"menu_info_printer","t":["Printer Info","Info. Impresora"],"items":[{"k":"info","en":"Kobra Neo Evolution","es":"Kobra Neo Evolution"},{"k":"info","en":"KNE 1.0.0","es":"KNE 1.0.0"},{"k":"info","en":"Nov  6 2026","es":"Nov  6 2026"},{"k":"info","en":"220x220x250 mm","es":"220x220x250 mm"},{"k":"info","en":"Kobra Neo","es":"Kobra Neo"},{"k":"info","en":"github.com/vdukerios/","es":"github.com/vdukerios/"},{"k":"info","en":"kobra-neo-evolution","es":"kobra-neo-evolution"},{"k":"info","en":"Extruders","es":"Extrusores"},{"k":"info","x":"TERN_(AUTO_BED_LEVELING_3POINT, MSG_3POINT_LEVELING) TERN_(AUTO_BED_LEVELING_LINEAR, MSG_LINEAR_LEVELING) TERN_(AUTO_BED_LEVELING_BILINEAR, MSG_BILINEAR_LEVELING) TERN_(AUTO_BED_LEVELING_UBL, MSG_UBL_LEVELING) TERN_(MESH_BED_LEVELING, MSG_MESH_LEVELING)"}],"static":1},"menu_info_registro":{"id":"menu_info_registro","items":[{"k":"info","en":"Print log","es":"Registro de impresiones"},{"k":"info","en":"> ","es":"> ","c":["reglines"]},{"k":"info","en":"No records","es":"Sin registros","c":["nolog"]},{"k":"info","en":"Time factor","es":"Factor de tiempo"},{"k":"info","en":"Data points","es":"Datos usados"}],"static":1},"menu_info":{"id":"menu_info","t":["About Printer","Info. Impresora"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"menu_info_printer","en":"Printer Info","es":"Info. Impresora"},{"k":"sub","to":"menu_info_stats","en":"Printer Stats","es":"Estadisticas Imp."},{"k":"act","a":"goto:menu_info_registro","en":"Print log","es":"Registro de impresiones"}]},"menu_job_recovery":{"id":"menu_job_recovery","items":[{"k":"info","en":"Power Outage","es":"Recuperar tras corte de luz"},{"k":"act","a":"recov_resume","en":"Resume Print","es":"Reanudar impresion"},{"k":"act","a":"recov_cancel","en":"Stop Print","es":"Detener impresion"}]},"menu_language":{"id":"menu_language","t":["Language","Idioma"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"lang:en","en":"English","es":"English"},{"k":"act","a":"lang:es","en":"Espanol","es":"Espanol"}]},"menu_main":{"id":"menu_main","items":[{"k":"back","en":"Info Screen","es":"Pantalla de inicio"},{"k":"act","a":"resume","en":"Resume Print","es":"Reanudar impresion","c":["busy","paused"]},{"k":"act","a":"pause","en":"Pause Print","es":"Pausar impresion","c":["busy","notpaused"]},{"k":"confsub","en":"Stop Print","es":"Detener impresion","c":["busy"],"bt":[["Stop","Parar"],["Back","Atras"]],"pr":[["Stop Print","Detener impresion"]]},{"k":"act","a":"repeat_cancel","en":"End Repeat Loops","es":"Fin de bucles","c":["busy","repeat"]},{"k":"sub","to":"menu_tune","en":"Tune","es":"Ajustar","c":["busy"]},{"k":"tog","en":"Night mode","es":"Modo noche","c":["busy"],"v":"&ui.noche_activo"},{"k":"sub","to":"menu_guia","en":"Guide and help","es":"Guia y ayuda","c":["busy"]},{"k":"sub","to":"menu_media","en":" Print","es":"Imprimir desde SD/USB","c":["idle"]},{"k":"sub","to":"menu_move","en":"Move Axis","es":"Mover ejes","c":["idle"]},{"k":"act","a":"level_center","en":"Level and center","es":"Nivelar y centrar","c":["idle"]},{"k":"sub","to":"menu_ready","en":"Prepare","es":"Preparar","c":["idle"]},{"k":"sub","to":"menu_configuration","en":"Configuration","es":"Configuracion","c":["idle"]},{"k":"tog","en":"Night mode","es":"Modo noche","c":["idle"],"v":"&ui.noche_activo"},{"k":"sub","to":"menu_guia","en":"Guide and help","es":"Guia y ayuda","c":["idle"]},{"k":"sub","en":"Maintenance","es":"Mantenimiento","to":"menu_mantenimiento","c":["idle"]}]},"menu_ready":{"id":"menu_ready","t":["Prepare","Preparar"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","en":"Preheat $","es":"Precalentar $","a":"preheat_both","lp":1},{"k":"sub","en":"Load filament","es":"Cargar filamento","to":"filop:load"},{"k":"sub","en":"Unload filament","es":"Descargar filamento","to":"filop:unload"},{"k":"sub","en":"Manual heat","es":"Temperaturas","to":"menu_kne_manual_heat"},{"k":"act","en":"Cooldown","es":"Enfriar","a":"cooldown"}]},"menu_confirmar_impresion":{"id":"menu_confirmar_impresion","t":["Confirm print","Confirmar impresion"],"items":[{"k":"info","en":"Selected file","es":"Archivo seleccionado"},{"k":"info","en":"Print estimate","es":"Estimacion de impresion"},{"k":"act","en":"Mode: Full / Express","es":"Modo: Completo / Express","a":"print:mode"},{"k":"act","en":"Print","es":"Imprimir","a":"print:start"},{"k":"back","en":"Back","es":"Atras"}]},"menu_media_filelist":{"id":"menu_media_filelist","items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"updir","en":"\\x02 ..","es":"\\x02 ..","c":["subdir"]},{"k":"folder","en":" Print","es":"Imprimir desde SD/USB","c":["isdir"]},{"k":"file","en":"<nombre del archivo en la SD>","es":"<nombre del archivo en la SD>"}]},"menu_media":{"id":"menu_media","t":[" Print","Imprimir desde SD/USB"],"items":[{"k":"back","en":"Back","es":"Atras","c":["card","cardopen"]},{"k":"back","en":"Back","es":"Atras","c":["nocard"]},{"k":"info","a":"attach","en":"Attach ","es":"Iniciar SD/USB","c":["nocard"]}]},"_menu_move_distance":{"id":"_menu_move_distance","items":[{"k":"info","en":"Move X","es":"Mover X","c":["axis"]},{"k":"info","en":"Move Y","es":"Mover Y","c":["axis"]},{"k":"info","en":"Move Z","es":"Mover Z","c":["axis"]},{"k":"info","en":"Move Extruder","es":"Extrusor","c":["axis"]},{"k":"back","en":"Move Axis","es":"Mover ejes"},{"k":"sub","to":"dist:10","en":"Move 10mm","es":"Mover 10mm"},{"k":"sub","to":"dist:1","en":"Move 1mm","es":"Mover 1mm"},{"k":"sub","to":"dist:0.1","en":"Move 0.1mm","es":"Mover 0.1mm"},{"k":"sub","to":"dist:z","x":"tmp","c":["axisZ"]}]},"menu_move":{"id":"menu_move","t":["Move Axis","Mover ejes"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"move:x","en":"Move X","es":"Mover X"},{"k":"sub","to":"move:y","en":"Move Y","es":"Mover Y"},{"k":"sub","to":"move:z","en":"Move Z","es":"Mover Z"},{"k":"act","a":"gcode:home","en":"Auto Home","es":"Llevar al origen"},{"k":"sub","to":"menu_xyz_home","en":"Home","es":"Origen"},{"k":"act","a":"gcode:m84","en":"Disable Steppers","es":"Apagar motores"}]},"menu_xyz_home":{"id":"menu_xyz_home","t":["Home","Origen"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","a":"gcode:homex","en":"Home X","es":"Origen X"},{"k":"act","a":"gcode:homey","en":"Home Y","es":"Origen Y"},{"k":"act","a":"gcode:homez","en":"Home Z","es":"Origen Z"}]},"menu_tmc_current":{"id":"menu_tmc_current","t":["Motor current","Corriente de motores"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"X","es":"X","v":"&stepperX.val_mA","min":400,"max":1200,"df":800.0,"d":0,"u":"mA"},{"k":"edit","en":"Y","es":"Y","v":"&stepperY.val_mA","min":400,"max":1200,"df":800.0,"d":0,"u":"mA"},{"k":"edit","en":"Z","es":"Z","v":"&stepperZ.val_mA","min":400,"max":1200,"df":800.0,"d":0,"u":"mA"},{"k":"edit","en":"E","es":"E","v":"&stepperE0.val_mA","min":400,"max":1200,"df":600.0,"d":0,"u":"mA"}]},"menu_tmc_hybrid_thrs":{"id":"menu_tmc_hybrid_thrs","t":["Hybrid threshold","Cambio de modo"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"X","es":"X","v":"&stepperX.stored.hybrid_thrs","min":0,"max":255,"df":255.0,"d":0,"u":"mm/s"},{"k":"edit","en":"Y","es":"Y","v":"&stepperY.stored.hybrid_thrs","min":0,"max":255,"df":255.0,"d":0,"u":"mm/s"},{"k":"edit","en":"Z","es":"Z","v":"&stepperZ.stored.hybrid_thrs","min":0,"max":255,"df":3.0,"d":0,"u":"mm/s"},{"k":"edit","en":"E","es":"E","v":"&stepperE0.stored.hybrid_thrs","min":0,"max":255,"df":30.0,"d":0,"u":"mm/s"}]},"menu_tmc_step_mode":{"id":"menu_tmc_step_mode","t":["Quiet mode by motor","Modo silencioso por motor"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"tog","en":"X","es":"X","v":"&stepperX.stored.stealthChop_enabled"},{"k":"tog","en":"Y","es":"Y","v":"&stepperY.stored.stealthChop_enabled"},{"k":"tog","en":"Z","es":"Z","v":"&stepperZ.stored.stealthChop_enabled"},{"k":"tog","en":"E","es":"E","v":"&stepperE0.stored.stealthChop_enabled"}]},"menu_tmc":{"id":"menu_tmc","t":["TMC Drivers","Controladores TMC"],"items":[{"k":"back","en":"Advanced Settings","es":"Ajustes avanzados"},{"k":"sub","to":"menu_tmc_current","en":"Driver Current","es":"Amperaje Controlador"},{"k":"sub","to":"menu_tmc_hybrid_thrs","en":"Hybrid Threshold","es":"Limite Hibrido"},{"k":"sub","to":"menu_tmc_step_mode","en":"Stepping Mode","es":"Modo de pasos"}]},"menu_tune":{"id":"menu_tune","t":["Tune","Ajustar"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Speed","es":"Velocidad","min":10,"max":300,"d":0,"u":"%","live":1,"v":"&feedrate_percentage"},{"k":"edit","en":"Nozzle","es":"Boquilla","min":0,"max":260,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_hotend[0].target"},{"k":"edit","en":"Bed","es":"Cama","min":0,"max":110,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_bed.target"},{"k":"edit","x":"MSG_FIRST_FAN_SPEED","min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&editable.uint8"},{"k":"edit","en":"Flow","es":"Flujo","min":10,"max":300,"d":0,"u":"%","v":"&planner.flow_percentage[active_extruder]"},{"k":"sub","to":"zoffset","en":"Z offset","es":"Z offset"}]},"menu_kne_calibration":{"id":"menu_kne_calibration","t":["Calibration","Calibracion"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","en":"Z offset","es":"Z offset","to":"zoffset"},{"k":"sub","en":"Calibrate extrusion","es":"Calibrar extrusor","to":"cal_extrusion"},{"k":"sub","en":"Calibrate temperature","es":"Calibrar temperatura","to":"cal_temperature"}]},"menu_kne_materials":{"id":"menu_kne_materials","t":["Materials","Materiales"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"_menu_configuration_preheat_settings","en":"Edit $ recipe","es":"Editar receta $","lp":1}]},"menu_kne_preferences":{"id":"menu_kne_preferences","t":["Preferences","Preferencias"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","en":"Language","es":"Idioma","to":"menu_language"},{"k":"tog","en":"Sound","es":"Sonido","v":"&ui.buzzer_enabled"}]},"menu_kne_saved_settings":{"id":"menu_kne_saved_settings","t":["Saved settings","Ajustes guardados"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"act","en":"Save current settings","es":"Guardar ajustes","a":"store"},{"k":"act","en":"Load saved settings","es":"Recuperar guardados","a":"load","c":["idle"]},{"k":"conf","en":"Restore factory values","es":"Restaurar iniciales","a":"restore","c":["idle"],"bt":[["Restore","Restaurar"],["Cancel","Cancelar"]],"pr":[["Erase calibration and saved settings","Borra calibracion y ajustes guardados"]]}]},"menu_kne_service":{"id":"menu_kne_service","t":["Service","Servicio"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"info","en":"Service: verify setup","es":"Servicio: revisar montaje"},{"k":"sub","en":"Manual adjustments","es":"Ajustes manuales","to":"menu_advanced_settings"},{"k":"sub","en":"Board cooling","es":"Refrigeracion placa","to":"menu_controller_fan"},{"k":"tog","en":"Filament sensor (if fitted)","es":"Sensor segun montaje","v":"&runout.enabled"},{"k":"tog","en":"Power-loss recovery","es":"Recuperar tras corte","v":"&recovery.enabled"},{"k":"sub","en":"Edit bed mesh","es":"Editar malla","to":"menu_edit_mesh","c":["mesh"]},{"k":"sub","en":"Inspect bed corners","es":"Inspeccionar esquinas","to":"tramming"},{"k":"sub","en":"Service information","es":"Datos de servicio","to":"menu_kne_service_data"}]},"menu_mantenimiento":{"id":"menu_mantenimiento","t":["Maintenance","Mantenimiento"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"conf","en":"Lubricate axes","es":"Lubricar ejes","bt":[["Reset","Reiniciar"],["Cancel","Cancelar"]],"pr":[["Reset","Reiniciar"],["Lubricate axes","Lubricar ejes"]]},{"k":"conf","en":"Check belts","es":"Revisar correas","bt":[["Reset","Reiniciar"],["Cancel","Cancelar"]],"pr":[["Reset","Reiniciar"],["Check belts","Revisar correas"]]}]},"menu_kne_manual_heat":{"id":"menu_kne_manual_heat","t":["Manual heat","Temperaturas"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"edit","en":"Nozzle","es":"Boquilla","min":0,"max":260,"d":0,"u":"°C","live":1,"v":"&editable.celsius"},{"k":"edit","en":"Bed","es":"Cama","min":0,"max":110,"d":0,"u":"°C","live":1,"v":"&thermalManager.temp_bed.target"},{"k":"edit","x":"MSG_FIRST_FAN_SPEED","min":0,"max":255,"d":0,"u":"%","pct":1,"live":1,"v":"&editable.uint8"}]},"menu_kne_service_data":{"id":"menu_kne_service_data","t":["Service information","Datos de servicio"],"items":[{"k":"back","en":"Back","es":"Atras"},{"k":"sub","to":"menu_info_board","en":"Board Info","es":"Info. Controlador"},{"k":"sub","to":"menu_info_thermistors","en":"Thermistors","es":"Termistores"}]}},"notes":["menu_advanced_filament: default of 'Fil. Dia.' is n/d in the inventory (shown as n/a)","menu_advanced_filament: range max of 'Unload mm' is an expression (extrude_maxlength), approximated as 100","menu_advanced_filament: default of 'Unload mm' is n/d in the inventory (shown as n/a)","menu_advanced_filament: range max of 'Load mm' is an expression (extrude_maxlength), approximated as 100","menu_advanced_filament: default of 'Load mm' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Min' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Max' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'Fact' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-P *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-D *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-P *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID-D *' is n/d in the inventory (shown as n/a)","menu_advanced_temperature: default of 'PID Autotune *' is n/d in the inventory (shown as n/a)","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled[(A_AXIS)]), approximated as 600.0","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled[(C_AXIS)]), approximated as 8.0","menu_advanced_velocity: range max of 'Max  Vel' is an expression (max_fr_edit_scaled . e), approximated as 100.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled[(A_AXIS)]), approximated as 2000.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled[(C_AXIS)]), approximated as 200.0","menu_advanced_acceleration: range max of 'Max  Accel' is an expression (max_accel_edit_scaled . e), approximated as 1000.0","menu_probe_offsets: default of 'Probe X Offset' is n/d in the inventory (shown as n/a)","menu_probe_offsets: default of 'Probe Y Offset' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Index X' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Index Y' is n/d in the inventory (shown as n/a)","menu_edit_mesh: default of 'Z Value' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Idle Speed' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Active Speed' is n/d in the inventory (shown as n/a)","menu_controller_fan: default of 'Idle Period' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Fan Speed' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Nozzle' is n/d in the inventory (shown as n/a)","_menu_configuration_preheat_settings: default of 'Bed' is n/d in the inventory (shown as n/a)","_menu_temp_filament_op: default of 'Preheat Custom' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'Nozzle' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'Bed' is n/d in the inventory (shown as n/a)","menu_temperature: default of 'MSG_FIRST_FAN_SPEED' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'X' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'Y' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'Z' is n/d in the inventory (shown as n/a)","menu_tmc_current: default of 'E1' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Speed' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Nozzle' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Bed' is n/d in the inventory (shown as n/a)","menu_tune: default of 'MSG_FIRST_FAN_SPEED' is n/d in the inventory (shown as n/a)","menu_tune: default of 'Flow' is n/d in the inventory (shown as n/a)","Local candidate reviewed against current source; firmware not compiled or tested on the printer.","Calibration processes, thermal response and mechanical actions are simulations; actual printer results require validation.","Service current bounds follow project policy, not electrical certification.","Legacy conditional templates retained where relevant: [condicion: !still_out]; [condicion: has2]; [condicion: has3 && (7) >= 5]; [condicion: still_out]"]};
 </script>
 
 <script id="model">
@@ -102,37 +102,24 @@ var MENU_DATA = {"meta":{"screens":39,"items":236,"active_items":249,"overlay":t
 var Model = (function(){
 'use strict';
 var MD = (typeof MENU_DATA !== 'undefined') ? MENU_DATA : {meta:{screens:0, items:0, unreachable:[]}, screens:{}, notes:[]};
+var SERVICE_HOURS = MD.meta.maintenance ? MD.meta.maintenance.interval_hours : [100,200];
 /* preheat presets: Configuration.h PREHEAT_1..3 (PLA 200/60, ABS 240/110, PETG 240/80) */
 var PRESETS = [{n:'PLA', tn:200, tb:60}, {n:'ABS', tn:240, tb:110}, {n:'PETG', tn:240, tb:80}];
-function clonePre(){ return PRESETS.map(function(p){ return {n:p.n, tn:p.tn, tb:p.tb, fan:undefined}; }); }
+function clonePre(){ return PRESETS.map(function(p){ return {n:p.n, tn:p.tn, tb:p.tb, fan:0}; }); }
 /* what the simulator approximates; shown in the panel section 'Fidelity notes' */
 var FIDELITY = [
-  'Menu structure, item order, labels (EN/ES), visibility conditions and ranges come from the firmware inventory (menu_data). Everything below is approximated or not in the inventory.',
-  'Inventory v2 (firmware commit cbcb9f8): a pause counts as printing, About Printer opens the Information menu (from Configuration after the pending overlay), confirmations open on the safe option, 8-level screen history.',
-  'Main menu, Maintenance, Configuration and Bed Leveling follow the pending "Menu restructure" commit through a generator overlay (see the data notes), not a regenerated inventory.',
-  'Never opened by the real menu tree, so not reachable here: pause/filament-change option screens, the power monitor and the motion menu. The inventory has 254 active items; 5 are never shown (inch-unit and 100 mm moves) and the generator drops them, and the items of those unreachable screens are not in the reachable counter.',
-  'Printer Info, Board Info, Thermistors and Printer Stats show n/a where the value comes from code (counters, baud, thermistor flags); the inventory only has the labels.',
-  'Print log rows are simulator text built from the simulated stop reasons; the dormant Resume Print in the idle block and the Back shown with a file open on the SD are unreachable code and are not shown.',
-  'Idle timeout (10 min, 30 min while paused, Reheating to resume) is a panel event, not a real timer.',
-  'Status screen, print pages, confirm print and guide pages are simulator drawings of the firmware screens (layout and colors differ).',
-  'Guide lesson texts are written for the simulator (the inventory only lists the 7 topic titles).',
-  'Long-press help texts are written for the simulator; the firmware help table is not in the inventory.',
-  'Toasts and status messages after actions (Settings stored, Home done, ...) are simulator text.',
-  'Initial On/Off states of switches (sound, runout sensor, power outage, controller fan auto mode, ...) are assumptions.',
-  'Preheat presets PLA/ABS/PETG come from Configuration.h; their fan speed is n/a.',
-  'Confirmation dialogs: default button (the second one) and the screen shown after confirming are assumed.',
-  'SD/USB glyphs and folder icons are not drawn; folders are shown with a > prefix.',
-  'Axis letters in labels (Max X Vel, X Steps/mm, ...) are inferred from the edited variable; the inventory drops that glyph.',
-  'Percent items (fan speed) are shown as 0-100 %.',
-  'Knob acceleration in numeric edits is approximated (fast turning steps faster).',
-  'Spanish text for the motor mode labels Mixed and High speed is assumed (only Silent is in the inventory).',
-  'The print start sequence (heat soak, mesh, Full/Express) and the print-finished screens are simulator behaviour, not from the inventory.',
-  'End Repeat Loops is never shown: the simulator has no repeat loops (the item is only active inside a repeat loop).',
-  'Load/Unload Filament opens the preheat menu when the nozzle is below 170 C and the extruder distance menu otherwise; the 170 C limit is an assumption.',
-  'Heat-up speed, print duration and file list are simulated.'
+  'Source candidate from code inspection. Not compiled, installed or validated on a printer; no claim of exact fidelity.',
+  '320x240 drawing, fonts, thermal timing, SD files, print durations, help and guided calibration are simulated.',
+  'Saved settings are versioned local simulator snapshots. They do not read or change printer memory.',
+  'Maintenance has separate local storage. Job preparation and printing count; pauses and idle time do not. Checkpoints are hourly and at stop/completion/reset, so a power loss can discard the latest partial hour.',
+  'Thermal calibration generates demonstration results separately for nozzle and bed; it never measures real hardware.',
+  'A simulated filament event tests the enabled switch; presence of a physical sensor is unverified.',
+  'Motion, fan and material service parameters can be edited and saved; their full physical effects are not modeled.',
+  'Menu ranges describe this candidate source and are not certified electrical or mechanical limits.',
+  'Coverage counts generated menus and selected entries; it does not certify hardware behavior or visual legibility.'
 ];
 var VERSION = 'KNE 1.0.0';
-var VIS = 9; // visible rows in lists
+var VIS = 7; // Seven readable rows, like the original wheel-operated TFT.
 var SOAK = 90; // simulated heat-soak wait, in simulated seconds
 var LANG = 'en'; // current UI language: 'en' (default) or 'es'
 function tr(en, es){ return LANG === 'es' ? es : en; }
@@ -143,7 +130,7 @@ var FEATURE_NAMES = {
   1:'Power-loss recovery', 5:'Hours and filament counter (maintenance reminders)',
   6:'PETG preheats', 7:'Alphabetical SD order', 8:'Night mode', 10:'Level and center',
   12:'Thumbnail with progress', 14:'Time learning factor', 15:'Guide and help',
-  16:'Language selection (English / Spanish)', 17:'Motor mode (Silent / Mixed / High speed)',
+  16:'Language selection (English / Spanish)', 17:'Motor mode (Silent / Mixed / Force)',
   18:'Confirm print: Full / Express mode', 19:'About screen'
 };
 
@@ -196,7 +183,7 @@ var GUIDE = [
   ]},
   {t:['How to load filament', 'Como cargar filamento'], pages:[
     {icon:'thermo', x:['Cut the filament tip at an angle with a cutter. It feeds in more easily.', 'Corta la punta del filamento en diagonal con una pinza. Asi entra facil.']},
-    {icon:'nozzle', x:['Prepare > Load Filament. Pick a preheat (PLA, ABS or PETG) and the nozzle heats by itself.', 'Preparar > Cargar filamento. Elige un precalentamiento (PLA, ABS o PETG) y la boquilla calienta sola.']},
+    {icon:'nozzle', x:['Prepare > Load filament. Choose material, check the temperature, then Continue to heat.', 'Preparar > Cargar filamento. Elige material, revisa temperatura y pulsa Continuar para calentar.']},
     {icon:'spool',  x:['When heating ends, push the filament by hand until the motor pulls it in.', 'Cuando termine de calentar, empuja el filamento a mano hasta que el motor lo jale.']},
     {icon:'check',  x:['Wait for clean plastic of the right color to come out. Remove the leftover strand.', 'Espera a que salga plastico limpio y del color correcto. Retira el hilo sobrante.']}
   ]},
@@ -229,7 +216,7 @@ var GUIDE = [
   {t:['What each menu does', 'Que significa cada menu'], pages:[
     {icon:'menu',  x:['Print: file list. Prepare: preheat, load and unload filament.', 'Imprim. desde SD/USB: lista de archivos. Preparar: precalentar, cargar y descargar filamento.']},
     {icon:'wheel', x:['Move Axis: move the head by hand. Maintenance: reminders to lubricate and check the belts.', 'Mover ejes: mueve la cabeza a mano. Mantenimiento: avisos de lubricar y revisar correas.']},
-    {icon:'tool',  x:['Configuration: sound, language, power outage recovery, filament sensor, About and advanced settings.', 'Configuracion: sonido, idioma, recuperacion tras corte de luz, sensor de filamento, Acerca de y ajustes avanzados.']},
+    {icon:'tool',  x:['Configuration: calibration, materials, motor profiles, preferences, saved settings, information and service.', 'Configuracion: calibracion, materiales, modos de motores, preferencias, ajustes guardados, informacion y servicio.']},
     {icon:'thermo',x:['Level and center: one click homes, measures the bed and centers the nozzle.', 'Nivelar y centrar: un clic va al origen, mide la cama y centra la boquilla.']},
     {icon:'hand',  x:['Guide and help: these lessons. Night mode: screen almost off. Hold the click for help on any item.', 'Guia y ayuda: estas lecciones. Modo noche: pantalla casi apagada. Manten el clic para ver la ayuda de cada item.']}
   ]}
@@ -254,11 +241,12 @@ var SCREEN_TITLES = {
   off:['Printer unpowered / off', 'Impresora sin energia / apagada']
 };
 
-function createSim(){
+function createSim(options){
+options = options || {};
 var S = {
-    realT:0, simT:0, speed:1, screen:'boot', stack:[], sel:0, scroll:0, page:0,
+    realT:0, simT:0, speed:1, screen:'boot', stack:[], sel:0, scroll:0, page:0, homeFocus:0,
     bootT:0, autoBoot:null, shutT:0, sdHas:true, dir:'', selFile:null,
-    cfg:freshCfg(), lang:'en', printMode:'full', meshValid:true,
+    cfg:freshCfg(), lang:'en', printMode:'full', meshValid:false,
     temp:{n:24, b:24, tn:0, tb:0}, pos:{x:0, y:0, z:0}, homed:false,
     stats:{minutes:7720, filament:41.2, count:11, factor:1.18, learnN:7,
            last:{name:'Llavero_V.gcode', real:41, est:41, ok:true}},
@@ -266,11 +254,52 @@ var S = {
     job:null, recovery:null, help:null, toast:null, beep:0, night:false,
     edit:null, task:null, idleT:0, inactT:0, down:null, longFired:false, swallow:false,
     fault:false, guideIdx:0, simMsg:'',
-    vals:{}, tg:{}, pre:clonePre(), preIdx:0, axis:'x', filOp:'load', title:'', hx:{x:false, y:false, z:false}, svc:{s1:37, s2:37},
-    nightMode:false, nightFirst:false, fan:0, dlg:null, visS:{}, visI:{}, turnT:0, turnStreak:0, turnDir:0
+    vals:{}, tg:{}, pre:clonePre(), preIdx:0, axis:'x', filOp:'load', filTemp:200, filMaterial:0, title:'', hx:{x:false, y:false, z:false}, svc:{s1:0, s2:0},
+    mesh:Array.from({length:6}, function(){ return [0,0,0,0,0,0]; }), meshIndex:{x:0,y:0}, homeOffset:{x:0,y:0,z:0},
+    motors:{X:{current:800,threshold:255,stealth:true},Y:{current:800,threshold:255,stealth:true},Z:{current:800,threshold:3,stealth:true},E:{current:600,threshold:30,stealth:true}},
+    extrusion:null, calibration:null, nightMode:false, nightFirst:false, fan:0, dlg:null, visS:{}, visI:{}, turnT:0, turnStreak:0, turnDir:0
   };
-  function freshCfg(){ return {sound:true, recovery:true, motor:'mixed'}; }
+  function freshCfg(){ return {sound:true, recovery:false, motor:'silent'}; }
   var api = {S:S};
+  var storage = options.storage || (typeof localStorage !== 'undefined' ? localStorage : null), storageKey = 'kne-simulator-settings-v2', saved = null;
+  var serviceKey='kne-simulator-service-v1', savedService={version:1,s1:0,s2:0}, serviceSaveAt=0;
+  function saveService(){
+    savedService={version:1,s1:S.svc.s1,s2:S.svc.s2};serviceSaveAt=S.simT;
+    try{if(storage)storage.setItem(serviceKey,JSON.stringify(savedService));}catch(e){toast(tr('Maintenance saved for this session only','Mantenimiento guardado solo en esta sesion'));}
+  }
+  function loadService(){
+    try{var raw=storage&&storage.getItem(serviceKey),x=raw&&JSON.parse(raw);if(x&&x.version===1&&Number.isFinite(x.s1)&&x.s1>=0&&Number.isFinite(x.s2)&&x.s2>=0)savedService={version:1,s1:Math.min(SERVICE_HOURS[0],x.s1),s2:Math.min(SERVICE_HOURS[1],x.s2)};}catch(e){}
+    S.svc={s1:savedService.s1,s2:savedService.s2};serviceSaveAt=S.simT;
+  }
+  function serviceTick(dt){
+    if(!active()||S.job.paused)return;
+    var j=S.job,seconds=j.phase==='printing'?Math.min(dt,Math.max(0,(1-j.prog)*j.actual/(j.speed/100))):dt;
+    S.svc.s1=Math.min(SERVICE_HOURS[0],S.svc.s1+seconds/3600);
+    S.svc.s2=Math.min(SERVICE_HOURS[1],S.svc.s2+seconds/3600);
+    if(S.simT-serviceSaveAt>=3600)saveService();
+  }
+  function copy(x){ return JSON.parse(JSON.stringify(x)); }
+  function settings(){
+    var x=copy({version:2,cfg:S.cfg,lang:S.lang,vals:S.vals,tg:S.tg,pre:S.pre,zoff:S.zoff,mesh:S.mesh,meshValid:S.meshValid,homeOffset:S.homeOffset,motors:S.motors});
+    Object.keys(x.vals).forEach(function(k){if(/autotemp_/.test(k))delete x.vals[k];});
+    delete x.tg['&planner.autotemp_enabled']; return x;
+  }
+  function validSettings(x){ return !!(x && x.version === 2 && x.cfg && x.pre && x.pre.length === 3 && x.motors && ['X','Y','Z','E'].every(function(a){ var m=x.motors[a]; return m && Number.isFinite(m.current) && m.current>=400 && m.current<=1200 && Number.isFinite(m.threshold) && m.threshold>=0 && m.threshold<=255 && typeof m.stealth==='boolean'; }) && Number.isFinite(x.zoff) && Math.abs(x.zoff)<=10 && x.mesh && x.mesh.length===6 && x.mesh.every(function(r){ return r.length===6 && r.every(Number.isFinite); })); }
+  function applySettings(x){
+    var runtime={}, automatic=S.tg['&planner.autotemp_enabled'];
+    Object.keys(S.vals).forEach(function(k){if(/autotemp_/.test(k))runtime[k]=S.vals[k];});
+    ['cfg','lang','vals','tg','pre','zoff','mesh','meshValid','homeOffset','motors'].forEach(function(k){ S[k]=copy(x[k]); });
+    Object.keys(S.vals).forEach(function(k){if(/autotemp_/.test(k))delete S.vals[k];});
+    Object.keys(runtime).forEach(function(k){S.vals[k]=runtime[k];});
+    if(automatic===undefined)delete S.tg['&planner.autotemp_enabled'];else S.tg['&planner.autotemp_enabled']=automatic;
+    refreshMotor(); sync();
+  }
+  function saveSettings(){ saved=settings(); try { if(storage) storage.setItem(storageKey,JSON.stringify(saved)); } catch(e){ toast(tr('Saved for this session only','Guardado solo en esta sesion')); return false; } return true; }
+  function loadSettings(){ if(saved) applySettings(saved); }
+  try { var raw=storage && storage.getItem(storageKey); if(raw){ var candidate=JSON.parse(raw); if(validSettings(candidate)){ applySettings(candidate); saved=candidate; } } } catch(e){}
+  if(!saved){ factoryDefaults(); saved=settings(); }
+  loadService();
+
 
   /* ----- navigation (same push/pop history as the firmware: depth limit 8, selection restored on back) ----- */
   var MAXDEPTH = 8;
@@ -287,9 +316,25 @@ var S = {
     if (p){ S.screen = p.screen; S.sel = p.sel; S.scroll = p.scroll; S.page = p.page; S.title = p.title; S.help = null; }
     else toStatus();
   }
-  function reset(id){ S.stack = []; S.screen = id; S.sel = 0; S.scroll = 0; S.page = 0; S.help = null; S.title = ''; }
+  function reset(id){ S.stack = []; S.screen = id; S.sel = 0; S.scroll = 0; S.page = 0; S.help = null; S.title = ''; if(id==='home')S.homeFocus=0; }
   function toStatus(){ reset(statusScreen()); }
   function openMain(){ reset('menu_main'); }
+  function openFilament(operation){
+    if(isBusy()){toStatus();return;}
+    S.filOp=operation;go('filament_material');S.sel=1;
+  }
+  function homeActivate(){
+    if(isBusy()||S.fault){toStatus();return;}
+    var focus=S.homeFocus;S.homeFocus=0;
+    switch(focus){
+      case 0:openMain();break;
+      case 1:go('quick_preheat');S.sel=1;break;
+      case 2:openFilament('load');break;
+      case 3:openFilament('unload');break;
+      case 4:openDlg(tr('Clear the bed; level and center','Retira objetos; nivelar y centrar'),[['Start','Iniciar'],['Cancel','Cancelar']],levelCenter);break;
+      case 5:openZOffset();break;
+    }
+  }
   function toast(t){ S.toast = {t:t, left:2.5}; }
   function beep(){ if (S.cfg.sound && !S.nightMode) S.beep = 1.2; }
   function active(){ return !!(S.job && S.job.phase !== 'done'); }
@@ -303,7 +348,7 @@ function sync(){ LANG = S.lang; }
   };
   function reasonText(k){ return REASONS[k] ? pick(REASONS[k]) : String(k); }
   function logStop(key){ S.log.unshift({n:S.jobNo, reason:key}); }
-  function motorName(k){ return k === 'silent' ? tr('Silent', 'Silencioso') : (k === 'high' ? tr('High speed', 'Alta velocidad') : tr('Mixed', 'Mixto')); }
+  function motorName(k){ if(k==='custom') return tr('Custom','Personalizado'); return k === 'silent' ? tr('Silent', 'Silencioso') : (k === 'high' ? tr('Force', 'Fuerza') : tr('Mixed', 'Mixto')); }
 
   /* ----- files ----- */
   function dirNames(){ return S.sdHas ? Object.keys(SD_DIRS).sort(byLower) : []; }
@@ -333,6 +378,7 @@ function startJob(f, resume, opt){
   }
   function finishJob(){
     var j = S.job; j.phase = 'done'; j.prog = 1;
+    saveService();
     var realMin = j.elapsed / 60, n = S.stats.learnN, old = S.stats.factor;
     S.stats.factor = Math.round(((old * n + realMin / j.file.base) / (n + 1)) * 100) / 100;
     S.stats.learnN = n + 1; S.stats.minutes += Math.round(realMin);
@@ -343,6 +389,7 @@ function startJob(f, resume, opt){
     beep(); wake(); reset('done');
   }
   function stopJob(key){
+    saveService();
     logStop(key); S.stats.last = {name:S.job.file.name, real:Math.round(S.job.elapsed / 60), est:Math.round(S.job.est / 60), ok:false};
     S.jobNo++; S.temp.tn = 0; S.temp.tb = 0; S.job = null; toast(reasonText(key)); reset('home');
   }
@@ -375,15 +422,19 @@ function loadSteps(){
   function I(t, help, act, v){ return {t:t, help:help, act:act || null, v:v}; }
   function isBusy(){ return active(); } // firmware v2: a pause is treated as printing
   function isPaused(){ return active() && !!S.job.paused; }
-  var TOG_DEF = {'&ui.buzzer_enabled':true, '&runout.enabled':true, '&recovery.enabled':true, '&ui.noche_activo':false,
+  var TOG_DEF = {'&ui.buzzer_enabled':true, '&runout.enabled':true, '&recovery.enabled':false, '&ui.noche_activo':false,
                  '&controllerFan.settings.auto_mode':true, '&parser.volumetric_enabled':false, '&planner.autotemp_enabled':false};
+  function motorBinding(v){ var m=/stepper(X|Y|Z|E0|E)\.(.*)/.exec(v||''); if(!m) return null; var ax=m[1]==='E0'?'E':m[1], prop=/val_mA/.test(m[2])?'current':/hybrid_thrs/.test(m[2])?'threshold':/stealthChop_enabled/.test(m[2])?'stealth':null; return prop?{axis:ax,prop:prop}:null; }
+  function refreshMotor(){ var x=S.motors.X,y=S.motors.Y; S.cfg.motor='custom'; [['silent',800,255,true],['mixed',800,60,true],['high',900,255,false]].forEach(function(p){if([x,y].every(function(m){return m.current===p[1]&&m.threshold===p[2]&&m.stealth===p[3];})) S.cfg.motor=p[0];}); }
   function tgGet(v){
+    var mb=motorBinding(v); if(mb) return !!S.motors[mb.axis][mb.prop];
     if (v === '&ui.buzzer_enabled') return S.cfg.sound;
     if (v === '&recovery.enabled') return S.cfg.recovery;
     if (v === '&ui.noche_activo') return S.nightMode;
     return S.tg.hasOwnProperty(v) ? S.tg[v] : !!TOG_DEF[v];
   }
   function tgSet(v, b){
+    var mb=motorBinding(v); if(mb){S.motors[mb.axis][mb.prop]=b;refreshMotor();return;}
     if (v === '&ui.buzzer_enabled') S.cfg.sound = b;
     else if (v === '&recovery.enabled') S.cfg.recovery = b;
     else if (v === '&ui.noche_activo'){ S.nightMode = b; S.nightFirst = b; S.inactT = 0; }
@@ -416,13 +467,13 @@ function loadSteps(){
     return true;
   }
   function trim(s){ return String(s).replace(/^\s+|\s+$/g, ''); }
-  function motorTxt(){ var k = S.cfg.motor; return k === 'silent' ? tr('Silent', 'Silencioso') : (k === 'high' ? tr('High speed', 'Alta velocidad') : tr('Mixed', 'Mixto')); }
+  function motorTxt(){ return motorName(S.cfg.motor); }
   function fixText(s, pi){
     s = trim(s);
     if (/^(Motor mode:|Modo de motores:)/.test(s)) s = tr('Motor mode: ', 'Modo de motores: ') + motorTxt();
     if (/^(Current:|Actual:)/.test(s)){
       var k = S.cfg.motor;
-      s = tr('Current: ', 'Actual: ') + (k === 'silent' ? tr('SILENT', 'Silencioso') : (k === 'high' ? tr('HIGH SPEED', 'Alta velocidad') : tr('MIXED', 'Mixto')));
+      s = tr('Current: ', 'Actual: ') + motorName(k);
     }
     if (s.indexOf('$') >= 0) s = s.replace('$', S.pre[pi || 0].n);
     return s;
@@ -441,13 +492,14 @@ function loadSteps(){
     }
     if (/^\\x02/.test(s)) s = '↑ ..';
     var ax = /_AXIS\((A|B|C)\)|(E)_AXIS/.exec(it.v || ''); // the firmware prints the axis letter as a glyph that the inventory drops
-    if (ax){
+    if (ax && !/\b[XYZE]\b/.test(s)){
       var AL = {A:'X', B:'Y', C:'Z', E:'E'}[ax[1] || ax[2]];
       if (/\S {2}\S/.test(s)) s = s.replace(/(\S) {2}(\S)/, '$1 ' + AL + ' $2');
       else if (/ $/.test(s)) s = s + AL;
       else if (/^ /.test(s)) s = AL + s;
       else s = s + ' ' + AL;
     }
+    if(s === 'E1') s=tr('Extruder','Extrusor');
     return fixText(s, mi !== undefined ? mi : S.preIdx);
   }
   function titleOf(id){
@@ -462,36 +514,59 @@ function loadSteps(){
     var v = it.v || '', j = S.job, p = S.pre[mi !== undefined ? mi : (S.preIdx || 0)];
     if (v === '&feedrate_percentage' && j) return {g:function(){ return j.speed; }, s:function(x){ j.speed = x; }};
     if (v === '&planner.flow_percentage[active_extruder]' && j) return {g:function(){ return j.flow; }, s:function(x){ j.flow = x; }};
-    if (v === '&thermalManager.temp_hotend[0].target' || v === '&editable.celsius') return {g:function(){ return S.temp.tn; }, s:setTn};
+    if (/^&thermalManager\.temp_hotend\[(?:0|extruder)\]\.target$/.test(v) || v === '&editable.celsius') return {g:function(){ return S.temp.tn; }, s:setTn};
     if (v === '&thermalManager.temp_bed.target') return {g:function(){ return S.temp.tb; }, s:setTb};
-    if (v === '&editable.uint8' && (sid === 'menu_tune' || sid === 'menu_temperature'))
+    if (v === '&editable.uint8' && (sid === 'menu_tune' || sid === 'menu_temperature' || sid === 'menu_kne_manual_heat'))
       return {g:function(){ return S.job ? S.job.fan : S.fan; }, s:function(x){ S.fan = x; if (S.job){ S.job.fan = x; S.job.fanMan = true; } }};
     if (sid === '_menu_configuration_preheat_settings'){
       if (/hotend_temp/.test(v)) return {g:function(){ return p.tn; }, s:function(x){ p.tn = x; }};
       if (/bed_temp/.test(v)) return {g:function(){ return p.tb; }, s:function(x){ p.tb = x; }};
       if (v === '&editable.uint8') return {g:function(){ return p.fan; }, s:function(x){ p.fan = x; }};
     }
+    var mb=motorBinding(v); if(mb) return {g:function(){return S.motors[mb.axis][mb.prop];},s:function(x){S.motors[mb.axis][mb.prop]=x;refreshMotor();}};
+    if(v==='&xind'||v==='&yind'){var ax=v==='&xind'?'x':'y'; return {g:function(){return S.meshIndex[ax];},s:function(x){S.meshIndex[ax]=x;}};}
+    if(/Z_VALUES\(xind,\s*yind\)/.test(v)) return {g:function(){return S.mesh[S.meshIndex.x][S.meshIndex.y];},s:function(x){S.mesh[S.meshIndex.x][S.meshIndex.y]=x;}};
     if (v === '&probe.offset.z') return {g:function(){ return S.zoff; }, s:function(x){ S.zoff = x; }};
     return null;
   }
-  function valKey(it, key, sid){ return sid === '_menu_configuration_preheat_settings' ? key + '@' + S.preIdx : key; }
-  function valGet(it, key, b){ if (b) return b.g(); return S.vals.hasOwnProperty(key) ? S.vals[key] : it.df; }
-  function unitStr(it){ return it.pct ? '%' : (it.u ? ' ' + it.u : ''); }
-  function valStr(it, v){ return (v === undefined || v === null) ? 'n/a' : num(v, it.d || 0) + unitStr(it); }
+  function valKey(it,key,sid){
+    var v=String(it.v||key).replace(/\s+/g,'');
+    if(/raw_K[pid]/i.test(v)){ var heater=/bed/i.test(it.en+' '+it.es+' '+v)?'bed':'nozzle'; return heater+':'+v; }
+    return sid==='_menu_configuration_preheat_settings'?v+'@'+S.preIdx:v;
+  }
+  function defaultValue(it,key){
+    if(it.df!==undefined) return it.df;
+    var v=it.v||'';
+    if(v==='&probe.offset.x') return 37.5;
+    if(v==='&probe.offset.y') return 4.5;
+    if(/autotemp_min/.test(v)) return 210;
+    if(/autotemp_max/.test(v)) return 250;
+    if(/autotemp_factor/.test(v)) return 0.1;
+    if(/autotune_temp/.test(v)) return /bed/.test(v)?60:200;
+    if(/pid\.|PID_PARAM|raw_K/.test(v)){var bed=/bed/i.test(v+' '+it.en+' '+it.es), coefficient=/K([pid])/i.exec(v);if(coefficient)return (bed?{p:97.1,i:1.41,d:1675.16}:{p:18.09,i:1.14,d:71.47})[coefficient[1].toLowerCase()];}
+    if(/controllerFan/.test(v)) return /active_speed/.test(v)?100:/duration/.test(v)?60:0;
+    if(/filament_size/.test(v)) return 1.75;
+    if(/unload_length/.test(v)) return 100;
+    if(/load_length/.test(v)) return 0;
+    return undefined;
+  }
+  function valGet(it,key,b){if(b)return b.g();return S.vals.hasOwnProperty(key)?S.vals[key]:defaultValue(it,key);}
+  function unitStr(it){ var u=it.u; if(u==='pasos/mm'||u==='steps/mm') u=tr('steps/mm','pasos/mm'); return it.pct?'%':(u?' '+u:''); }
+  function valStr(it,v){return v===undefined||v===null?'n/a':num(v,it.v==='&probe.offset.z'?2:(it.d||0))+unitStr(it);}
 
   /* contextual help: written for the simulator (the firmware help table is not part of the inventory) */
   var HELP = {
     'Pause Print':['Pauses the print. Heaters stay on. Resume Print appears in this menu.', 'Pausa la impresion. Los calentadores siguen encendidos. Reanudar aparece en este menu.'],
     'Resume Print':['Continues the paused print.', 'Continua la impresion en pausa.'],
     'Stop Print':['Cancels the print after a confirmation.', 'Cancela la impresion tras pedir confirmacion.'],
-    'Tune':['Live adjustments while printing: speed, temperatures, fan, flow and Z offset.', 'Ajustes en vivo durante la impresion: velocidad, temperaturas, ventilador, flujo y desfase Z.'],
+    'Tune':['Live adjustments while printing: speed, temperatures, fan, flow and Z offset.', 'Ajustes en vivo durante la impresion: velocidad, temperaturas, ventilador, flujo y Z offset.'],
     'Print':['Lists the files on the SD or USB: folders first, then files in alphabetical order.', 'Lista los archivos de la SD o USB: carpetas primero y luego archivos en orden alfabetico.'],
     'Move Axis':['Moves X, Y or Z by hand, goes to origin or releases the motors.', 'Mueve X, Y o Z a mano, va al origen o suelta los motores.'],
     'Level and center':['Homes, measures the bed, centers the nozzle and lets you set the height with paper.', 'Va al origen, mide la cama, centra la boquilla y te deja ajustar la altura con papel.'],
-    'Bed Leveling':['Advanced bed tools: edit the mesh, adjust the Z offset and level the bed corners (bed tramming).', 'Herramientas de cama: editar la malla, ajustar el desfase Z y nivelar las esquinas (recorrido).'],
+    'Bed Leveling':['Advanced bed tools: edit the mesh, adjust the Z offset and level the bed corners (bed tramming).', 'Herramientas de cama: editar la malla, ajustar el Z offset y nivelar las esquinas (recorrido).'],
     'Maintenance':['Reminders to lubricate the axes and check the belts. Reset a reminder after doing the task.', 'Avisos para lubricar los ejes y revisar las correas. Reinicia un aviso al hacer la tarea.'],
     'Prepare':['Preheat for a material and load or unload filament.', 'Precalienta segun el material y carga o descarga filamento.'],
-    'Configuration':['Temperatures, advanced settings, motor mode, fans, sound and saving settings.', 'Temperaturas, ajustes avanzados, modo de motores, ventiladores, sonido y guardado.'],
+    'Configuration':['Calibration, materials, motor profiles, preferences, saved settings, information and service.', 'Calibracion, materiales, modos de motores, preferencias, ajustes guardados, informacion y servicio.'],
     'Night mode':['Mutes the buzzer and turns the screen black after a few seconds. The first turn or click only wakes it.', 'Silencia el zumbador y pone la pantalla en negro tras unos segundos. El primer giro o clic solo la despierta.'],
     'Guide and help':['Short lessons for beginners.', 'Lecciones cortas para principiantes.'],
     'Language':['Changes the language: English or Spanish. It is saved.', 'Cambia el idioma: ingles o espanol. Se guarda.'],
@@ -509,8 +584,8 @@ function loadSteps(){
     switch (it.k){
     case 'back': return tr('Click: back', 'Clic: volver');
     case 'sub': return tr('Opens "' + label + '".', 'Abre "' + label + '".');
-    case 'edit': return tr('Turn changes the value, click confirms. Range ' + num(it.min, it.d || 0) + ' to ' + (it.ap ? 'n/a' : num(it.max, it.d || 0)) + unitStr(it) + '.',
-                           'Girar cambia el valor, clic confirma. Rango ' + num(it.min, it.d || 0) + ' a ' + (it.ap ? 'n/a' : num(it.max, it.d || 0)) + unitStr(it) + '.');
+    case 'edit': return tr('Turning applies live items immediately. Click confirms. Range ' + num(it.min, it.d || 0) + ' to ' + (it.ap ? 'n/a' : num(it.max, it.d || 0)) + unitStr(it) + '.',
+                           'Girar aplica inmediatamente ajustes en vivo. Clic confirma. Rango ' + num(it.min, it.d || 0) + ' a ' + (it.ap ? 'n/a' : num(it.max, it.d || 0)) + unitStr(it) + '.');
     case 'tog': return tr('Click switches On / Off.', 'Clic alterna Enc / Apg.');
     case 'conf': case 'confsub': return tr('Asks for confirmation before doing it.', 'Pide confirmacion antes de hacerlo.');
     case 'info': return tr('Information line. Nothing to change here.', 'Linea informativa. Nada que cambiar aqui.');
@@ -523,13 +598,14 @@ function loadSteps(){
     go('dlg');
   }
   function factoryDefaults(){
-    S.vals = {}; S.tg = {}; S.cfg = freshCfg(); S.pre = clonePre(); S.nightMode = false; S.fan = 0;
+    S.vals = {}; S.tg = {}; S.cfg = freshCfg(); S.pre = clonePre(); S.nightMode = false; S.fan = 0; S.zoff=0; S.mesh=Array.from({length:6},function(){return [0,0,0,0,0,0];}); S.meshValid=false; S.meshIndex={x:0,y:0}; S.homeOffset={x:0,y:0,z:0}; S.lang='en'; S.motors={X:{current:800,threshold:255,stealth:true},Y:{current:800,threshold:255,stealth:true},Z:{current:800,threshold:3,stealth:true},E:{current:600,threshold:30,stealth:true}}; sync();
   }
   function confirmDone(it){
+    if(it.a==='restore'){ factoryDefaults(); saveSettings(); toast(tr('Factory settings saved','Valores de fabrica guardados')); return; }
     var n = trim(it.en);
-    if (n === 'Lubricate axes'){ S.svc.s1 = 0; reset('home'); toast(tr('Counter reset', 'Contador reiniciado')); } // firmware: ui.return_to_status()
-    else if (n === 'Check belts'){ S.svc.s2 = 0; reset('home'); toast(tr('Counter reset', 'Contador reiniciado')); }
-    else if (n === 'Initialize EEPROM'){ factoryDefaults(); toast(tr('EEPROM initialized', 'EEPROM inicializada')); }
+    if (n === 'Lubricate axes'){ S.svc.s1 = 0; saveService(); reset('home'); toast(tr('Counter reset', 'Contador reiniciado')); }
+    else if (n === 'Check belts'){ S.svc.s2 = 0; saveService(); reset('home'); toast(tr('Counter reset', 'Contador reiniciado')); }
+
   }
   function homeTask(axes){
     startTask({title:tr('Home', 'Origen'), steps:[{l:tr('Homing ', 'Origen ') + axes.toUpperCase(), d:3}], onDone:function(){
@@ -547,11 +623,36 @@ function loadSteps(){
         S.hx = {x:true, y:true, z:true}; S.homed = true; S.pos.x = 110; S.pos.y = 110; S.pos.z = 0; S.meshValid = true; openZOffset(); }});
   }
   function filTask(tn){
-    var load = S.filOp !== 'unload';
+    var load = S.filOp !== 'unload',material=S.filMaterial;
     startTask({title:load ? tr('Load Filament', 'Cargar filamento') : tr('Unload Filament', 'Descargar filamento'), steps:[
-      {l:tr('Heating nozzle', 'Calentando boquilla'), d:0.5, enter:function(){ S.temp.tn = tn; }, until:function(){ return S.temp.n >= tn - 5; }},
-      load ? {l:tr('Extruding filament', 'Extruyendo filamento'), d:5} : {l:tr('Retracting filament', 'Retrayendo filamento'), d:5}],
-      onDone:function(){ toast(load ? tr('Filament loaded', 'Filamento cargado') : tr('Remove the filament', 'Retire el filamento')); }});
+      {l:tr('Heating nozzle', 'Calentando boquilla'), d:0.5, enter:function(){ S.temp.tn = tn; }, until:function(){ return S.temp.n >= tn - 2; }},
+      {l:load ? tr('Click: finish and preheat','Clic: terminar y precalentar') : tr('Retracting: click to stop','Retirando: clic detiene'), d:1, until:function(){return false;}}],
+      onCancel:function(){
+        if(S.taskStepStopped===0){S.temp.tn=0;toast(tr('Filament operation canceled','Operacion de filamento cancelada'));return;}
+        if(load&&!isBusy()&&!S.fault&&S.temp.tn>=170&&S.temp.n>=170){
+          var profile=S.pre[material]||S.pre[0];heatTo(tn,profile.tb);S.fan=profile.fan;toStatus();
+          toast(tr('Filament loaded; preparing print','Filamento cargado; preparando impresion'));return;
+        }
+        toast(tr('Filament operation stopped','Operacion de filamento detenida'));
+      }});
+  }
+  function filamentDef(){
+    var items=[I(tr('Back','Atras'),'',pop)],info=[];
+    if(S.screen==='filament_material'){
+      S.pre.forEach(function(p,i){items.push(I(tr('Material ','Material ')+p.n,'',function(){S.filMaterial=i;S.filTemp=p.tn;go('filament_temperature');},p.tn+' C'));});
+      return {title:S.filOp==='unload'?tr('Unload filament','Descargar filamento'):tr('Load filament','Cargar filamento'),subtitle:tr('Choose material','Elige material'),items:items,modal:true};
+    }
+    items.push(I(tr('Nozzle temperature','Temperatura boquilla'),'',function(){simpleEdit(tr('Nozzle','Boquilla'),S.filTemp,170,260,0,' C',function(v){S.filTemp=v;});},S.filTemp+' C'));
+    items.push(I(tr('Continue','Continuar'),'',function(){filTask(S.filTemp);}));
+    info.push(S.filOp==='load'?tr('After loading, click preheats the bed','Tras cargar, clic precalienta la cama'):tr('Continue heats; click stops movement','Continuar calienta; clic detiene movimiento'));
+    return {title:S.filOp==='unload'?tr('Unload filament','Descargar filamento'):tr('Load filament','Cargar filamento'),subtitle:S.filOp==='load'?tr('After loading, preheat the bed','Al terminar, precalienta la cama'):tr('Check before heating','Revisa antes de calentar'),info:info,items:items,modal:true};
+  }
+  function quickPreheatDef(){
+    var items=[I(tr('Cancel','Cancelar'),'',pop)];
+    S.pre.forEach(function(p,i){items.push(I(p.n,'',function(){
+      openDlg(tr('Heat ','Calentar ')+p.n+': '+p.tn+' / '+p.tb+' C', [['Heat','Calentar'],['Cancel','Cancelar']],function(){S.preIdx=i;heatTo(p.tn,p.tb);S.fan=p.fan;toStatus();});
+    },p.tn+' / '+p.tb+' C'));});
+    return {title:tr('Preheat','Precalentar'),subtitle:tr('Nozzle + bed','Boquilla + cama'),items:items,modal:true};
   }
   function startMove(d){
     var ax = S.axis, step = d === 'z' ? 0.025 : Number(d), mx = {x:220, y:220, z:250}[ax], dec = step < 0.1 ? 3 : (step < 1 ? 1 : 0);
@@ -568,18 +669,18 @@ function loadSteps(){
     },
     repeat_cancel:function(){ toast('n/a'); },
     level_center:function(){ levelCenter(); },
-    store:function(){ toast(tr('Settings stored', 'Config. guardada')); },
-    load:function(){ toast(tr('Settings loaded', 'Config. cargada')); },
-    restore:function(){ factoryDefaults(); toast(tr('Defaults restored', 'Valores de fabrica')); },
+    store:function(){ if(saveSettings()) toast(tr('Simulator settings stored', 'Ajustes del simulador guardados')); },
+    load:function(){ loadSettings(); toast(tr('Saved settings loaded', 'Ajustes guardados recuperados')); },
+    restore:function(){ confirmRestore(); },
     cooldown:function(){ heatTo(0, 0); toast(tr('Cooling down', 'Enfriando')); },
-    homeoff:function(){ toStatus(); toast(tr('Home offsets set', 'Desfases ajustados')); },
+    homeoff:function(){ if(!S.homed){toast(tr('Home all axes first','Lleva todos los ejes al origen'));return;} var diff={x:-S.pos.x,y:-S.pos.y,z:-S.pos.z}; if(['x','y','z'].some(function(a){return Math.abs(diff[a])>20;})){toast(tr('Too far from origin (20 mm)','Demasiado lejos del origen (20 mm)'));return;} S.homeOffset=diff; ['x','y','z'].forEach(function(a){S.pos[a]+=diff[a];}); toStatus(); toast(tr('Simulated home offsets applied','Desfases de origen simulados aplicados')); },
     updir:function(){ S.dir = ''; S.sel = 0; S.scroll = 0; },
     attach:function(){ if (S.sdHas) S.sel = 0; else toast(tr('SD init fail', 'Fallo init. SD')); },
     recov_resume:function(){ var r = S.recovery; S.recovery = null; if (r) startJob(r.file, {prog:r.prog, elapsed:r.elapsed}); else toStatus(); },
     recov_cancel:function(){ S.recovery = null; S.jobNo++; toStatus(); },
-    preheat_both:function(){ var p = S.pre[S.preIdx]; heatTo(p.tn, p.tb); toStatus(); toast(tr('Heating ', 'Calentando ') + p.n); },
-    preheat_end:function(){ var p = S.pre[S.preIdx]; S.temp.tn = p.tn; toStatus(); toast(tr('Heating ', 'Calentando ') + p.n); },
-    preheat_bed:function(){ var p = S.pre[S.preIdx]; S.temp.tb = p.tb; toStatus(); toast(tr('Heating bed', 'Calentando cama')); },
+    preheat_both:function(){ var p = S.pre[S.preIdx]; heatTo(p.tn, p.tb); S.fan=p.fan; toStatus(); toast(tr('Heating ', 'Calentando ') + p.n); },
+    preheat_end:function(){ var p = S.pre[S.preIdx]; S.temp.tn = p.tn; S.fan=p.fan; toStatus(); toast(tr('Heating ', 'Calentando ') + p.n); },
+    preheat_bed:function(){ var p = S.pre[S.preIdx]; S.temp.tb = p.tb; S.fan=p.fan; toStatus(); toast(tr('Heating bed', 'Calentando cama')); },
     filop_preset:function(a, it, mi){ filTask(S.pre[mi || 0].tn); },
     'gcode:home':function(){ homeTask('xyz'); }, 'gcode:homex':function(){ homeTask('x'); },
     'gcode:homey':function(){ homeTask('y'); }, 'gcode:homez':function(){ homeTask('z'); },
@@ -589,13 +690,14 @@ function loadSteps(){
   };
   function setMotor(k){
     if (isBusy()){ toast(tr('Not while printing', 'No durante la impresion')); return; }
-    S.cfg.motor = k;
-    toast(k === 'silent' ? tr('Motors: SILENT (saved)', 'Motores: SILENCIOSO (guardado)') : (k === 'high' ? tr('Motors: HIGH SPEED (saved)', 'Motores: ALTA VELOCIDAD (guardado)') : tr('Motors: MIXED (saved)', 'Motores: MIXTO (guardado)')));
+    var profile={silent:[800,255,true],mixed:[800,60,true],high:[900,255,false]}[k]; ['X','Y'].forEach(function(a){S.motors[a]={current:profile[0],threshold:profile[1],stealth:profile[2]};}); refreshMotor(); saveSettings();
+    toast(k === 'silent' ? tr('Motors: SILENT (saved)', 'Motores: SILENCIOSO (guardado)') : (k === 'high' ? tr('Motors: FORCE (saved)', 'Motores: FUERZA (guardado)') : tr('Motors: MIXED (saved)', 'Motores: MIXTO (guardado)')));
   }
   function setLang(l){
-    S.lang = l; sync(); pop(); // v2: saves and returns to the menu it was opened from
+    S.lang = l; sync(); saveSettings(); pop(); // v2: saves and returns to the menu it was opened from
   }
   function runAct(it, mi){
+    if (mi !== undefined) S.preIdx = mi;
     if (/^goto:/.test(it.a || '')){ go(it.a.slice(5), lbl(it, mi)); return; }
     var f = ACTS[it.a];
     if (f) f(it.a, it, mi); else toast('n/a');
@@ -604,14 +706,14 @@ function loadSteps(){
     var to = it.to || '', p = to.split(':');
     if (MD.screens[to]){ if (mi !== undefined) S.preIdx = mi; if (to === 'menu_media') S.dir = ''; go(to, label); return; }
     switch (p[0]){
+    case 'cal_extrusion': S.extrusion={stage:'mark',remaining:20,accepted:false,applied:false,target:200,old:extruderSteps()};go('cal_extrusion');break;
+    case 'cal_temperature': S.calibration={heater:null,target:200,result:null};go('cal_temperature');break;
     case 'about': go('about'); break;
     case 'levelcenter': levelCenter(); break;
     case 'guide': S.guideIdx = Number(p[1]); go('guidepage'); break;
     case 'move': S.axis = p[1]; go('_menu_move_distance', tr('Move ', 'Mover ') + p[1].toUpperCase()); break;
-    case 'filop': // firmware: too cold to extrude -> preheat menu, otherwise the extruder distance menu
-      S.filOp = p[1];
-      if (S.temp.n >= 170){ S.axis = 'e'; go('_menu_move_distance', tr('Move Extruder', 'Extrusor')); }
-      else go('_menu_temp_filament_op', label);
+    case 'filop':
+      openFilament(p[1]);
       break;
     case 'preheat': S.preIdx = Number(p[1]); go('menu_preheat_m', label); break;
     case 'dist': if (S.axis === 'e') filTask(Math.max(170, S.temp.tn || 200)); else startMove(p[1]); break;
@@ -621,16 +723,26 @@ function loadSteps(){
         onDone:function(){ S.hx = {x:true, y:true, z:true}; S.homed = true; S.meshValid = true; toast(tr('Mesh saved', 'Malla guardada')); }});
       break;
     case 'tramming':
-      startTask({title:tr('Bed Tramming', 'Recorrido Cama'), steps:[{l:tr('Moving to corners', 'Yendo a las esquinas'), d:6}]});
+      openDlg(tr('Adjustable bed fitted; run corner inspection','Cama ajustable instalada; inspeccionar esquinas'),[['Confirm','Confirmar'],['Cancel','Cancelar']],function(){S.corner=0;go('corner_inspection');});
       break;
     default: toast('n/a');
     }
   }
   function editItem(it, key, sid, label, mi){
+    if(/autotune_temp/.test(it.v||'')){if(!S.calibration)S.calibration={}; S.calibration.heater=/bed/.test(it.v)?'bed':'nozzle';S.calibration.target=valGet(it,valKey(it,key,sid),null)||(/bed/.test(it.v)?60:200);S.calibration.result=null;go('cal_temperature');return;}
     var b = bind(it, sid, mi), k = valKey(it, key, sid), cur = valGet(it, k, b), mn = it.pct ? 0 : it.min, mx = it.pct ? 100 : it.max, dec = it.pct ? 0 : (it.d || 0);
-    function save(v){ if (b) b.s(v); else S.vals[k] = v; }
-    startEdit({label:label, value:(cur === undefined || cur === null) ? mn : clamp(cur, mn, mx), min:mn, max:mx, step:Math.pow(10, -dec), dec:dec, unit:unitStr(it),
-      maxApprox:!!it.ap, help:helpOf(it, label, sid), generic:true, onChange:it.live ? save : null, onSave:save});
+    if(it.max_from){
+      var axisItems=(MD.screens.menu_advanced_acceleration||{items:[]}).items.filter(function(x){return /max_acceleration_mm_per_s2/.test(x.v||'') && (it.max_from==='e_acceleration'?/E_AXIS/.test(x.v||''):/_AXIS\((A|B)\)|[XY]_AXIS/.test(x.v||''));});
+      if(axisItems.length) mx=Math.max.apply(null,axisItems.map(function(x){return valGet(x,valKey(x,'','menu_advanced_acceleration'),bind(x,'menu_advanced_acceleration'));}));
+    }
+    if(it.v==='&probe.offset.z'){mn=-10;mx=10;dec=2;}
+    var motor=motorBinding(it.v); if(motor&&motor.prop==='current'){mn=400;mx=1200;}
+    function save(v){
+      if(/autotemp_(min|max)/.test(it.v||'')){var other=/autotemp_min/.test(it.v)?'max':'min',otherIt=null;Object.keys(MD.screens).forEach(function(id){MD.screens[id].items.forEach(function(x){if((x.v||'').indexOf('autotemp_'+other)>=0)otherIt=x;});});var otherValue=otherIt?valGet(otherIt,valKey(otherIt,'',sid),null):(other==='max'?250:210);if((other==='max'&&v>otherValue)||(other==='min'&&v<otherValue)){toast(tr('Minimum must not exceed maximum','El minimo no puede superar al maximo'));return;}}
+      if(b)b.s(v);else S.vals[k]=v;
+    }
+    startEdit({label:label, value:(cur === undefined || cur === null) ? mn : cur, min:mn, max:mx, step:it.step || Math.pow(10, -dec), dec:dec, unit:unitStr(it),
+      maxApprox:!!it.ap, help:helpOf(it, label, sid), generic:true, onChange:it.live ? save : null, onSave:save,afterSave:sid==='_menu_temp_filament_op'?function(v){filTask(v);}:null});
   }
   function mk(sid, idx, it, mi){
     var o = {key:sid + '#' + idx, t:lbl(it, mi), k:it.k}, k = it.k;
@@ -655,6 +767,7 @@ function loadSteps(){
   function engineDef(id){
     var sc = MD.screens[id], items = [];
     sc.items.forEach(function(it, idx){
+      if (it.k==='conf' && /Initialize EEPROM|Inicializar EEPROM/.test((it.en||'')+' '+(it.es||''))) return;
       if (!condOK(it.c)) return;
       if (it.c && it.c.indexOf('axis') >= 0 && !axisMatch(it)) return;
       if (it.c && it.c.indexOf('reglines') >= 0){
@@ -679,16 +792,72 @@ function loadSteps(){
         filesIn(S.dir).forEach(function(fl){ items.push({key:sid + '#' + idx, t:fl.name, help:help, act:function(){ S.selFile = fl; go('confirm'); }}); });
         return;
       }
+      if (it.k==='conf' && /Initialize EEPROM|Inicializar EEPROM/.test((it.en||'')+' '+(it.es||''))) return;
       if (!condOK(it.c)) return;
       items.push(mk(sid, idx, it));
     });
     return {title:S.dir ? 'SD/' + S.dir : titleOf('menu_media'), items:items, sid:sid};
   }
 
+  function confirmRestore(){openDlg(tr('Erase saved calibration and restore factory settings','Borrar calibracion guardada y restaurar fabrica'),[['Restore','Restaurar'],['Cancel','Cancelar']],function(){factoryDefaults();saveSettings();toast(tr('Factory settings saved','Valores de fabrica guardados'));});}
+  function extruderItem(){var found=null;Object.keys(MD.screens).forEach(function(id){MD.screens[id].items.forEach(function(it){if(/axis_steps_per_mm\[E_AXIS/.test(it.v||''))found=it;});});return found||{v:'&planner.settings.axis_steps_per_mm[E_AXIS]',df:390};}
+  function extruderSteps(){var it=extruderItem();return valGet(it,valKey(it,'','menu_advanced_steps_per_mm'),null);}
+  function simpleEdit(label,value,min,max,dec,unit,onSave){startEdit({label:label,value:value,min:min,max:max,dec:dec,step:Math.pow(10,-dec),unit:unit,onSave:onSave,help:tr('Turn to change; click to confirm. No physical measurement.','Gira para cambiar; clic confirma. No realiza medicion fisica.')});}
+  function extrusionDef(){
+    var x=S.extrusion||(S.extrusion={stage:'mark',old:extruderSteps(),remaining:20,accepted:false,applied:false,target:200}),items=[I(tr('Back','Atras'),'',pop)];
+    var info=[];
+    if(x.stage==='mark'){
+      info=[tr('SIMULATED FILAMENT TEST','PRUEBA SIMULADA FILAMENTO'),tr('Mark 120 mm from entry.','Marca a 120 mm de la entrada.'),tr('Then request 100 mm.','Luego solicita 100 mm.')];
+      items.push(I(tr('Nozzle temperature','Temperatura boquilla'),'',function(){simpleEdit(tr('Nozzle','Boquilla'),x.target,170,260,0,' °C',function(v){x.target=v;});},x.target+' °C'));
+      items.push(I(tr('Heat nozzle','Calentar boquilla'),'',function(){openDlg(tr('Heat nozzle for calibration','Calentar boquilla para calibracion'),[['Heat','Calentar'],['Cancel','Cancelar']],function(){S.temp.tn=x.target;});}));
+      if(S.temp.n>=x.target-2 && S.temp.tn>=x.target-2){
+        items.push(I(tr('Purge 5 mm','Purgar 5 mm'),'',function(){x.accepted=false;startTask({title:tr('Purge 5 mm','Purgar 5 mm'),steps:[{l:tr('Simulated 5 mm purge','Purga simulada de 5 mm'),d:5}]});}));
+        items.push(I(tr('Simulate 100 mm','Simular 100 mm'),'',function(){openDlg(tr('Mark at 120 mm; simulate 100 mm','Marca a 120 mm; simular 100 mm'),[['Start','Iniciar'],['Cancel','Cancelar']],function(){x.old=extruderSteps();startTask({title:tr('Simulated extrusion','Extrusion simulada'),steps:[{l:tr('Commanding 100 mm (test)','Solicitando 100 mm (prueba)'),d:100}],onCancel:function(){S.temp.tn=0;},onDone:function(){S.temp.tn=0;x.stage='measure';}});});}));
+      }
+    }else{
+      info=[tr('SIMULATION; measure by hand','SIMULACION; mide a mano'),tr('Actual length = 120 - remaining','Longitud real = 120 - restante'),tr('New = old x 100 / actual','Nuevo = anterior x 100 / real')];
+      items.push(I(tr('Remaining to the mark','Restan hasta la marca'),'',function(){simpleEdit(tr('Remaining millimeters','Milimetros restantes'),x.remaining,1,119,1,' mm',function(v){x.remaining=v;x.accepted=true;x.applied=false;});},num(x.remaining,1)+' mm'));
+      var proposed=x.old*100/(120-x.remaining);
+      if(x.accepted) items.push(I(tr('Review and apply','Revisar y aplicar'),'',function(){if(proposed<5||proposed>9999){toast(tr('Result outside allowed range','Resultado fuera de rango'));return;}openDlg(tr('Apply simulated steps/mm ','Aplicar pasos/mm simulados ')+num(proposed,1),[['Apply','Aplicar'],['Cancel','Cancelar']],function(){var it=extruderItem();S.vals[valKey(it,'','menu_advanced_steps_per_mm')]=Math.round(proposed*10)/10;x.applied=true;toast(tr('Applied; save separately','Aplicado; falta guardar'));});},num(proposed,1)));
+    }
+    if(x.applied) info.push(tr('Result applied','Resultado aplicado'));
+    info.push(tr('Save in Configuration > Saved settings','Guarda en Configuracion > Ajustes guardados'));
+    items.push(I(tr('Extruder steps/mm','Pasos/mm extrusor'),'',function(){simpleEdit(tr('Extruder steps/mm','Pasos/mm extrusor'),extruderSteps(),5,9999,1,tr(' steps/mm',' pasos/mm'),function(v){var it=extruderItem();S.vals[valKey(it,'','menu_advanced_steps_per_mm')]=v;x.old=v;x.stage='mark';x.accepted=false;x.applied=false;});},num(extruderSteps(),1)));
+    return {title:tr('Filament calibration','Calibrar filamento'),info:info,items:items};
+  }
+  function applyThermalResult(x){
+    Object.keys(MD.screens).forEach(function(id){MD.screens[id].items.forEach(function(it){var v=it.v||'',c=/K([pid])/i.exec(v),bed=/bed/i.test(v+' '+it.en+' '+it.es);if(c&&/PID_PARAM|pid\.|raw_K/.test(v)&&bed===(x.heater==='bed'))S.vals[valKey(it,'',id)]=x.result[{p:0,i:1,d:2}[c[1].toLowerCase()]];});});
+  }
+  function calibrationDef(){
+    var x=S.calibration||(S.calibration={heater:null,target:200,result:null}),items=[I(tr('Back','Atras'),'',function(){if(x.heater){x.heater=null;x.result=null;}else pop();})],info=[tr('SIMULATION; no real calibration','SIMULACION; sin calibracion real')];
+    if(!x.heater){['nozzle','bed'].forEach(function(h){items.push(I(h==='bed'?tr('Bed','Cama'):tr('Nozzle','Boquilla'),'',function(){x.heater=h;x.target=h==='bed'?60:200;go('cal_temperature');}));});}
+    else if(!x.result){
+      items.push(I(tr('Target temperature','Temperatura objetivo'),'',function(){simpleEdit(tr('Target','Objetivo'),x.target,x.heater==='bed'?60:150,x.heater==='bed'?110:260,0,' °C',function(v){x.target=v;});},x.target+' °C'));
+      items.push(I(tr('Start simulated tuning','Iniciar ajuste simulado'),'',function(){openDlg(tr('Heat ','Calentar ')+(x.heater==='bed'?tr('bed','cama'):tr('nozzle','boquilla'))+' '+x.target+' °C', [['Start','Iniciar'],['Cancel','Cancelar']],function(){startTask({title:tr('Simulated thermal tuning','Ajuste termico simulado'),steps:[{l:tr('Heating selected heater','Calentando elemento elegido'),d:1,enter:function(){heatTo(x.heater==='nozzle'?x.target:0,x.heater==='bed'?x.target:0);},until:function(){return (x.heater==='bed'?S.temp.b:S.temp.n)>=x.target-1;}},{l:tr('Simulated cycles','Ciclos simulados'),d:30}],onCancel:function(){heatTo(0,0);},onDone:function(){heatTo(0,0);x.result=x.heater==='bed'?[93.87,9.45,621.75]:[22.58,1.67,76.23];applyThermalResult(x);}});});}));
+    }else{
+      info.push((x.heater==='bed'?tr('Bed','Cama'):tr('Nozzle','Boquilla'))+' P '+num(x.result[0],2));info.push('I '+num(x.result[1],2)+' D '+num(x.result[2],2));
+      info.push(tr('Result applied; save in Saved settings','Resultado aplicado; guarda en Ajustes guardados'));
+    }
+    return {title:(x.heater==='bed'?tr('Bed','Cama'):x.heater==='nozzle'?tr('Nozzle','Boquilla'):tr('Calibrate temperature','Calibrar temperatura')),info:info,items:items};
+  }
+
 function menuDef(){
     sync();
     var id = S.screen;
+    if (id === 'quick_preheat')return quickPreheatDef();
+    if (id === 'cal_extrusion') return extrusionDef();
+    if (id === 'cal_temperature') return calibrationDef();
+    if (id === 'filament_material' || id === 'filament_temperature') return filamentDef();
+    if (id === 'corner_inspection') return {title:tr('Inspect bed corners','Inspeccionar esquinas'),info:[tr('SIMULATED: no physical measurement','SIMULADO: sin medicion fisica'),tr('Corner ','Esquina ')+(S.corner+1)+'/4'],items:[I(tr('Back','Atras'),'',pop),I(tr('Next corner','Siguiente esquina'),'',function(){S.corner=(S.corner+1)%4;})]};
+    if (id === 'filament_insert') return {title:tr('Filament change','Cambio de filamento'),info:[tr('Insert new filament, then continue','Inserta filamento y luego continua')],items:[I(tr('Filament inserted','Filamento insertado'),'',function(){S.filamentPresent=true;startTask({title:tr('Simulated loading','Carga simulada'),steps:loadSteps(),onDone:function(){go('filament_resume');}});})]};
+    if (id === 'filament_resume'){
+      var choices=[I(tr('Purge more','Purgar mas'),'',function(){startTask({title:tr('Simulated purge','Purga simulada'),steps:[{l:tr('Purging filament','Purgando filamento'),d:2}]});})];
+      if(tgGet('&runout.enabled')&&!S.filamentPresent)choices.push(I(tr('Filament sensor','Sensor de filamento'),'',function(){tgSet('&runout.enabled',false);},onOff(true)));
+      else choices.push(I(tr('Resume print','Reanudar impresion'),'',function(){if(S.job)S.job.paused=false;reset('print');}));
+      return {title:tr('Filament change','Cambio de filamento'),items:choices};
+    }
     if (id === 'menu_media') return mediaDef();
+    if (id === 'menu_confirmar_impresion'){S.screen='confirm';return menuDef();}
     if (MD.screens[id]) return engineDef(id);
     if (id === 'confirm'){
       var f = S.selFile, express = S.printMode === 'express', noMesh = express && !S.meshValid;
@@ -724,13 +893,13 @@ function menuDef(){
     return {screens:Object.keys(MD.screens).length, screensSeen:Object.keys(MD.screens).length - un.length,
             items:MD.meta.items, activeTotal:MD.meta.active_items, itemsSeen:Object.keys(S.visI).length, unseenScreens:un};
   }
-  function fidelity(){ return FIDELITY.concat(MD.notes || []); }
+  function fidelity(){ return FIDELITY.concat((MD.notes || []).filter(function(n){return !/previous|254 active|cbcb9f8|default of .*n\/d/i.test(n);})); }
 
   function openZOffset(){
-    startEdit({label:tr('Probe Z Offset', 'Desf. Sonda Z'), kind:'z', value:S.zoff, min:-2, max:2, step:0.01, dec:2, unit:' mm',
+    startEdit({label:'Z offset', kind:'z', value:S.zoff, min:-10, max:10, step:0.01, dec:2, unit:' mm',
       help:tr('Turn to raise or lower the nozzle in 0.01 mm steps. With paper underneath, look for a slight drag. Click saves the value.', 'Gira para subir o bajar la boquilla de a 0,01 mm. Con un papel debajo, busca un roce leve. Clic guarda el valor.'),
       onChange:function(v){ S.pos.z = Math.max(0, 0.2 + v); },
-      onSave:function(v){ S.zoff = v; toast(tr('Offset saved: ', 'Offset guardado: ') + num(v, 2) + ' mm'); }});
+      onSave:function(v){ S.zoff = v; saveSettings(); toast(tr('Offset saved: ', 'Offset guardado: ') + num(v, 2) + ' mm'); }});
   }
 
 /* ----- contextual help ----- */
@@ -761,15 +930,20 @@ function menuDef(){
     return {title:pick(SCREEN_TITLES[S.screen] || [S.screen, S.screen]), text:SCREEN_HELP[key] ? pick(SCREEN_HELP[key]) : tr('No help for this screen.', 'Sin ayuda para esta pantalla.')};
   }
   function longPress(){
-    var h = helpFor(); S.help = {title:h.title, lines:wrap(h.text, 40)};
+    if(S.fault)return;
+    var d=menuDef(),it=d&&d.items[S.sel];
+    var help=it&&MD.meta.context_help&&MD.meta.context_help[trim(it.t)];
+    if(!it||it.st||d.stat||!help)return;
+    S.help = {title:it.t, lines:wrap(pick(help),40), openedAt:S.realT};
   }
 
   /* ----- input: knob and click ----- */
   function touch(){ S.inactT = 0; S.idleT = 0; }
   function turn(d){
+    if(S.fault)return;
     touch();
     if (S.night){ wake(); return; }
-    if (S.help){ S.help = null; return; }
+    if (S.help){ if(S.realT-S.help.openedAt>=.3)S.help = null; return; }
     var m = menuDef();
     if (m){
       S.sel = clamp(S.sel + d, 0, m.items.length - 1);
@@ -778,10 +952,11 @@ function menuDef(){
       track(); return;
     }
     switch (S.screen){
+    case 'home':S.homeFocus=((S.homeFocus+d)%6+6)%6;break;
     case 'print': S.page = (((S.page + d) % 3) + 3) % 3; break;
     case 'edit':
       var e = S.edit, st = e.step;
-      if (e.generic){ // knob acceleration
+      if (e.generic && e.step!==0.01){ // knob acceleration
         if (d === S.turnDir && S.realT - S.turnT < 0.25) S.turnStreak++; else S.turnStreak = 0;
         S.turnDir = d; S.turnT = S.realT;
         var mult = S.turnStreak > 12 ? 100 : (S.turnStreak > 6 ? 10 : 1);
@@ -793,29 +968,30 @@ function menuDef(){
       break;
     case 'guidepage':
       var n = guide()[S.guideIdx].pages.length;
-      if (S.page + d >= n) pop(); else S.page = clamp(S.page + d, 0, n - 1);
+      if (S.page + d >= n || S.page + d < 0) pop(); else S.page = clamp(S.page + d, 0, n - 1);
       break;
     case 'dlg': S.dlg.sel = clamp(S.dlg.sel + d, 0, 1); break;
     }
   }
   function doClick(){
+    if(S.fault)return;
     var m = menuDef();
     if (m){ var it = m.items[S.sel]; if (m.stat) pop(); else if (it && it.act) it.act(); track(); return; }
     switch (S.screen){
-    case 'home': case 'start': case 'print': openMain(); break;
-    case 'edit': var e = S.edit; if (e.onSave) e.onSave(e.value); pop(); break;
+    case 'home':homeActivate();break;
+    case 'start': case 'print': openMain(); break;
+    case 'edit': var e = S.edit; if (e.onSave) e.onSave(e.value); pop(); if(e.afterSave)e.afterSave(e.value); break;
     case 'task':
-      if (S.task && S.task.cancel){ var tk = S.task; S.task = null; pop(); if (tk.onCancel) tk.onCancel(); toast(tr('Level and center canceled', 'Cancelado').replace('Level and center canceled', tk.wiz ? 'Level and center canceled' : 'Canceled')); }
+      if (S.task && S.task.cancel){ var tk = S.task; S.taskStepStopped=tk.i; S.task = null; pop(); toast(tr('Level and center canceled', 'Cancelado').replace('Level and center canceled', tk.wiz ? 'Level and center canceled' : 'Canceled')); if (tk.onCancel) tk.onCancel(); }
       break;
     case 'guidepage': pop(); break;
     case 'about': toStatus(); break;
-    case 'dlg': var dl = S.dlg; if (dl.sel === 0){ dl.onYes(); if (S.screen === 'dlg') pop(); } else pop(); break;
+    case 'dlg': var dl = S.dlg; pop(); if (dl.sel === 0) dl.onYes(); break;
     case 'done': reset('cooling'); break;
     case 'cooling': S.job = null; reset('home'); break;
-    case 'err_temp': S.fault = false; S.job = null; reset('home'); break;
+    case 'err_temp': break; // The printer needs an external restart after a thermal fault.
     case 'err_filament':
-      startTask({title:tr('Load new filament', 'Cargar filamento nuevo'), reset:true, cancel:false, steps:loadSteps(), onDone:function(){
-        if (S.job){ S.job.paused = false; } toast(tr('Resuming print', 'Reanudando impresion')); }});
+      go('filament_insert');
       break;
     case 'off': reboot(); break;
     }
@@ -835,7 +1011,7 @@ function menuDef(){
   function click(){ clickDown(); clickUp(); }
 
   /* ----- simulated events ----- */
-function reboot(){ S.bootT = 0; S.autoBoot = null; wake(); reset('boot'); }
+function reboot(){ S.nightMode=false; S.fault=false; delete S.tg['&planner.autotemp_enabled']; Object.keys(S.vals).forEach(function(k){if(/autotemp_/.test(k))delete S.vals[k];}); loadSettings(); loadService(); S.bootT=0; S.autoBoot=null; S.temp.tn=0;S.temp.tb=0; S.job=null;S.task=null;S.edit=null;S.dlg=null;S.homed=false;S.hx={x:false,y:false,z:false};wake();reset('boot'); }
   function bootDone(){ reset(S.recovery ? 'menu_job_recovery' : 'home'); }
   function simPowerLoss(){
     var msg = 'Simulated power loss.';
@@ -855,11 +1031,13 @@ function reboot(){ S.bootT = 0; S.autoBoot = null; wake(); reset('boot'); }
     return (S.simMsg = 'Simulated temperature fault: nozzle turned off.');
   }
   function simFilament(){
+    if (!tgGet('&runout.enabled')) return (S.simMsg='Simulated event ignored: sensor disabled. Physical installation unverified.');
     if (!active() || S.job.phase !== 'printing' || S.job.paused) return (S.simMsg = 'Only works during a print in progress.');
-    S.job.paused = true; logStop('fil'); wake(); S.beep = 1.2; /* one beep even in night mode */ reset('err_filament');
+    S.job.paused = true; S.filamentPresent=false; logStop('fil'); wake(); S.beep = 1.2; /* one beep even in night mode */ reset('err_filament');
     return (S.simMsg = 'Simulated filament runout: print paused.');
   }
   function simDemoPrint(){
+    if(S.fault)return (S.simMsg='Restart the simulator after the thermal fault.');
     if (S.screen === 'boot' || S.screen === 'off') return (S.simMsg = 'The printer is not ready (powered off).');
     if (active()) return (S.simMsg = 'A print is already running.');
     S.sdHas = true; S.fault = false; S.task = null; S.edit = null;
@@ -935,15 +1113,15 @@ function toPrinting(j){
     } else if (S.screen === 'off' && S.autoBoot !== null){
       S.autoBoot -= dr; if (S.autoBoot <= 0) reboot();
     } else if (S.screen === 'task') taskTick(dt);
-    if (S.job && S.job.phase === 'printing' && !S.job.paused){ S.svc.s1 += dt / 3600; S.svc.s2 += dt / 3600; } // printed-hours counters
+    serviceTick(dt); // The real job timer includes file preparation and excludes pauses.
     jobTick(dt);
     var m = menuDef();
     if (m){ S.sel = clamp(S.sel, 0, Math.max(0, m.items.length - 1)); if (S.scroll > Math.max(0, m.items.length - VIS)) S.scroll = Math.max(0, m.items.length - VIS); track(); }
   }
   function serviceMsg(){
     if (active()) return null;
-    if (S.svc.s1 >= 100) return tr('> Lubricate axes!', '> Lubricar ejes!');
-    if (S.svc.s2 >= 200) return tr('> Check belts!', '> Revisar correas!');
+    if (S.svc.s1 >= SERVICE_HOURS[0]) return tr('> Lubricate axes!', '> Lubricar ejes!');
+    if (S.svc.s2 >= SERVICE_HOURS[1]) return tr('> Check belts!', '> Revisar correas!');
     return null;
   }
   function simIdleTimeout(){ // hotend_idle.cpp: 10 min idle (30 min while paused) switches the heaters off
@@ -953,8 +1131,9 @@ function toPrinting(j){
     wake(); toast(tr('Heater off: idle timeout', 'Apagado por inactividad'));
     return (S.simMsg = active() && S.job.paused ? 'Idle timeout while paused (30 min): heaters off; Resume Print reheats.' : 'Idle timeout (10 min): heaters off.');
   }
-  function simMaintenance(){ S.svc.s1 = 100; S.svc.s2 = 200; return (S.simMsg = 'Maintenance due: both counters passed their interval (100 h / 200 h). The status screen shows the banner.'); }
+  function simMaintenance(){ S.svc.s1 = SERVICE_HOURS[0]; S.svc.s2 = SERVICE_HOURS[1];saveService(); return (S.simMsg = 'Maintenance due: both counters reached their interval ('+SERVICE_HOURS[0]+' h / '+SERVICE_HOURS[1]+' h). The status screen shows the banner.'); }
   function setPrinterState(st){
+    if (S.fault) return (S.simMsg = 'Restart the simulator after the thermal fault.');
     if (S.screen === 'boot' || S.screen === 'off') return (S.simMsg = 'The printer is not powered on.');
     if (st === 'idle'){
       S.job = null; S.temp.tn = 0; S.temp.tb = 0; S.task = null; S.edit = null; S.dlg = null; toStatus();
@@ -966,6 +1145,9 @@ function toPrinting(j){
     return (S.simMsg = 'Printer state: ' + st + '.');
   }
   function debugGo(id){ // debug / test hook: jump to a screen as if opened from the main menu
+    if(S.fault)return;
+    if(id==='menu_confirmar_impresion')id='confirm';
+    if(id==='home')S.homeFocus=0;
     S.stack = (id === 'menu_main') ? [] : [{screen:'menu_main', sel:0, scroll:0, page:0, title:''}];
     S.screen = id; S.sel = 0; S.scroll = 0; S.page = 0; S.help = null; S.edit = null;
     if (id === 'confirm' && !S.selFile) S.selFile = SD_FILES[0];
@@ -1014,6 +1196,7 @@ function features(){
   api.menuDef = menuDef; api.helpFor = helpFor; api.longPress = longPress; api.features = features; api.screenName = screenName;
   api.simPowerLoss = simPowerLoss; api.simTempFail = simTempFail; api.simFilament = simFilament; api.simDemoPrint = simDemoPrint; api.setSD = setSD; api.setMesh = setMesh;
   api.est = est; api.layerNow = layerNow; api.active = active; api.reboot = reboot;
+  api.factoryDefaults = function(){factoryDefaults();saveSettings();reboot();}; api.confirmRestore=confirmRestore; api.saveSettings=saveSettings; api.loadSettings=loadSettings;
   api.setSpeed = function(x){ S.speed = x; };
   return api;
 }
@@ -1030,9 +1213,9 @@ return {createSim:createSim, wrap:wrap, num:num, fmtMin:fmtMin, fmtSec:fmtSec, G
    ====================================================================== */
 var Render = (function(){
 'use strict';
-var P = {bg:'#080c18', hdr:'#0f1830', txt:'#e8eef9', dim:'#8393b8', acc:'#3ddcc0', sel:'#2450b8', warn:'#ffb938',
-         err:'#e63946', ok:'#57d163', hot:'#ff6b57', cold:'#5bb8ff', track:'#1d2845', thumbDim:'#26324f',
-         card:'#111b36', line:'#1e2b4d', foot:'#0b1124'};
+var P = {bg:'#080c18', hdr:'#0b1220', txt:'#edf3ff', dim:'#98a9c2', acc:'#59e4bf', sel:'#233c50', warn:'#ffbf69',
+         err:'#ff8b77', ok:'#67dfac', hot:'#ff8b77', cold:'#68baff', track:'#243147', thumbDim:'#26324f',
+         card:'#151f31', line:'#243147', foot:'#0b1220'};
 var FONT = '12px "Courier New", Consolas, monospace';
 var FONT_B = 'bold 14px "Courier New", Consolas, monospace';
 var FONT_BIG = 'bold 30px "Courier New", Consolas, monospace';
@@ -1041,7 +1224,8 @@ var tr = Model.tr;
 
 function T(c, s, x, y, col, al){ c.fillStyle = col || P.txt; c.textAlign = al || 'left'; c.fillText(String(s), x, y); }
 function R(c, x, y, w, h, col){ c.fillStyle = col; c.fillRect(x, y, w, h); }
-function trunc(s, n){ s = String(s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+function trunc(s, n){ s=String(s);return s.length>n?(n<1?'':s.slice(0,n-1)+'…'):s; }
+function fit(c,s,w){s=String(s);while(s.length&&c.measureText(s).width>w)s=trunc(s,s.length-1);return s;}
 /* rounded rectangle (own path, no dependency on roundRect) */
 function rrPath(c, x, y, w, h, r){
   r = Math.min(r, w / 2, h / 2);
@@ -1069,13 +1253,14 @@ function tempCol(cur, target){
 }
 function dot(c, x, y, r, col){ c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, 2 * Math.PI); c.fill(); }
 function header(c, S, title, col){
-  R(c, 0, 0, W, 22, col || P.hdr); R(c, 0, 22, W, 1, P.line); c.font = FONT;
-  RR(c, 6, 6, 3, 11, 1.5, P.acc);
-  T(c, trunc(title, 24), 15, 12, P.txt);
-  dot(c, 236, 11, 3, tempCol(S.temp.n, S.temp.tn)); T(c, Math.round(S.temp.n) + '°', 243, 12, P.dim);
-  dot(c, 280, 11, 3, tempCol(S.temp.b, S.temp.tb)); T(c, Math.round(S.temp.b) + '°', 287, 12, P.dim);
+  R(c,0,0,W,26,P.hdr);R(c,8,25,304,1,P.line);
+  RR(c,8,7,3,12,1.5,col?P.warn:P.acc);
+  c.font='bold 13px "Courier New",monospace';T(c,fit(c,title,208),18,13,P.txt);
+  c.font='9px "Courier New",monospace';
+  dot(c,239,13,2,tempCol(S.temp.n,S.temp.tn));T(c,Math.round(S.temp.n)+'°',246,13,P.dim);
+  dot(c,282,13,2,tempCol(S.temp.b,S.temp.tb));T(c,Math.round(S.temp.b)+'°',289,13,P.dim);c.font=FONT;
 }
-function footer(c, s){ R(c, 0, 224, W, 16, P.foot); R(c, 0, 224, W, 1, P.line); c.font = FONT; T(c, s, 8, 233, P.dim); }
+function footer(c,s){R(c,0,224,W,16,P.foot);R(c,8,224,304,1,P.line);c.font='9px "Courier New",monospace';T(c,fit(c,s,304),8,233,P.dim);c.font=FONT;}
 function big(c, s, x, y, col, al){ c.font = FONT_BIG; T(c, s, x, y, col, al); c.font = FONT; }
 function bold(c, s, x, y, col, al){ c.font = FONT_B; T(c, s, x, y, col, al); c.font = FONT; }
 
@@ -1188,16 +1373,57 @@ function drawHome(c, S, svcMsg){
   var cooling = !t.tn && !t.tb && (t.n > 45 || t.b > 45);
   var st = heating ? tr('Heating', 'Calentando') : (cooling ? tr('Cooling', 'Enfriando') : (t.tn || t.tb ? tr('Ready', 'Lista') : tr('Idle', 'Reposo')));
   var stc = heating ? P.warn : (cooling ? P.cold : (t.tn || t.tb ? P.hot : P.acc));
-  dot(c, 18, 17, 4, stc); bold(c, st, 28, 17, P.txt);
-  drawSDIcon(c, 226, 10, S.sdHas ? P.acc : P.dim); c.font = FONT; T(c, S.sdHas ? tr('SD ready', 'SD lista') : tr('No SD', 'Sin SD'), 310, 17, S.sdHas ? P.acc : P.dim, 'right');
-  gaugeCard(c, 10, tr('Nozzle', 'Boquilla'), t.n, t.tn, 250);
-  gaugeCard(c, 166, tr('Bed', 'Cama'), t.b, t.tb, 100);
-  RR(c, 10, 156, 300, 46, 10, P.card); R(c, 160, 164, 1, 30, P.line);
-  T(c, tr('Z offset', 'Desfase Z'), 24, 168, P.dim); bold(c, Model.num(S.zoff, 2) + ' mm', 24, 188, P.acc);
-  T(c, tr('Z height', 'Altura Z'), 176, 168, P.dim); bold(c, S.homed ? Model.num(S.pos.z, 1) + ' mm' : tr('Not homed', 'Sin origen'), 176, 188, S.homed ? P.txt : P.dim);
-  c.font = FONT; T(c, tr('Click: menu   Hold: help', 'Clic: menu   Mantener: ayuda'), 160, 214, P.dim, 'center');
-  var sm = svcMsg; // maintenance reminder replaces the welcome message
-  T(c, sm || tr('Ready.', 'Lista'), 160, 230, sm ? P.warn : P.dim, 'center');
+  R(c,0,0,320,22,'#0b1220');R(c,8,21,304,1,'#243147');
+  c.font='bold 10px "Courier New",monospace';T(c,'KNE',10,11,'#f0f5ff');
+  c.font='9px "Courier New",monospace';T(c,'/ EVOLUTION',34,11,'#8b9bb6');
+  dot(c,170,11,2.5,stc);T(c,st,178,11,stc);
+  drawSDIcon(c,265,5,S.sdHas?P.acc:P.dim);T(c,S.sdHas?'SD OK':'NO SD',311,12,S.sdHas?P.acc:P.dim,'right');
+  function temperature(x,label,value,target,color,background,icon){
+    RR(c,x,28,148,64,9,background);RR(c,x+1,29,3,62,1.5,color);
+    c.font='10px "Courier New",monospace';T(c,label.toUpperCase(),x+12,41,'#b8c5d9');
+    homeIcon(c,icon,x+130,41,color,6);
+    c.font='bold 23px "Courier New",monospace';T(c,Math.round(value),x+12,65,'#f5f8ff');
+    c.font='10px "Courier New",monospace';T(c,'C',x+57,69,color);
+    c.font='8px "Courier New",monospace';T(c,tr('TARGET','OBJETIVO'),x+135,56,'#8797ad','right');
+    c.font='bold 11px "Courier New",monospace';T(c,target?target+' C':tr('OFF','APAGADA'),x+135,69,target?color:'#98a7bf','right');
+    bar(c,x+12,83,124,3,target?value/target:0,color);
+  }
+  temperature(8,tr('Nozzle','Boquilla'),t.n,t.tn,'#ff8b77','#241c2a','nozzle');
+  temperature(164,tr('Bed','Cama'),t.b,t.tb,'#68baff','#14263b','bed');
+  homeCard(c,8,98,148,40,'#18302f','#59e4bf',S.homeFocus===5);
+  c.font='10px "Courier New",monospace';T(c,'Z offset',19,109,'#a1cabe');
+  c.font='bold 14px "Courier New",monospace';T(c,Model.num(S.zoff,2)+' mm',19,127,'#72f3d1');
+  c.font='8px "Courier New",monospace';T(c,tr('EDIT','EDITAR'),145,126,'#a6daca','right');
+  RR(c,164,98,148,40,8,'#151f31');
+  c.font='10px "Courier New",monospace';T(c,tr('Z height','Altura Z'),175,109,'#91a1ba');
+  c.font='bold 12px "Courier New",monospace';T(c,S.homed?Model.num(S.pos.z,1)+' mm':tr('Not homed','Sin origen'),175,127,S.homed?'#edf3ff':'#acb8cc');
+  var tiles=[['Menu','Menu','menu','#71a9ff','#182743'],['Preheat','Calor','heat','#ffbf69','#30271e'],['Load','Cargar','load','#67dfac','#18312c'],['Unload','Retirar','unload','#f49aaf','#322335']];
+  tiles.forEach(function(a,i){var x=8+i*78;homeCard(c,x,145,70,48,a[4],a[3],S.homeFocus===i);homeIcon(c,a[2],x+35,161,a[3],8);c.font='bold 10px "Courier New",monospace';T(c,tr(a[0],a[1]),x+35,181,S.homeFocus===i?'#ffffff':a[3],'center');});
+  homeCard(c,8,199,304,26,'#163039','#55dfe0',S.homeFocus===4);
+  homeIcon(c,'bed',24,212,'#55dfe0',7);c.font='bold 12px "Courier New",monospace';T(c,tr('Level and center','Nivelar y centrar'),43,212,'#a9f3ef');T(c,'>',296,212,'#55dfe0');
+  c.font='9px "Courier New",monospace';
+  if(svcMsg)T(c,svcMsg,160,234,P.warn,'center');
+  else {T(c,tr('Turn: choose / Click: open','Gira: elige / Clic: abre'),9,234,'#8e9fb9');for(var n=0;n<6;n++)dot(c,265+n*8,234,n===S.homeFocus?2.5:1.5,n===S.homeFocus?'#d8f8ee':'#47566e');}
+  c.font=FONT;
+}
+function homeCard(c,x,y,w,h,bg,color,on){RR(c,x,y,w,h,8,bg);if(on){rrPath(c,x+.75,y+.75,w-1.5,h-1.5,7);c.strokeStyle=color;c.lineWidth=1.5;c.stroke();}else{R(c,x+9,y+1,w-18,1,color+'55');}}
+function homeIcon(c,kind,x,y,color,r){
+  c.strokeStyle=color;c.fillStyle=color;c.lineWidth=1.5;c.lineCap='round';c.lineJoin='round';c.beginPath();
+  if(kind==='menu'){for(var i=-1;i<=1;i++){c.moveTo(x-r,y+i*r*.65);c.lineTo(x+r,y+i*r*.65);}}
+  else if(kind==='heat'){for(var j=-1;j<=1;j++){c.moveTo(x+j*r*.7,y+r);c.bezierCurveTo(x+j*r*.7-r*.6,y+r*.2,x+j*r*.7+r*.6,y-r*.2,x+j*r*.7,y-r);}}
+  else if(kind==='load'||kind==='unload'){c.arc(x-r*.3,y,r*.75,0,2*Math.PI);c.moveTo(x,y);c.arc(x-r*.3,y,r*.25,0,2*Math.PI);var sign=kind==='load'?1:-1,ax=x+r*.8;c.moveTo(ax,y-r*.6*sign);c.lineTo(ax,y+r*.6*sign);c.moveTo(ax-r*.3,y+r*.2*sign);c.lineTo(ax,y+r*.6*sign);c.lineTo(ax+r*.3,y+r*.2*sign);}
+  else if(kind==='nozzle'){c.rect(x-r*.7,y-r,r*1.4,r);c.moveTo(x-r*.7,y);c.lineTo(x,y+r);c.lineTo(x+r*.7,y);}
+  else {c.moveTo(x-r,y);c.lineTo(x+r,y);c.lineTo(x+r*.7,y+r*.55);c.lineTo(x-r*.7,y+r*.55);c.closePath();c.moveTo(x-r*.45,y-r*.75);c.lineTo(x-r*.45,y-r*.25);c.moveTo(x+r*.45,y-r*.75);c.lineTo(x+r*.45,y-r*.25);}
+  c.stroke();c.lineCap='butt';
+}
+function drawModalMenu(c,S,def){
+  drawHome(c,S,null);R(c,0,0,320,240,'rgba(3,7,16,.8)');
+  var color=S.screen==='quick_preheat'?'#ffbf69':S.filOp==='unload'?'#f49aaf':'#67dfac';
+  RR(c,20,28,280,190,12,'#172237');R(c,34,29,252,2,color);
+  c.font='bold 14px "Courier New",monospace';T(c,def.title,34,49,'#f3f7ff');
+  c.font='10px "Courier New",monospace';T(c,def.subtitle||tr('Check before heating','Revisa antes de calentar'),34,68,'#9aaac2');
+  def.items.forEach(function(it,i){var y=81+i*26,on=i===S.sel;if(on)RR(c,30,y,260,24,5,'#2b4059');c.font='bold 11px "Courier New",monospace';T(c,it.t,40,y+12,on?'#ffffff':'#a8b7cb');if(it.v!==undefined)T(c,it.v,279,y+12,on?color:'#94a6c0','right');if(on)R(c,30,y+5,3,14,color);});
+  c.font='9px "Courier New",monospace';T(c,tr('Turn: choose / Click: confirm','Gira: elige / Clic: confirma'),160,206,'#b1bfd2','center');c.font=FONT;
 }
 function drawStart(c, S){
   var j = S.job, ph = j.phase, i, steps, cur, tn = S.temp.tn;
@@ -1269,9 +1495,12 @@ function drawPrint(c, S){
 }
 function drawEdit(c, S){
   var e = S.edit; header(c, S, e.label);
-  big(c, Model.num(e.value, e.dec) + e.unit, 160, 54, P.acc, 'center');
-  bar(c, 30, 80, 260, 10, (e.value - e.min) / (e.max - e.min), P.sel);
-  T(c, Model.num(e.min, e.dec), 30, 100, P.dim); T(c, e.maxApprox ? 'n/a' : Model.num(e.max, e.dec), 290, 100, P.dim, 'right');
+  homeCard(c,8,36,304,78,P.card,P.acc,true);
+  var value=Model.num(e.value,e.dec)+e.unit;c.font=FONT_BIG;
+  if(c.measureText(value).width>280)c.font='bold 23px "Courier New",monospace';
+  T(c,fit(c,value,280),160,62,P.acc,'center');c.font=FONT;
+  bar(c,24,86,272,4,(e.value-e.min)/(e.max-e.min),P.acc);
+  c.font='10px "Courier New",monospace';T(c,Model.num(e.min,e.dec),24,102,P.dim);T(c,e.maxApprox?'n/a':Model.num(e.max,e.dec),296,102,P.dim,'right');c.font=FONT;
   if (e.kind === 'z'){
     R(c, 40, 140, 80, 5, '#c9ccd6'); R(c, 60, 124, 40, 12, P.hot); R(c, 76, 136, 8, 4, P.hot); R(c, 30, 146, 100, 8, '#555d73');
     T(c, tr('Nozzle Z: ', 'Z boquilla: ') + Model.num(S.pos.z, 2) + ' mm', 150, 130, P.txt);
@@ -1284,9 +1513,10 @@ function drawEdit(c, S){
 function drawTask(c, S){
   var k = S.task; if (!k){ header(c, S, tr('Task', 'Proceso')); return; }
   header(c, S, k.title);
+  RR(c,8,29,304,k.steps.length*18+10,7,P.card);
   for (var i = 0; i < k.steps.length; i++){
     var mark = i < k.i ? '✓' : (i === k.i ? '>' : ' ');
-    T(c, mark + ' ' + k.steps[i].l, 8, 36 + i * 18, i === k.i ? P.warn : (i < k.i ? P.ok : P.dim));
+    T(c,fit(c,mark+' '+k.steps[i].l,282),16,39+i*18,i===k.i?P.warn:(i<k.i?P.ok:P.dim));
   }
   var st = k.steps[Math.min(k.i, k.steps.length - 1)], y0 = 36 + k.steps.length * 18 + 8;
   var fr = Math.min(1, k.t / (st.d || 1)); if (st.until && S.temp.tn) fr = Math.min(1, S.temp.n / S.temp.tn);
@@ -1315,8 +1545,10 @@ function drawCooling(c, S){
   footer(c, tr('Click: back to home', 'Clic: volver al inicio'));
 }
 function drawAlert(c, S, bg, title, lines, foot){
-  R(c, 0, 0, W, H, bg); bold(c, title, 160, 44, '#fff', 'center');
-  for (var i = 0; i < lines.length; i++) T(c, lines[i], 160, 84 + i * 18, '#fff', 'center');
+  var color=S.screen==='err_temp'?P.err:P.warn;
+  header(c,S,title,color);homeCard(c,8,39,304,158,P.card,color,true);
+  c.font='bold 28px "Courier New",monospace';T(c,'!',160,67,color,'center');c.font=FONT;
+  for(var i=0;i<lines.length;i++)T(c,fit(c,lines[i],280),160,106+i*20,P.txt,'center');
   footer(c, foot);
 }
 function drawGuide(c, S){
@@ -1328,44 +1560,54 @@ function drawGuide(c, S){
 }
 function drawMenu(c, S, def){
   header(c, S, def.title, def.alert ? '#6b1f2a' : null);
-  var y = 28, items = def.items, i;
-  if (def.thumb) drawThumb(c, def.thumb, 14, 32, 64, 64, 1);
+  var y=32,items=def.items,i,pitch=26;
   if (def.info){
-    for (i = 0; i < def.info.length; i++) T(c, def.info[i], def.infoX || 8, y + 6 + i * 15, i === 0 && def.thumb ? P.acc : P.txt);
-    y += Math.max(def.thumb ? 76 : 0, def.info.length * 15) + 12;
+    var ih=Math.max(def.thumb?72:0,def.info.length*14+12);
+    RR(c,8,y,304,ih,7,P.card);
+    if(def.thumb)drawThumb(c,def.thumb,16,y+6,60,60,1);
+    c.font='11px "Courier New",monospace';
+    for(i=0;i<def.info.length;i++)T(c,fit(c,def.info[i],304-(def.infoX||16)),def.infoX||16,y+12+i*14,i===0&&def.thumb?P.acc:P.txt);
+    y+=ih+7;c.font=FONT;
   }
-  var scrolls = items.length > Model.VIS, vis = Math.min(items.length, def.info ? items.length : Model.VIS);
-  var pw = scrolls ? 306 : 316, vx = scrolls ? 300 : 310;
+  var scrolls=items.length>Model.VIS,vis=Math.min(items.length,def.info?items.length:Model.VIS);
+  var pw=scrolls?299:304,vx=scrolls?297:302;
+  if(def.info&&y+vis*pitch>222)pitch=Math.max(19,Math.floor((222-y)/vis));
   for (i = 0; i < vis; i++){
     var idx = def.info ? i : S.scroll + i, it = items[idx]; if (!it) break;
-    var ry = y + i * 20, selected = idx === S.sel;
-    if (selected) RR(c, 3, ry, pw - 2, 19, 5, P.sel);
-    var col = selected ? '#fff' : (it.act ? P.txt : P.dim), room = it.v ? 39 - String(it.v).length - 1 : 39;
+    var ry=y+i*pitch,selected=idx===S.sel;
+    RR(c,8,ry,pw,pitch-2,6,selected?P.sel:P.card);
+    if(selected)R(c,8,ry+5,3,pitch-12,P.acc);
+    c.font='13px "Courier New",monospace';
+    var col=selected?'#fff':(it.act?P.txt:P.dim),value=it.v===undefined?'':fit(c,it.v,160),vw=c.measureText(value).width;
     if (it.st && it.inv){
-      if (!selected) RR(c, 3, ry, pw - 2, 19, 5, P.hdr);
-      T(c, trunc(it.t, 39), 160, ry + 10, selected ? '#fff' : P.acc, 'center');
-    } else T(c, trunc(it.t, room), 8, ry + 10, col);
-    if (it.v !== undefined) T(c, it.v, vx, ry + 10, selected ? '#fff' : P.acc, 'right');
+      T(c,fit(c,it.t,pw-20),160,ry+(pitch-2)/2,P.acc,'center');
+    }else T(c,fit(c,it.t,vx-18-(value?vw+12:12)),18,ry+(pitch-2)/2,col);
+    if(value)T(c,value,vx,ry+(pitch-2)/2,selected?P.acc:'#a5c4d8','right');
+    else if(it.act)T(c,it.k==='back'||/^(Back|Atras)$/.test(it.t)?'<':'>',vx,ry+(pitch-2)/2,selected?P.acc:P.dim,'right');
   }
+  c.font=FONT;
   if (scrolls){
-    RR(c, 314, 28, 3, Model.VIS * 20, 1.5, P.track);
-    var th = Math.max(10, Math.round(Model.VIS * 20 * Model.VIS / items.length));
-    RR(c, 314, 28 + Math.round((Model.VIS * 20 - th) * (S.scroll / (items.length - Model.VIS))), 3, th, 1.5, P.acc);
+    var track=Model.VIS*pitch-2;RR(c,313,y,3,track,1.5,P.track);
+    var th=Math.max(10,Math.round(track*Model.VIS/items.length));
+    RR(c,313,y+Math.round((track-th)*(S.scroll/(items.length-Model.VIS))),3,th,1.5,P.acc);
   }
-  footer(c, tr('Turn:move  Click:pick  Hold:help', 'Girar:mover  Clic:elegir  Mantener:ayuda'));
+  footer(c,tr('Turn: choose / Click: open','Gira: elige / Clic: abre'));
 }
 function drawDlg(c, S){
-  var d = S.dlg; R(c, 0, 0, W, H, '#0b1730');
-  for (var i = 0; i < d.prompt.length; i++) bold(c, d.prompt[i], 160, 60 + i * 20, P.txt, 'center');
+  var d = S.dlg;if(S.job&&S.job.phase==='printing')drawPrint(c,S);else drawHome(c,S,null);R(c,0,0,W,H,'rgba(3,7,16,.82)');
+  RR(c,20,43,280,158,12,'#172237');R(c,35,44,250,2,'#ffbf69');
+  c.font='bold 10px "Courier New",monospace';T(c,tr('CONFIRM','CONFIRMAR'),35,61,'#ffbf69');
+  for (var i = 0; i < d.prompt.length; i++) {c.font='12px "Courier New",monospace';T(c,d.prompt[i],160,86+i*17,P.txt,'center');}
   for (var b = 0; b < 2; b++){
     var x = b === 0 ? 24 : 172, on = d.sel === b;
-    RR(c, x, 150, 124, 36, 8, on ? P.sel : P.card); if (on){ c.strokeStyle = P.acc; c.lineWidth = 2; c.strokeRect(x + 1, 151, 122, 34); }
-    bold(c, trunc(d.bt[b], 12), x + 62, 168, on ? '#fff' : P.dim, 'center');
+    RR(c, x+8, 153, 108, 32, 6, on ? '#35495e' : '#202e44'); if (on){rrPath(c,x+8.75,153.75,106.5,30.5,5);c.strokeStyle='#ffbf69';c.lineWidth=1.5;c.stroke();}
+    c.font='bold 12px "Courier New",monospace';T(c,trunc(d.bt[b],12),x+62,169,on?'#fff':P.dim,'center');
   }
-  footer(c, tr('Turn: select   Click: confirm', 'Girar: elegir   Clic: confirmar'));
+  c.font='9px "Courier New",monospace';T(c,tr('Turn: select / Click: confirm','Gira: elige / Clic: confirma'),160,217,'#a9b9d1','center');c.font=FONT;
 }
 function drawAbout(c, S){
-  R(c, 0, 0, W, H, '#0a1a3a');
+  header(c,S,tr('Printer information','Informacion impresora'));
+  homeCard(c,8,39,304,157,P.card,P.acc,true);
   bold(c, 'Kobra Neo Evolution', 160, 64, '#fff', 'center');
   c.font = FONT; T(c, 'KNE 1.0.0', 160, 96, P.acc, 'center');
   T(c, '220 x 220 x 250 (mm)', 160, 128, P.txt, 'center');
@@ -1373,14 +1615,14 @@ function drawAbout(c, S){
   footer(c, tr('Click: back to status screen', 'Clic: volver a la pantalla de estado'));
 }
 function drawOverlays(c, S){
-  if (S.toast){ R(c, 20, 190, 280, 22, '#000'); c.strokeStyle = P.warn; c.lineWidth = 1; c.strokeRect(20.5, 190.5, 279, 21); T(c, trunc(S.toast.t, 38), 160, 201, P.warn, 'center'); }
+  if(S.toast){homeCard(c,12,190,296,27,P.hdr,P.warn,true);c.font='11px "Courier New",monospace';T(c,fit(c,S.toast.t,276),160,203,P.warn,'center');c.font=FONT;}
   if (S.beep > 0 && Math.floor(S.beep * 6) % 2 === 0){ R(c, 292, 26, 24, 16, P.warn); T(c, '♪))', 304, 34, '#201500', 'center'); }
   if (S.down !== null && !S.longFired && !S.swallow && S.realT - S.down > 0.2){
     bar(c, 60, 210, 200, 10, (S.realT - S.down) / 0.8, P.warn); T(c, tr('Keep holding for help...', 'Manten para ver la ayuda...'), 160, 198, P.warn, 'center');
   }
   if (S.help){
     var n = S.help.lines.length, h = 44 + n * 15;
-    R(c, 10, 36, 300, h, '#0b1730'); c.strokeStyle = P.acc; c.lineWidth = 2; c.strokeRect(11, 37, 298, h - 2);
+    homeCard(c,10,36,300,h,P.card,P.acc,true);
     bold(c, '? ' + trunc(S.help.title, 34), 18, 50, P.acc);
     for (var i = 0; i < n; i++) T(c, S.help.lines[i], 18, 72 + i * 15, P.txt);
     T(c, tr('Turn or click: close', 'Girar o clic: cerrar'), 18, 36 + h - 10, P.dim);
@@ -1392,7 +1634,7 @@ function draw(c, sim){
   if (S.night){ R(c, 0, 0, W, H, '#07090f'); return; } // brillo residual: no es negro puro
   R(c, 0, 0, W, H, P.bg);
   var def = sim.menuDef();
-  if (def) drawMenu(c, S, def);
+  if (def){if(def.modal)drawModalMenu(c,S,def);else drawMenu(c, S, def);}
   else switch (S.screen){
     case 'boot': drawBoot(c, S); break;
     case 'home': drawHome(c, S, sim.serviceMsg()); break;
@@ -1405,7 +1647,7 @@ function draw(c, sim){
     case 'guidepage': drawGuide(c, S); break;
     case 'dlg': drawDlg(c, S); break;
     case 'about': drawAbout(c, S); break;
-    case 'err_temp': drawAlert(c, S, '#a31621', tr('TEMPERATURE FAULT', 'FALLA DE TEMPERATURA'), [tr('Nozzle turned off for safety.', 'Boquilla apagada por seguridad.'), tr('Check the sensor cable.', 'Revise el cable del sensor.'), tr('Print stopped and logged.', 'Impresion detenida y registrada.')], tr('Click: back to home', 'Clic: volver al inicio')); break;
+    case 'err_temp': drawAlert(c, S, '#a31621', tr('TEMPERATURE FAULT', 'FALLA DE TEMPERATURA'), [tr('Heaters off; printer locked.', 'Calentadores apagados; bloqueada.'), tr('Check the cause before restart.', 'Revise la causa antes de reiniciar.'), tr('Use Restart simulation outside.', 'Use Reiniciar simulacion afuera.')], tr('Restart required', 'Requiere reiniciar')); break;
     case 'err_filament': drawAlert(c, S, '#7a4a00', tr('FILAMENT RUNOUT', 'SE ACABO EL FILAMENTO'), [tr('Print paused.', 'Impresion en pausa.'), tr('Load new filament and', 'Cargue filamento nuevo y'), tr('click to continue.', 'haga clic para continuar.')], tr('Click: load filament', 'Clic: cargar filamento')); break;
     case 'shutdown': drawAlert(c, S, '#2a2f45', tr('IDLE SHUTDOWN', 'APAGADO POR INACTIVIDAD'), [tr('Heaters off.', 'Calentadores apagados.'), tr('Shutting down in ', 'Apagando en ') + Math.ceil(S.shutT) + ' s'], tr('Click: cancel', 'Clic: cancelar')); break;
     case 'off':
@@ -1465,13 +1707,11 @@ return {draw:draw, drawThumb:drawThumb, drawIcon:drawIcon, P:P};
     b.addEventListener('click', function(){ msg(sim.setPrinterState(b.getAttribute('data-st'))); });
   });
   function fresh(keepLang){
-    var o = sim.S; sim = Model.createSim(); sim.setSpeed(o.speed); sim.setSD(o.sdHas); sim.setMesh(o.meshValid);
-    if (keepLang) sim.S.lang = o.lang;
-    sim.S.visS = o.visS; sim.S.visI = o.visI; // coverage is per browser session
+    sim.reboot();
   }
-  $('evReset').addEventListener('click', function(){ fresh(true); msg('Simulation restarted (language kept).'); });
+  $('evReset').addEventListener('click', function(){ fresh(true); msg('Simulation restarted from saved settings.'); });
   $('evMesh').addEventListener('click', function(){ msg(sim.setMesh(!sim.S.meshValid)); });
-  $('evFactory').addEventListener('click', function(){ fresh(false); msg('Factory defaults: English, all settings reset.'); });
+  $('evFactory').addEventListener('click', function(){ sim.confirmRestore(); msg('Review factory reset on the screen; Cancel is selected.'); });
 
   /* debug / screenshot hook: #seq=c,r,t3,... runs fixed tokens (c click, r/l turn, h hold, x release, tN wait N s, sN speed, demo, m0/m1 mesh) */
   (function(){

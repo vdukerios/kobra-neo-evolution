@@ -44,6 +44,7 @@
 //#define DEBUG_EEPROM_READWRITE
 
 #include "settings.h"
+#include "../inc/valentin/kne_limits.h"
 
 #include "endstops.h"
 #include "planner.h"
@@ -1901,22 +1902,9 @@ void MarlinSettings::postprocess() {
         tmc_stepper_current_t currents;
         EEPROM_READ(currents);
 
-        #if ENABLED(MODOS_MOTOR)
-          // Modos de motor: restaura solo la corriente de X e Y (rango sano, si no el valor de fabrica)
-          if (!validating) {
-            #define _MM_CORR(v, def) (((v) >= MODOS_MOTOR_CORRIENTE_MIN && (v) <= MODOS_MOTOR_CORRIENTE_MAX) ? (v) : (def))
-            #if AXIS_IS_TMC(X)
-              stepperX.rms_current(_MM_CORR(currents.X, X_CURRENT), HOLD_MULTIPLIER);
-            #endif
-            #if AXIS_IS_TMC(Y)
-              stepperY.rms_current(_MM_CORR(currents.Y, Y_CURRENT), HOLD_MULTIPLIER);
-            #endif
-          }
-        #endif
+        #if HAS_TRINAMIC_CONFIG
 
-        #if 0 //HAS_TRINAMIC_CONFIG
-
-          #define SET_CURR(Q) stepper##Q.rms_current(currents.Q ? currents.Q : Q##_CURRENT)
+          #define SET_CURR(Q) stepper##Q.rms_current(kne_current_restore(currents.Q, Q##_CURRENT))
           if (!validating) {
             #if AXIS_IS_TMC(X)
               SET_CURR(X);
@@ -2058,19 +2046,7 @@ void MarlinSettings::postprocess() {
         tmc_stealth_enabled_t tmc_stealth_enabled;
         EEPROM_READ(tmc_stealth_enabled);
 
-        #if ENABLED(MODOS_MOTOR)
-          // Modos de motor: restaura stealthChop solo en X e Y (Z y extrusor no cambian)
-          if (!validating) {
-            #if AXIS_HAS_STEALTHCHOP(X)
-              stepperX.stored.stealthChop_enabled = tmc_stealth_enabled.X; stepperX.refresh_stepping_mode();
-            #endif
-            #if AXIS_HAS_STEALTHCHOP(Y)
-              stepperY.stored.stealthChop_enabled = tmc_stealth_enabled.Y; stepperY.refresh_stepping_mode();
-            #endif
-          }
-        #endif
-
-        #if 0 //HAS_TRINAMIC_CONFIG
+        #if HAS_TRINAMIC_CONFIG
 
           #define SET_STEPPING_MODE(ST) stepper##ST.stored.stealthChop_enabled = tmc_stealth_enabled.ST; stepper##ST.refresh_stepping_mode();
           if (!validating) {

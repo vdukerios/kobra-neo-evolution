@@ -1,6 +1,6 @@
 # Print modes: Full and Express
 
-> **Awaiting validation** (version 1.0.0 boots and runs on the author's printer, but the print modes have not been validated one by one; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md)). Try both modes with a small model (for example a 20 mm cube), stay next to the printer, and be ready to press Stop or switch the power off.
+> **Awaiting validation** (an earlier Keil build booted, but the current source is uncompiled and the print modes have not been validated one by one; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md)). Try both modes with a small model (for example a 20 mm cube), stay next to the printer, and be ready to press Stop or switch the power off.
 
 KNE adds a G-code command, `M1100`, that prepares the printer for a print. Your slicer's start G-code calls it once (see [`CURA_SETUP.md`](CURA_SETUP.md)). The way it prepares depends on the **mode** you choose on the **Confirm print** screen.
 

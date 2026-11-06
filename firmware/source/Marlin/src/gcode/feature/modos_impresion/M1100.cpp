@@ -20,6 +20,7 @@
 #include "../../../feature/gcode_thumb.h"
 #include "../../../module/temperature.h"
 #include "../../../module/motion.h"
+#include "../../../module/planner.h"
 #include "../../../sd/cardreader.h"
 #include "../../../lcd/marlinui.h"
 #include "../../../MarlinCore.h"   // idle(), wait_for_heatup, marlin_state
@@ -108,10 +109,11 @@ void GcodeSuite::M1100() {
 
   if (express) {
     ui.set_status_P(GET_TEXT(MSG_KNE_STATUS_EXPRESS));
-    if (!all_axes_homed()) ok = mp_cmd_P(PSTR("G28"));
+    if (!all_axes_trusted()) ok = mp_cmd_P(PSTR("G28"));
     if (ok) ok = mp_cmd_num_P(PSTR("M140 S"), cama);
     if (ok) ok = mp_cmd_num_P(PSTR("M104 S"), boq);
     if (ok) ok = mp_cmd_P(PSTR("M420 S1"));            // malla ya guardada
+    if (ok && !planner.leveling_active) ok = false;   // no imprimir si no se pudo activar
     if (ok && cama) ok = mp_cmd_num_P(PSTR("M190 R"), cama);
     if (ok && boq)  ok = mp_cmd_num_P(PSTR("M109 R"), boq);
   }
@@ -122,7 +124,7 @@ void GcodeSuite::M1100() {
     if (ok && cama) ok = mp_cmd_num_P(PSTR("M190 R"), cama);
     if (ok) ok = mp_esperar(espera);
     if (ok) ok = mp_cmd_P(PSTR("G29"));                // malla en caliente
-    if (ok && g29_fallo) ok = false;                   // la medicion fallo: NO imprimir sin malla
+    if (ok && (g29_fallo || !leveling_is_valid() || !planner.leveling_active)) ok = false;
     // G29 termina dejando la cama en otra temperatura: volver a la pedida
     if (ok) ok = mp_cmd_num_P(PSTR("M140 S"), cama);
     if (ok && cama) ok = mp_cmd_num_P(PSTR("M190 R"), cama);

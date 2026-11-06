@@ -103,8 +103,8 @@
 // Author info of this build printed to the host during boot and M115
 #define STRING_CONFIG_H_AUTHOR "(Kobra Neo Evolution)" // Who made the changes.
 #define SHORT_BUILD_VERSION "KNE 1.0.0"
-#define SOURCE_CODE_URL "github.com/vdukerios/kobra-neo-evolution"
-#define WEBSITE_URL "github.com/vdukerios/kobra-neo-evolution"
+#define SOURCE_CODE_URL "https://github.com/vdukerios/kobra-neo-evolution"
+#define WEBSITE_URL "https://github.com/vdukerios/kobra-neo-evolution"
 //#define CUSTOM_VERSION_FILE Version.h // Path from the root directory (no quotes)
 
 /**
@@ -779,7 +779,7 @@
  */
 #define DEFAULT_MAX_FEEDRATE          { 300, 300, 4, 50 }     
 
-//#define LIMITED_MAX_FR_EDITING        // Limit edit via M203 or LCD to DEFAULT_MAX_FEEDRATE * 2
+#define LIMITED_MAX_FR_EDITING        // Limit edit via M203 or LCD to DEFAULT_MAX_FEEDRATE * 2
 #if ENABLED(LIMITED_MAX_FR_EDITING)
   #define MAX_FEEDRATE_EDIT_VALUES    { 600, 600, 10, 50 } // ...or, set your own edit limits
 #endif
@@ -792,7 +792,7 @@
  */
 #define DEFAULT_MAX_ACCELERATION      { 1000, 1000, 100, 500 }
 
-//#define LIMITED_MAX_ACCEL_EDITING     // Limit edit via M201 or LCD to DEFAULT_MAX_ACCELERATION * 2
+#define LIMITED_MAX_ACCEL_EDITING     // Limit edit via M201 or LCD to DEFAULT_MAX_ACCELERATION * 2
 #if ENABLED(LIMITED_MAX_ACCEL_EDITING)
   #define MAX_ACCEL_EDIT_VALUES       { 6000, 6000, 200, 10000 } // ...or, set your own edit limits
 #endif

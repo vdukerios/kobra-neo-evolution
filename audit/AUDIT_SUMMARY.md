@@ -1,6 +1,6 @@
 # Audit summary
 
-Two static (read-only) audits were done on 5 November 2026 on the KNE sources and on the first, GCC-built binaries (before version 1.0.0). **Nothing was executed during the audits.** Version 1.0.0 (KNE 1.0.0) boots and runs on the author's Kobra Neo; the release is built with Keil/Arm Compiler 5, because the GCC-built images did not boot (cause not identified).
+Two static (read-only) audits were done on 5 November 2026 on the KNE sources and on the first, GCC-built binaries (before version 1.0.0). **Nothing was executed during the audits.** An earlier Keil/Arm Compiler 5 build booted on the author's Kobra Neo. The current source is uncompiled and untested on hardware; no binary is published. GCC-built images did not boot (cause not identified). See the [6 November source changes](../docs/CHANGES_2026-11-06.md) for the later menu, settings, maintenance and display work.
 
 | Audit | Result in one line |
 |---|---|

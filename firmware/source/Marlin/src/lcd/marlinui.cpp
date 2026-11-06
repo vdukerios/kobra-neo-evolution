@@ -676,6 +676,8 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
 //************************1表示选中喷嘴，点击就修改喷嘴温度*********************
 //************************2表示热床，3风扇，4打印速度，5速比，6暂无***************
 #if ENABLED(PANTALLA_NUEVA)
+  uint8_t pantalla_inicio_foco = 0;
+  void kne_inicio_activar();
   uint8_t pantalla_pagina = 0;   // pagina de la pantalla de impresion (0..2), la cambia la rueda
 #endif
   void MarlinUI::status_screen() {
@@ -690,9 +692,13 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
        if(ui.start_flag==0)
        {
         ui.start_flag++;
-        goto_screen(menu_main);
-         ui.refresh();
-          return ;
+        #if DISABLED(PANTALLA_NUEVA)
+          goto_screen(menu_main);
+          ui.refresh();
+          return;
+        #else
+          pantalla_inicio_foco = 0;
+        #endif
        }
     #if BASIC_PROGRESS_BAR
 
@@ -737,11 +743,11 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
     #endif // BASIC_PROGRESS_BAR
 
 #if ENABLED(PANTALLA_NUEVA)
-      // Pantalla nueva: el clic abre el menu; con impresion en curso, girar la rueda cambia de pagina.
-      #if HAS_LCD_MENU
-        if (use_click()) { goto_screen(menu_main); ui.refresh(); }
-      #endif
       if (busy || Paused) {
+        pantalla_inicio_foco = 0;
+        #if HAS_LCD_MENU
+          if (use_click()) { goto_screen(menu_main); ui.refresh(); return; }
+        #endif
         if (int16_t(encoderPosition) >= ENCODER_item_Move) {
           pantalla_pagina = (pantalla_pagina + 1) % 3; encoderPosition = 0; ui.refresh();
         }
@@ -749,7 +755,20 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
           pantalla_pagina = (pantalla_pagina + 2) % 3; encoderPosition = 0; ui.refresh();
         }
       }
-      else { pantalla_pagina = 0; encoderPosition = 0; }
+      else {
+        pantalla_pagina = 0;
+        if (int16_t(encoderPosition) >= ENCODER_item_Move) {
+          pantalla_inicio_foco = (pantalla_inicio_foco + 1) % 6;
+          encoderPosition = 0; ui.refresh();
+        }
+        else if (int16_t(encoderPosition) <= -(ENCODER_item_Move)) {
+          pantalla_inicio_foco = (pantalla_inicio_foco + 5) % 6;
+          encoderPosition = 0; ui.refresh();
+        }
+        #if HAS_LCD_MENU
+          if (use_click()) { kne_inicio_activar(); ui.refresh(); return; }
+        #endif
+      }
 #else
     #if HAS_LCD_MENU
       if (use_click()) {
@@ -2078,6 +2097,7 @@ extern  uint8_t SOS_flag;
   #endif
 
   void MarlinUI::abort_print() {
+    thermalManager.disable_all_heaters(); // apagar al confirmar Parar, incluso durante G29
     #if ENABLED(SDSUPPORT)
       wait_for_heatup = wait_for_user = false;
       card.abortFilePrintSoon();

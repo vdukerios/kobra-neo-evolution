@@ -1,6 +1,6 @@
 # Motor modes
 
-> **Awaiting validation.** Version 1.0.0 boots and runs on the author's Kobra Neo, but the motor modes have not been validated one by one (see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md)). **High speed** mode uses a higher motor current: the first times, check by touch that the motors and drivers do not get too hot, and switch to Mixed or Silent if they do.
+> **Awaiting validation.** An earlier Keil build booted on the author's Kobra Neo; the current source is uncompiled and the motor modes have not been validated one by one (see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md)). **High speed** mode uses a higher motor current: the first times, check by touch that the motors and drivers do not get too hot, and switch to Mixed or Silent if they do.
 
 The Kobra Neo drives its stepper motors with TMC2208 chips. These chips have two ways of working:
 

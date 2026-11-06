@@ -411,7 +411,7 @@ namespace Language_es {
   LSTR MSG_ZPROBE_OFFSETS                 = _UxGT("Desfases sonda");
   LSTR MSG_ZPROBE_XOFFSET                 = _UxGT("Desfase X sonda");
   LSTR MSG_ZPROBE_YOFFSET                 = _UxGT("Desfase Y sonda");
-  LSTR MSG_ZPROBE_ZOFFSET                 = _UxGT("Desfase Z sonda");
+  LSTR MSG_ZPROBE_ZOFFSET                 = _UxGT("Z offset");
   LSTR MSG_BABYSTEP_X                     = _UxGT("Micropaso X");
   LSTR MSG_BABYSTEP_Y                     = _UxGT("Micropaso Y");
   LSTR MSG_BABYSTEP_Z                     = _UxGT("Micropaso Z");
@@ -627,7 +627,7 @@ namespace Language_es {
   LSTR MSG_STOP_LOAD_OR_UNLOAD            = _UxGT("Detener carga/descarga");
   LSTR MSG_USB_DISK                       = _UxGT("Disco USB");
   LSTR MSG_WAIT_LEVELING_HEAT             = _UxGT("Calentando para nivelar...");
-  LSTR MSG_Z_OFFSET                       = _UxGT("Desfase Z:");
+  LSTR MSG_Z_OFFSET                       = _UxGT("Z offset");
   LSTR MSG_TOP_LEFT                       = _UxGT("Sup. izquierda");
   LSTR MSG_TOP_RIGHT                      = _UxGT("Sup. derecha");
   LSTR MSG_BOTTOM_LEFT                    = _UxGT("Inf. izquierda");
@@ -658,7 +658,7 @@ namespace Language_es {
   LSTR MSG_KNE_BED_ABBR               = _UxGT("Cama ");
   LSTR MSG_KNE_TARGET                 = _UxGT("Objetivo ");
   LSTR MSG_KNE_OFF                    = _UxGT("Apagada");
-  LSTR MSG_KNE_Z_OFFSET               = _UxGT("Desfase Z");
+  LSTR MSG_KNE_Z_OFFSET               = _UxGT("Z offset");
   LSTR MSG_KNE_Z_HEIGHT               = _UxGT("Altura Z");
   LSTR MSG_KNE_NOT_HOMED              = _UxGT("Sin origen");
   LSTR MSG_KNE_HINT_HOME              = _UxGT("Clic: menu   Mantener: ayuda");
@@ -674,18 +674,18 @@ namespace Language_es {
   LSTR MSG_KNE_PROGRESS               = _UxGT("Avance");
   LSTR MSG_KNE_NIGHT_MODE             = _UxGT("Modo noche");
   LSTR MSG_KNE_GUIDE_HELP             = _UxGT("Guia y ayuda");
-  LSTR MSG_KNE_MOTORS_SAVED_SILENT    = _UxGT("Motores: Silencioso (guardado)");
-  LSTR MSG_KNE_MOTORS_SAVED_MIXED     = _UxGT("Motores: Mixto (guardado)");
-  LSTR MSG_KNE_MOTORS_SAVED_FAST      = _UxGT("Motores: Alta velocidad (guardado)");
+  LSTR MSG_KNE_MOTORS_SAVED_SILENT            = _UxGT("X/Y: Silencioso (guardado)");
+  LSTR MSG_KNE_MOTORS_SAVED_MIXED             = _UxGT("X/Y: Mixto (guardado)");
+  LSTR MSG_KNE_MOTORS_SAVED_FAST              = _UxGT("X/Y: Fuerza (guardado)");
   LSTR MSG_KNE_MOTORS_NOW_SILENT      = _UxGT("Actual: Silencioso");
   LSTR MSG_KNE_MOTORS_NOW_MIXED       = _UxGT("Actual: Mixto");
-  LSTR MSG_KNE_MOTORS_NOW_FAST        = _UxGT("Actual: Alta velocidad");
+  LSTR MSG_KNE_MOTORS_NOW_FAST                = _UxGT("Actual: Fuerza");
   LSTR MSG_KNE_MOTOR_SILENT           = _UxGT("Silencioso");
   LSTR MSG_KNE_MOTOR_MIXED            = _UxGT("Mixto");
-  LSTR MSG_KNE_MOTOR_FAST             = _UxGT("Alta velocidad");
+  LSTR MSG_KNE_MOTOR_FAST                     = _UxGT("Fuerza");
   LSTR MSG_KNE_MOTOR_MODE_SILENT      = _UxGT("Modo de motores: Silencioso");
   LSTR MSG_KNE_MOTOR_MODE_MIXED       = _UxGT("Modo de motores: Mixto");
-  LSTR MSG_KNE_MOTOR_MODE_FAST        = _UxGT("Modo de motores: Alta velocidad");
+  LSTR MSG_KNE_MOTOR_MODE_FAST                = _UxGT("Modo motores: Fuerza");
   LSTR MSG_KNE_CONFIRM_PRINT          = _UxGT("Confirmar impresion");
   LSTR MSG_KNE_FILE_COLON             = _UxGT("Archivo: ");
   LSTR MSG_KNE_MODE_EXPRESS           = _UxGT("Modo: Express");
@@ -824,4 +824,38 @@ namespace Language_es {
   LSTR MSG_KNE_MAINTENANCE                = _UxGT("Mantenimiento");
   LSTR MSG_KNE_MOTORS_BLOCKED                 = _UxGT("No durante la impresion");
   LSTR MSG_KNE_REHEAT_RESUME                  = _UxGT("Recalentando para reanudar");
+
+  // Task-based configuration and service routes.
+  LSTR MSG_KNE_CALIBRATION                    = _UxGT("Calibracion");
+  LSTR MSG_KNE_MATERIALS                      = _UxGT("Materiales");
+  LSTR MSG_KNE_PREFERENCES                    = _UxGT("Preferencias");
+  LSTR MSG_KNE_SAVED_SETTINGS                 = _UxGT("Ajustes guardados");
+  LSTR MSG_KNE_SERVICE                        = _UxGT("Servicio");
+  LSTR MSG_KNE_FIRST_LAYER                    = _UxGT("Z offset");
+  LSTR MSG_KNE_EXTRUSION_CAL                  = _UxGT("Calibrar filamento");
+  LSTR MSG_KNE_TEMP_CAL                       = _UxGT("Calibrar temperatura");
+  LSTR MSG_KNE_HOTEND_CAL                     = _UxGT("Calibrar boquilla");
+  LSTR MSG_KNE_BED_CAL                        = _UxGT("Calibrar cama");
+  LSTR MSG_KNE_RESTORE_WARNING                = _UxGT("Borrar calibracion?");
+  LSTR MSG_KNE_CUSTOM_MOTORS                  = _UxGT("Actual: Personalizado");
+  LSTR MSG_KNE_MOTOR_MODE_CUSTOM              = _UxGT("Modo motores: Personalizado");
+  LSTR MSG_KNE_INSTALLATION_REQUIRED          = _UxGT("Sensor requiere montaje");
+  LSTR MSG_KNE_MOTOR_XY_SAVED                 = _UxGT("Solo X/Y; guarda ajustes");
+  LSTR MSG_KNE_FILAMENT_TEMP                  = _UxGT("Temperatura filamento");
+  LSTR MSG_KNE_MANUAL_HEAT                    = _UxGT("Calor manual");
+  LSTR MSG_KNE_CONFIRM                        = _UxGT("CONFIRMAR");
+  LSTR MSG_KNE_SERVICE_DATA                   = _UxGT("Datos de servicio");
+  LSTR MSG_KNE_PHYSICAL_BED                   = _UxGT("Cama ajustable instalada?");
+  LSTR MSG_KNE_MOTOR_SAVING_FAILED            = _UxGT("X/Y cambio; fallo guardar");
+  LSTR MSG_KNE_MATERIAL_CHOICE                = _UxGT("Material $");
+
+  LSTR MSG_KNE_QUICK_MENU                     = _UxGT("Menu");
+  LSTR MSG_KNE_QUICK_PREHEAT                  = _UxGT("Calor");
+  LSTR MSG_KNE_QUICK_LOAD                     = _UxGT("Cargar");
+  LSTR MSG_KNE_QUICK_UNLOAD                   = _UxGT("Retirar");
+  LSTR MSG_KNE_QUICK_LEVEL                    = _UxGT("Nivelar y centrar");
+  LSTR MSG_KNE_QUICK_HINT                     = _UxGT("Girar: elegir  Clic: abrir");
+  LSTR MSG_KNE_FINISH_LOAD                      = _UxGT("Clic: terminar carga");
+  LSTR MSG_KNE_AFTER_LOAD_HEAT                  = _UxGT("Luego calienta cama");
+  LSTR MSG_KNE_LOAD_COMPLETE                    = _UxGT("Filamento cargado");
 }

@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> Version 1.0.0 boots and runs on the author's printer, but most features have not been validated by other users yet, so this list is based on how the firmware is designed and on the base firmware's known behavior. If you hit a problem, please report it (what you did, what the screen showed, `M115` output).
+> An earlier Keil build booted on the author's printer; the current source is uncompiled and most features have not been validated by other users yet, so this list is based on how the firmware is designed and on the base firmware's known behavior. If you hit a problem, please report it (what you did, what the screen showed, `M115` output).
 
 **In any emergency: switch the printer off at the power switch.**
 

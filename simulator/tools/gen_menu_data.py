@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 """Generate the simulator menu data from the firmware menu inventory.
 
-Usage (run from anywhere):
-    python -I gen_menu_data.py <path/to/menu_inventory.json> [path/to/simulator.html]
+Usage:
+    python -I -B gen_menu_data.py INVENTORY HTML [--apply-pending-restructure]
 
-Writes ../menu_data.js and rewrites, in place, the block
+Writes menu_data.js beside the mandatory HTML destination and rewrites the block
     <script id="menu-data"> ... </script>
-inside simulator.html (default: ../simulator.html). Re-run after a firmware
+inside the existing destination HTML. Re-run after a firmware
 change (after regenerating the inventory) to refresh the simulator.
 
 Only ACTIVE screens that can be reached from the real UI are emitted. Every
@@ -14,6 +14,8 @@ item keeps: type (k), EN/ES label, destination (to), action key (a),
 visibility conditions (c), numeric range/unit/decimals/default.
 """
 import json
+import argparse
+import hashlib
 import re
 import sys
 from pathlib import Path
@@ -60,18 +62,19 @@ EXTRA_EDGES = {  # lambda / dynamic destinations -> screens
     "move:x": "_menu_move_distance", "move:y": "_menu_move_distance", "move:z": "_menu_move_distance",
 }
 # ---------------------------------------------------------------------------
-# PENDING OVERLAY: "Menu restructure" (firmware branch mejoras-valentin, commit "Menu restructure",
-# written but not yet compiled, so it is NOT in menu_inventory.json v2).
-# When the inventory is regenerated from firmware that contains this commit, set the flag to False.
-APPLY_PENDING_RESTRUCTURE = True
+# Local preview only: explicit CLI opt-in, not compiled or validated on the printer.
+# The previous inventory is retained unchanged; no firmware commit is attributed.
+APPLY_PENDING_RESTRUCTURE = False
 
 
 def apply_pending_restructure(out, notes):
     """Edits the generated screens in memory (before reachability and before menu_data.js is written):
-    idle main menu = Back | Print | Move Axis | Level and center | Prepare | Configuration | Maintenance |
-    Night mode | Guide and help; new Maintenance submenu (Lubricate axes / Check belts dialogs);
+    idle main menu = Back | Print | Move Axis | Level and center | Prepare | Configuration |
+    Night mode | Guide and help | Maintenance; new Maintenance submenu (Lubricate axes / Check belts dialogs);
     Configuration gains Bed Leveling, Language, About Printer, About before Store Settings;
     Bed Leveling loses 'Level Bed' (same as Level and center)."""
+    if any(k in out for k in ("menu_mantenimiento", "menu_maintenance")):
+        raise ValueError("El inventario ya contiene Mantenimiento; no aplique el borrador.")
     main = out["menu_main"]["items"]
     name = lambda it: (it.get("en") or "").strip()
     idle = lambda it: "idle" in it.get("c", [])
@@ -86,17 +89,14 @@ def apply_pending_restructure(out, notes):
     for n in ("Bed Leveling", "Language", "About", "About Printer", "Lubricate axes", "Check belts"):
         moved[n] = pop_item(main, lambda it, n=n: name(it) == n and idle(it))
         moved[n].pop("c", None)
-    pos = next(i for i, it in enumerate(main) if name(it) == "Configuration" and idle(it))
-    main.insert(pos + 1, {"k": "sub", "to": "menu_maintenance", "en": "Maintenance", "es": "Mantenimiento", "c": ["idle"]})
-    out["menu_maintenance"] = {"id": "menu_maintenance", "t": ["Maintenance", "Mantenimiento"],
+    main.append({"k": "sub", "to": "menu_mantenimiento", "en": "Maintenance", "es": "Mantenimiento", "c": ["idle"]})
+    out["menu_mantenimiento"] = {"id": "menu_mantenimiento", "t": ["Maintenance", "Mantenimiento"],
                                "items": [{"k": "back", "en": "Back", "es": "Atras"}, moved["Lubricate axes"], moved["Check belts"]]}
     cfg = out["menu_configuration"]["items"]
     pos = next(i for i, it in enumerate(cfg) if it.get("a") == "store")
     cfg[pos:pos] = [moved[n] for n in ("Bed Leveling", "Language", "About Printer", "About")]
     pop_item(out["menu_bed_leveling"]["items"], lambda it: name(it) == "Level Bed")
-    notes.append("PENDING OVERLAY 'Menu restructure' is applied by the generator (APPLY_PENDING_RESTRUCTURE): Maintenance submenu; "
-                 "Bed Leveling, Language, About Printer and About moved to Configuration; Level Bed removed. "
-                 "Disable the flag once the inventory is regenerated from that firmware.")
+    notes.append("Borrador local solicitado expresamente: Mantenimiento al final del menu de reposo; opciones reubicadas a Configuracion; Nivelar cama omitido para el perfil previsto. Sin compilar ni validar en impresora.")
 
 
 EVENT_ROOTS = ["menu_job_recovery"]  # opened by an event (power loss), not by the menu tree
@@ -356,31 +356,10 @@ def build(inv):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        return 2
-    inv_path = Path(sys.argv[1])
-    html_path = Path(sys.argv[2]) if len(sys.argv) > 2 else SIM_DIR / "simulator.html"
-    inv = json.loads(inv_path.read_text(encoding="utf-8"))
-    screens, notes, meta, unk = build(inv)
-    if unk:
-        notes.append("Visibility conditions not understood by the generator (treated as always true): " + "; ".join(unk))
-    data = {"meta": meta, "screens": screens, "notes": notes}
-    js = "var MENU_DATA = " + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + ";\n"
-    (SIM_DIR / "menu_data.js").write_text("/* generated by tools/gen_menu_data.py - do not edit */\n" + js, encoding="utf-8")
-    if html_path.exists():
-        html = html_path.read_text(encoding="utf-8")
-        block = ('<script id="menu-data">\n/* BEGIN GENERATED MENU DATA (tools/gen_menu_data.py) */\n' + js
-                 + '/* END GENERATED MENU DATA */\n</script>')
-        pat = re.compile(r'<script id="menu-data">.*?</script>', re.S)
-        if pat.search(html):
-            html = pat.sub(lambda m: block, html, count=1)
-        else:
-            html = html.replace('<script id="model">', block + '\n\n<script id="model">', 1)
-        html_path.write_text(html, encoding="utf-8")
-    print("screens: %d  items: %d  unreachable: %d  notes: %d  size: %d bytes"
-          % (meta["screens"], meta["items"], len(meta["unreachable"]), len(notes), len(js)))
-    return 0
+    # Preserve the inventory reader for reviewed source overlays; all writes use
+    # the candidate builder, which rejects outputs outside this local folder.
+    import runpy
+    return runpy.run_path(str(Path(__file__).resolve().with_name('build_kne_candidate.py')), run_name='kne_builder')['main']()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Bed leveling and Z offset
 
-> **Awaiting validation** (version 1.0.0 boots and runs on the author's printer, but "Level and center" has not been validated one feature at a time; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md)). Keep a hand near the power switch the first times you use "Level and center" and watch the nozzle height.
+> **Awaiting validation** (an earlier Keil build booted, but the current source is uncompiled and "Level and center" has not been validated one feature at a time; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md)). Keep a hand near the power switch the first times you use "Level and center" and watch the nozzle height.
 
 ## Two settings that decide the first layer
 

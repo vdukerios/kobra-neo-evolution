@@ -259,8 +259,9 @@ void menu_info_board() {
     STATIC_ITEM_P(PSTR("Kobra Neo Evolution"), SS_DEFAULT|SS_INVERT); // project name
     STATIC_ITEM_P(PSTR(SHORT_BUILD_VERSION));                   // x.x.x-Branch
     STATIC_ITEM_P(PSTR(STRING_DISTRIBUTION_DATE));              // YYYY-MM-DD HH:MM
+    STATIC_ITEM_P(PSTR(STRINGIFY(X_BED_SIZE) "x" STRINGIFY(Y_BED_SIZE) "x" STRINGIFY(Z_MAX_POS) " mm"));
     STATIC_ITEM_P(PSTR(MACHINE_NAME), SS_DEFAULT|SS_INVERT);    // My3DPrinter
-    STATIC_ITEM_P(PSTR("github.com/vdukerios"));                // enlace en dos lineas (completo no cabe en 320 px)
+    STATIC_ITEM_P(PSTR("github.com/vdukerios/"));                // enlace en dos lineas (completo no cabe en 320 px)
     STATIC_ITEM_P(PSTR("kobra-neo-evolution"));
     PSTRING_ITEM(MSG_INFO_EXTRUDERS, STRINGIFY(EXTRUDERS), SS_CENTER); // Extruders: 2
     #if HAS_LEVELING
@@ -320,17 +321,25 @@ void menu_info_board() {
 //
 // "About Printer" submenu
 //
+void menu_kne_service_data() {
+  START_MENU();
+  BACK_ITEM(MSG_KNE_SERVICE);
+  #if DISABLED(LCD_PRINTER_INFO_IS_BOOTSCREEN)
+    SUBMENU(MSG_INFO_BOARD_MENU, menu_info_board);
+    #if HAS_EXTRUDERS
+      SUBMENU(MSG_INFO_THERMISTOR_MENU, menu_info_thermistors);
+    #endif
+  #endif
+  END_MENU();
+}
+
 void menu_info() {
   START_MENU();
-  BACK_ITEM(MSG_MAIN);
+  BACK_ITEM(MSG_CONFIGURATION);
   #if ENABLED(LCD_PRINTER_INFO_IS_BOOTSCREEN)
     SUBMENU(MSG_INFO_PRINTER_MENU, TERN(SHOW_CUSTOM_BOOTSCREEN, menu_show_custom_bootscreen, menu_show_marlin_bootscreen));
   #else
-    SUBMENU(MSG_INFO_PRINTER_MENU, menu_info_printer);           // Printer Info >
-    SUBMENU(MSG_INFO_BOARD_MENU, menu_info_board);               // Board Info >
-    #if HAS_EXTRUDERS
-      SUBMENU(MSG_INFO_THERMISTOR_MENU, menu_info_thermistors);  // Thermistors >
-    #endif
+    SUBMENU(MSG_INFO_PRINTER_MENU, menu_info_printer);
   #endif
 
   #if ENABLED(PRINTCOUNTER)

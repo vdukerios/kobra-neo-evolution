@@ -344,6 +344,7 @@ static void bnc_malla_restaurar() {
 }
 
 static void bnc_fin(const bool cancelado) {
+  thermalManager.disable_all_heaters();           // fallo o cancelacion: no dejar calor encendido
   if (bnc_restaurar) {
     probe.offset.z = bnc_offset_previo;
     bnc_malla_restaurar();                       // y devolver la malla anterior a la RAM
@@ -379,6 +380,7 @@ void boton_nivelar_pantalla() {
       bnc_fase = BNC_CANCELANDO;
       boton_nivelar_cancelado = true;               // G29 aborta en el siguiente punto
       wait_for_heatup = false;                      // corta la espera de calentamiento
+      thermalManager.disable_all_heaters();         // apagar sin esperar al movimiento en curso
       queue.clear();                                // descarta lo que aun no empezo
     }
     return;
@@ -409,7 +411,10 @@ void boton_nivelar_tick() {
   if (bnc_fase == BNC_IDLE) return;
 
   if (bnc_fase == BNC_AJUSTE) {                      // el usuario salio de la pantalla de ajuste
-    if (ui.currentScreen != lcd_babystep_zoffset) bnc_fase = BNC_IDLE;
+    if (ui.currentScreen != lcd_babystep_zoffset) {
+      thermalManager.disable_all_heaters();         // el ajuste termino: ya no hace falta mantener calor
+      bnc_fase = BNC_IDLE;
+    }
     return;
   }
 
@@ -438,17 +443,21 @@ void boton_nivelar_tick() {
       break;
 
     case BNC_MALLA:
-      if (probe.status == -1 || g29_fallo || boton_nivelar_cancelado) {
+      if (probe.status == -1 || g29_fallo || boton_nivelar_cancelado || !leveling_is_valid()) {
         bnc_fin(boton_nivelar_cancelado);            // fallo de G29: no se mueve nada
       }
       else {
-        bnc_restaurar = false;                       // la malla ya quedo medida y guardada con offset 0
+        bnc_restaurar = false;                       // malla nueva guardada conservando el offset actual
         queue.enqueue_now_P(PSTR("M420 S1\nG90\nG1 Z" BNC_Z_SEGURO " F" BNC_F_Z_SUBIR "\nG1 X" BNC_CENTRO_X " Y" BNC_CENTRO_Y " F" BNC_F_XY));
         bnc_fase = BNC_CENTRAR;
       }
       break;
 
     case BNC_CENTRAR:
+      if (!planner.leveling_active) {              // M420 no pudo activar la malla: no bajar a la cama
+        bnc_fin(true);
+        break;
+      }
       queue.enqueue_now_P(PSTR("G1 Z" BNC_Z_INTERMEDIA " F" BNC_F_Z_BAJAR "\nG1 Z" BNC_Z_TRABAJO " F" BNC_F_Z_FINAL));
       bnc_fase = BNC_BAJAR;
       break;
@@ -581,9 +590,6 @@ void menu_main() {
 //          GCODES_ITEM(MSG_ATTACH_MEDIA, PSTR("M21"));  
 //      }
 
-    if (TERN0(MACHINE_CAN_PAUSE, printingIsPaused()))
-      ACTION_ITEM(MSG_RESUME_PRINT, ui.resume_print);
-
     #if ENABLED(HOST_START_MENU_ITEM) && defined(ACTION_ON_START)
       ACTION_ITEM(MSG_HOST_START_PRINT, host_action_start);
     #endif
@@ -596,6 +602,9 @@ void menu_main() {
     SUBMENU(MSG_PREPARE, menu_ready);
     //SUBMENU(Operate_MSG, menu_motion);
     SUBMENU(MSG_CONFIGURATION, menu_configuration);
+    #if HAS_SERVICE_INTERVALS
+      SUBMENU(MSG_KNE_MAINTENANCE, menu_mantenimiento);
+    #endif
     #if HAS_MODO_NOCHE
       EDIT_ITEM(bool, MSG_KNE_NIGHT_MODE, &ui.noche_activo, []{ ui.noche_aplicar(); });
     #endif
@@ -605,10 +614,6 @@ void menu_main() {
 	
 		
   //BACK_ITEM(MSG_INFO_SCREEN);    //��Ϣ����
- #if HAS_SERVICE_INTERVALS
-   SUBMENU(MSG_KNE_MAINTENANCE, menu_mantenimiento);   // agrupa Lubricar ejes / Revisar correas
- #endif
-  END_MENU();
   }
 
 //  #if HAS_CUTTER
@@ -685,8 +690,6 @@ void menu_main() {
 //  #endif
 
 
- #endif
-
   #if HAS_GAMES && DISABLED(LCD_INFO_MENU)
    #if ENABLED(GAMES_EASTER_EGG)
      SKIP_ITEM();
@@ -712,64 +715,134 @@ void menu_main() {
  #endif
 	
 
+  END_MENU();
 }
 
-void preheat_pla()
-{
-	 queue.inject_P(PSTR("M140 S60\nM104 S190"));
-   ui.return_to_status();
-}
-
-void preheat_ABS()
-{
-		queue.inject_P(PSTR("M140 S80\nM104 S240"));
-   	ui.return_to_status();
-}
-
-//xtern _filament_cmd_t filament_cmd;
- extern uint8_t filament_cmd;
-
- void menu_ready()
- {
+void lcd_cooldown();
+static void menu_kne_manual_heat() {
   START_MENU();
   BACK_ITEM(MSG_BACK);
-   
-//    if (!g29_in_progress)
-//      SUBMENU(MSG_BED_LEVELING, menu_bed_leveling);
-//*********************Ԥ��***************************************
-  
-	SUBMENU(MSG_PREHEAT_PLA,preheat_pla);
-	SUBMENU(MSG_PREHEAT_ABS,preheat_ABS);
-	
-//  #if PREHEAT_COUNT
-//    //
-//    // Preheat for all Materials
-//    //
-//    LOOP_L_N(m, PREHEAT_COUNT) {
-//      editable.int8 = m;
-//      #if HOTENDS > 1 || HAS_HEATED_BED
-//        SUBMENU_S(ui.get_preheat_label(m), MSG_PREHEAT_M, menu_preheat_m);
-//      #elif HAS_HOTEND
-//        ACTION_ITEM_S(ui.get_preheat_label(m), MSG_PREHEAT_M, do_preheat_end_m);
-//      #endif
-//    }
-//  #endif
- //************************��˿****************************************** 
-//   #if ENABLED(ADVANCED_PAUSE_FEATURE)                //��˿
-//    #if E_STEPPERS == 1 && DISABLED(FILAMENT_LOAD_UNLOAD_GCODES)
-//      YESNO_ITEM(MSG_FILAMENTCHANGE,
-//        menu_change_filament, ui.goto_previous_screen,
-//        GET_TEXT(MSG_FILAMENTCHANGE), (const char *)nullptr, PSTR("?")
-//      );
-//    #else
-//      SUBMENU(MSG_FILAMENTCHANGE, menu_change_filament);
-//    #endif
-//  #endif
-	
-  SUBMENU(MSG_MOVE_E_IN, []{filament_cmd = FILA_IN; _menu_move_distance_e_maybe(); }); 
-  SUBMENU(MSG_MOVE_E_OUT, []{filament_cmd = FILA_OUT; _menu_move_distance_e_maybe();});
+  #if HAS_TEMP_HOTEND
+    editable.celsius = thermalManager.degTargetHotend(0);
+    EDIT_ITEM_FAST(int3, MSG_NOZZLE, &editable.celsius, 0, thermalManager.hotend_max_target(0), []{ thermalManager.setTargetHotend(editable.celsius, 0); });
+  #endif
+  #if HAS_HEATED_BED
+    editable.celsius = thermalManager.degTargetBed();
+    EDIT_ITEM_FAST(int3, MSG_BED, &editable.celsius, 0, BED_MAX_TARGET, []{ thermalManager.setTargetBed(editable.celsius); });
+  #endif
+  #if HAS_FAN
+    _FAN_EDIT_ITEMS(0, FAN_SPEED);
+  #endif
   END_MENU();
- }
- 
+}
+void menu_kne_filament_material();
+extern uint8_t filament_cmd;
+
+void menu_ready() {
+  if (printer_busy() || printingIsPaused() || queue.has_commands_queued()) {
+    ui.set_status_P(GET_TEXT(MSG_BNC_OCUPADO));
+    ui.return_to_status();
+    return;
+  }
+  START_MENU();
+  BACK_ITEM(MSG_BACK);
+  #if PREHEAT_COUNT
+    LOOP_L_N(m, PREHEAT_COUNT)
+      ACTION_ITEM_N_S(m, ui.get_preheat_label(m), MSG_PREHEAT_M, []{
+        thermalManager.lcd_preheat(0, MenuItemBase::itemIndex, TERN(HAS_HEATED_BED, MenuItemBase::itemIndex, -1));
+      });
+  #endif
+  #if E_MANUAL
+    SUBMENU(MSG_MOVE_E_IN, []{ filament_cmd = FILA_IN; ui.goto_screen(menu_kne_filament_material, ENCODER_STEPS_PER_MENU_ITEM); });
+    SUBMENU(MSG_MOVE_E_OUT, []{ filament_cmd = FILA_OUT; ui.goto_screen(menu_kne_filament_material, ENCODER_STEPS_PER_MENU_ITEM); });
+  #endif
+  #if HAS_TEMPERATURE
+    SUBMENU(MSG_KNE_MANUAL_HEAT, menu_kne_manual_heat);
+    ACTION_ITEM(MSG_COOLDOWN, lcd_cooldown);
+  #endif
+  END_MENU();
+}
+
+#if ENABLED(PANTALLA_NUEVA)
+extern uint8_t pantalla_inicio_foco;
+static uint8_t kne_inicio_material = 0;
+
+static bool kne_inicio_bloqueado() {
+  if (!(printer_busy() || printingIsPaused() || queue.has_commands_queued())) return false;
+  ui.set_status_P(GET_TEXT(MSG_BNC_OCUPADO));
+  ui.return_to_status();
+  return true;
+}
+
+static void kne_inicio_preheat_confirm() {
+  MenuItem_confirm::select_screen(
+    GET_TEXT(MSG_KNE_CONFIRM), GET_TEXT(MSG_BUTTON_CANCEL),
+    []{
+      if (kne_inicio_bloqueado()) return;
+      thermalManager.lcd_preheat(0, kne_inicio_material, TERN(HAS_HEATED_BED, kne_inicio_material, -1));
+    }, ui.goto_previous_screen,
+    GET_TEXT(MSG_KNE_QUICK_PREHEAT), ui.get_preheat_label(kne_inicio_material), PSTR("?")
+  );
+}
+
+static void menu_kne_inicio_preheat() {
+  if (kne_inicio_bloqueado()) return;
+  START_MENU();
+  BACK_ITEM(MSG_BACK);
+  #if PREHEAT_COUNT
+    LOOP_L_N(m, PREHEAT_COUNT)
+      SUBMENU_N_S(m, ui.get_preheat_label(m), MSG_KNE_MATERIAL_CHOICE, []{
+        kne_inicio_material = MenuItemBase::itemIndex;
+        ui.goto_screen(kne_inicio_preheat_confirm);
+      });
+  #endif
+  END_MENU();
+}
+
+static void kne_inicio_level_confirm() {
+  MenuItem_confirm::select_screen(
+    GET_TEXT(MSG_KNE_CONFIRM), GET_TEXT(MSG_BUTTON_CANCEL),
+    []{
+      if (kne_inicio_bloqueado()) return;
+      #if ENABLED(BOTON_NIVELAR_CENTRAR)
+        boton_nivelar_inicio();
+      #endif
+    }, ui.goto_previous_screen,
+    GET_TEXT(MSG_KNE_QUICK_LEVEL), (const char *)nullptr, PSTR("?")
+  );
+}
+
+// Additional shortcuts. Existing menu routes remain available.
+void kne_inicio_activar() {
+  const uint8_t foco = pantalla_inicio_foco;
+  pantalla_inicio_foco = 0;
+  if (!foco) { ui.goto_screen(menu_main); return; }
+  if (kne_inicio_bloqueado()) return;
+  ui.push_current_screen();
+  switch (foco) {
+    case 1:
+      ui.goto_screen(menu_kne_inicio_preheat, ENCODER_STEPS_PER_MENU_ITEM);
+      break;
+    #if E_MANUAL
+      case 2:
+      case 3:
+        filament_cmd = foco == 2 ? FILA_IN : FILA_OUT;
+        ui.goto_screen(menu_kne_filament_material, ENCODER_STEPS_PER_MENU_ITEM);
+        break;
+    #endif
+    case 4:
+      ui.goto_screen(kne_inicio_level_confirm);
+      break;
+    #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
+      case 5:
+        extern float Beforeprobe_offset;
+        Beforeprobe_offset = probe.offset.z;
+        ui.goto_screen(lcd_babystep_zoffset);
+        break;
+    #endif
+    default: ui.goto_screen(menu_main); break;
+  }
+}
+#endif // PANTALLA_NUEVA
 
 #endif // HAS_LCD_MENU

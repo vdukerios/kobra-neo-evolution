@@ -1,12 +1,12 @@
 # KNE features
 
-> **Version 1.0.0: boots and runs on the author's Kobra Neo. Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md).** Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. Every feature below is **implemented**, not **verified**: "should" in this document means "is designed to". Please report what you find.
+> **The current 1.0.0 source candidate is uncompiled and untested on hardware; an earlier Keil build booted on the author's Kobra Neo. Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md).** Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. Every feature below is **implemented**, not **verified**: "should" in this document means "is designed to". Please report what you find.
 
 ## Validation status
 
 | Feature | Status |
 |---|---|
-| Boot, menus, English/Spanish UI | Confirmed on one printer |
+| Boot, menus, English/Spanish UI | Earlier build confirmed; current menu source uncompiled |
 | New home and print screens (thumbnail, progress bar) | Implemented, awaiting validation |
 | On-device guide and long-press help | Implemented, awaiting validation |
 | Sound menu | Implemented, awaiting validation |
@@ -29,10 +29,10 @@ Terms used here: **nozzle** = the hot end that melts plastic; **bed** = the heat
 ## Menus and screens
 
 ### Language (English and Spanish)
-A language menu (Configuration) switches the whole interface between English and Spanish. The first boot asks for a language. The default is English. The choice is saved in the settings memory. The Spanish texts are written in plain ASCII, **without accents**, because the display font does not render accented letters well.
+Configuration > Preferences > Language switches the interface between English and Spanish. The default after a reset is English. The choice is saved in the settings memory. The Spanish texts are written in plain ASCII, **without accents**, because the display font does not render accented letters well.
 
 ### New home and print screens
-Redesigned home and print screens. When the G-code carries a model thumbnail (see [`CURA_SETUP.md`](CURA_SETUP.md)) it is shown on the print screen, and a progress bar fills as the print advances. While printing, turn the knob to switch pages (for example remaining time, elapsed time, speed, flow and fan). Without a thumbnail the screen still works.
+Home has additional preheat, load/unload, leveling/centering and editable Z offset shortcuts. The original menu entries are preserved. Menu lists, editors and confirmations share dark cards and selection colors. See [the current source changes](CHANGES_2026-11-06.md). Redesigned home and print screens. When the G-code carries a model thumbnail (see [`CURA_SETUP.md`](CURA_SETUP.md)) it is shown on the print screen, and a progress bar fills as the print advances. While printing, turn the knob to switch pages (for example remaining time, elapsed time, speed, flow and fan). Without a thumbnail the screen still works.
 
 ### On-device guide and long-press help
 - **Guide and help** (main menu): seven short topics for beginners:
@@ -46,12 +46,15 @@ Redesigned home and print screens. When the G-code carries a model thumbnail (se
 - **Long-press help:** hold the knob for about 0.8 seconds on a menu option to read what it does. Because of this, a short click in menus now takes effect when you **release** the knob, not when you press it. If the menus feel slow or odd, report it.
 
 ### Sound menu
-A sound on/off switch in the Configuration menu turns the buzzer on or off.
+A sound on/off switch in Configuration > Preferences turns the buzzer on or off.
 
 ### SD files sorted alphabetically
 Files and folders in the SD card menu are listed in alphabetical order. The firmware sorts up to 40 entries (a limit set at build time); with more entries in one folder, sorting may not apply to all of them. Keep print folders small.
 
-### Preheat menu
+### Load, unload and preheat
+
+Choose a material (PLA initially selected) and review its nozzle temperature before loading or unloading. The nozzle heats before extrusion, which stops with a click. Finishing a load returns Home, keeps the selected nozzle temperature and applies the material bed/fan recipe; it does not start a file. Cancelling heat-up or unloading does not apply that extra preparation. Edit recipes under Configuration > Materials.
+
 - PLA: nozzle 200 C, bed 60 C.
 - PETG: nozzle 240 C, bed 80 C.
 - ABS entry (240 C / 110 C) is inherited from the base firmware.
@@ -81,10 +84,10 @@ Three motor modes (Silent, Mixed, High speed) change how the X and Y motors are 
 If nothing is happening for 10 minutes, the heaters switch off and the screen shows "Heater off: idle timeout". It applies when the nozzle is at 100 C or more, or when the bed is heated, and it does **not** trigger while printing, while the printer is waiting for a temperature, or while moving. Extruder movement restarts the timer.
 
 ### Print counter and maintenance reminders
-The printer counts print hours and reminds you to **lubricate the axes every 100 print hours** and to **check the belts every 200 print hours**. The reminder names are localized: they follow the interface language ("Lubricate axes" / "Check belts" in English, "Lubricar ejes" / "Revisar correas" in Spanish).
+The printer counts print hours and reminds you to **lubricate the axes every 100 print hours** and to **check the belts every 200 print hours**. Preparation and printing count; pause and idle do not. Counters save at job end/stop, reminder reset and hourly checkpoints, independently of ordinary settings. Stored totals survive power-off; an abrupt cut can lose up to approximately the latest unsaved hour. Resetting one reminder preserves the other. The reminder names are localized: they follow the interface language ("Lubricate axes" / "Check belts" in English, "Lubricar ejes" / "Revisar correas" in Spanish).
 
 ### Night mode
-A "Night mode" switch (main menu and Configuration) is meant for printing overnight:
+A "Night mode" switch (main menu) is meant for printing overnight:
 
 - the screen turns black after about 3 seconds and the buzzer is silent for everything;
 - the first turn or click of the knob only wakes the screen (it does not trigger the action); it goes dark again after 30 seconds;

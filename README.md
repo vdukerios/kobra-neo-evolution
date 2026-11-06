@@ -10,7 +10,7 @@ Not affiliated with, endorsed by or sponsored by Anycubic.
 
 ## Project status
 
-**Version 1.0.0 is a source release.** An earlier build of this source **booted and ran on the author's Kobra Neo** (November 2026). The latest source in this repository (the menu restructure and the fixes from the audits) has **not been compiled or tested on hardware yet**, so **no firmware binary is attached yet**. The first binary will be published on the Releases page after that build is validated. Each feature still needs validation by more users; see [`testing/TEST_PLAN.md`](testing/TEST_PLAN.md). **Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`.**
+**Version 1.0.0 is a source release.** An earlier build of this source **booted and ran on the author's Kobra Neo** (November 2026). The latest source in this repository (the audited menus, shared visual design, Home shortcuts, filament workflows and maintenance fixes) has **not been compiled or tested on hardware yet**, so **no firmware binary is attached yet**. The first binary will be published on the Releases page after that build is validated. Each feature still needs validation by more users; see [`testing/TEST_PLAN.md`](testing/TEST_PLAN.md). **Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`.**
 
 What is confirmed so far (one printer, the author's, November 2026): an earlier build starts, its menus work, and the interface works in English and Spanish. Everything else is **implemented but not yet validated one feature at a time**.
 
@@ -24,13 +24,17 @@ Safety reminders:
 
 ## Try the screen before you flash
 
-The interface can be explored in your browser with the **[screen simulator](https://vdukerios.github.io/kobra-neo-evolution/)**. It reproduces the 320 x 240 display and the single knob (turn and click; hold the click for help), in English and Spanish, with the menus extracted from the real firmware source. Use it to see every menu, the pause menu, the print screens, the maintenance reminders and the new modes.
+The interface can be explored in your browser with the **[screen simulator](https://vdukerios.github.io/kobra-neo-evolution/)**. It reproduces the 320 x 240 display and the single knob (turn and click; hold the click for help), in English and Spanish, using a preserved menu inventory plus reviewed changes from the current source. It does not execute compiled firmware. Use it to see every menu, the pause menu, the print screens, the maintenance reminders and the new modes.
 
-| Main menu | Pause menu | Maintenance (Spanish) | Confirm print (Spanish) |
+| Home (Spanish) | Main menu | Maintenance (Spanish) | Confirm print (Spanish) |
 |---|---|---|---|
-| ![Main menu](docs/images/sim_main_menu_en.png) | ![Pause menu](docs/images/sim_pause_menu_en.png) | ![Maintenance](docs/images/sim_maintenance_es.png) | ![Confirm print](docs/images/sim_confirm_print_es.png) |
+| ![Home](docs/images/sim_home_es.png) | ![Main menu](docs/images/sim_main_menu_en.png) | ![Maintenance](docs/images/sim_maintenance_es.png) | ![Confirm print](docs/images/sim_confirm_print_es.png) |
 
-The simulator is a **mock-up** built from the firmware source, not the firmware running: fonts, colors and timings differ, and a few values show as n/a. If you open `simulator/simulator.html` locally you get the same page. See its *Fidelity notes* panel for what is approximated.
+The simulator is a **source candidate**, not the firmware running: native fonts and layouts are simpler, timings and calibration results are simulated, and a few values show as n/a. If you open `simulator/simulator.html` locally you get the same page. See its *Fidelity notes* panel for what is approximated.
+
+## Latest source update
+
+The [6 November changes](docs/CHANGES_2026-11-06.md) include simplified Configuration, consistent menu cards, additional Home shortcuts, material selection and automatic print preheat after loading, independent maintenance reminders and settings fixes. **88 simulator model cases pass**; all **42 generated screens** are reached by the menu checks. These results do not validate the uncompiled firmware. See [simulator instructions](simulator/README.md) for reproducible checks.
 
 ## Features
 
@@ -38,10 +42,10 @@ All of the following are implemented. Their validation status is in [`docs/FEATU
 
 | Area | Feature |
 |---|---|
-| Menus | English and Spanish interface (language menu; the first boot asks; default English). Spanish texts are plain ASCII, without accents, because the display font does not render them well |
+| Menus | English and Spanish interface (Configuration > Preferences > Language; default English). Spanish texts are plain ASCII, without accents, because the display font does not render them well |
 | Menus | On-device guide for beginners (7 topics) and long-press help (hold the knob about 0.8 s on a menu item) |
-| Menus | New home and print screens with a model thumbnail and a progress bar that fills up |
-| Menus | Sound on/off menu; PETG preheat; PLA preheat 200/60; SD files sorted alphabetically |
+| Menus | Shared menu styling; Home shortcuts for preheat, loading/unloading, leveling and editable Z offset; print screens with a thumbnail and progress bar |
+| Menus | Seven Configuration groups; sound/language preferences; material recipes; SD files sorted alphabetically |
 | Printing | Print modes **Full** and **Express** (`M1100` G-code command and a "Confirm print" screen) |
 | Printing | "Level and center" button: levels the bed and moves the nozzle to the bed center so you can set the Z offset with a sheet of paper |
 | Printing | Junction deviation instead of classic jerk (smoother corners); bed leveling fade height 10 mm |

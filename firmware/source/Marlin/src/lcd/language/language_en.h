@@ -201,18 +201,18 @@ namespace Language_en {
   LSTR MSG_KNE_PROGRESS               = _UxGT("Progress");
   LSTR MSG_KNE_NIGHT_MODE             = _UxGT("Night mode");
   LSTR MSG_KNE_GUIDE_HELP             = _UxGT("Guide and help");
-  LSTR MSG_KNE_MOTORS_SAVED_SILENT    = _UxGT("Motors: SILENT (saved)");
-  LSTR MSG_KNE_MOTORS_SAVED_MIXED     = _UxGT("Motors: MIXED (saved)");
-  LSTR MSG_KNE_MOTORS_SAVED_FAST      = _UxGT("Motors: HIGH SPEED (saved)");
+  LSTR MSG_KNE_MOTORS_SAVED_SILENT            = _UxGT("X/Y: Silent (saved)");
+  LSTR MSG_KNE_MOTORS_SAVED_MIXED             = _UxGT("X/Y: Mixed (saved)");
+  LSTR MSG_KNE_MOTORS_SAVED_FAST              = _UxGT("X/Y: Force (saved)");
   LSTR MSG_KNE_MOTORS_NOW_SILENT      = _UxGT("Current: SILENT");
   LSTR MSG_KNE_MOTORS_NOW_MIXED       = _UxGT("Current: MIXED");
-  LSTR MSG_KNE_MOTORS_NOW_FAST        = _UxGT("Current: HIGH SPEED");
+  LSTR MSG_KNE_MOTORS_NOW_FAST                = _UxGT("Current: Force");
   LSTR MSG_KNE_MOTOR_SILENT           = _UxGT("Silent");
   LSTR MSG_KNE_MOTOR_MIXED            = _UxGT("Mixed");
-  LSTR MSG_KNE_MOTOR_FAST             = _UxGT("High speed");
+  LSTR MSG_KNE_MOTOR_FAST                     = _UxGT("Force");
   LSTR MSG_KNE_MOTOR_MODE_SILENT      = _UxGT("Motor mode: Silent");
   LSTR MSG_KNE_MOTOR_MODE_MIXED       = _UxGT("Motor mode: Mixed");
-  LSTR MSG_KNE_MOTOR_MODE_FAST        = _UxGT("Motor mode: High speed");
+  LSTR MSG_KNE_MOTOR_MODE_FAST                = _UxGT("Motor mode: Force");
   LSTR MSG_KNE_CONFIRM_PRINT          = _UxGT("Confirm print");
   LSTR MSG_KNE_FILE_COLON             = _UxGT("File: ");
   LSTR MSG_KNE_MODE_EXPRESS           = _UxGT("Mode: Express");
@@ -605,7 +605,7 @@ namespace Language_en {
   LSTR MSG_PROBE_OFFSETS                  = _UxGT("Probe Offsets");
   LSTR MSG_PROBE_XOFFSET                  = _UxGT("Probe X Offset");
   LSTR MSG_PROBE_YOFFSET                  = _UxGT("Probe Y Offset");
-  LSTR MSG_ZPROBE_ZOFFSET                 = _UxGT("Probe Z Offset");
+  LSTR MSG_ZPROBE_ZOFFSET                 = _UxGT("Z offset");
   LSTR MSG_MOVE_NOZZLE_TO_BED             = _UxGT("Move Nozzle to Bed");
   LSTR MSG_BABYSTEP_X                     = _UxGT("Babystep X");
   LSTR MSG_BABYSTEP_Y                     = _UxGT("Babystep Y");
@@ -844,7 +844,7 @@ namespace Language_en {
   LSTR MSG_SD_CARD                        = _UxGT("SD Card");
   LSTR MSG_USB_DISK                       = _UxGT("USB Disk");
   LSTR MSG_PRINT_TIME                     = _UxGT("PrintTime");
-  LSTR MSG_Z_OFFSET                       = _UxGT("Z Offset:");
+  LSTR MSG_Z_OFFSET                       = _UxGT("Z offset");
 
 // These strings can be the same in all languages
   LSTR MSG_MARLIN                         = _UxGT("Marlin");
@@ -867,6 +867,40 @@ namespace Language_en {
   LSTR MSG_BACKLASH_I                     = LCD_STR_I;
   LSTR MSG_BACKLASH_J                     = LCD_STR_J;
   LSTR MSG_BACKLASH_K                     = LCD_STR_K;
+
+  // Task-based configuration and service routes.
+  LSTR MSG_KNE_CALIBRATION                    = _UxGT("Calibration");
+  LSTR MSG_KNE_MATERIALS                      = _UxGT("Material recipes");
+  LSTR MSG_KNE_PREFERENCES                    = _UxGT("Preferences");
+  LSTR MSG_KNE_SAVED_SETTINGS                 = _UxGT("Saved settings");
+  LSTR MSG_KNE_SERVICE                        = _UxGT("Service");
+  LSTR MSG_KNE_FIRST_LAYER                    = _UxGT("Z offset");
+  LSTR MSG_KNE_EXTRUSION_CAL                  = _UxGT("Calibrate filament");
+  LSTR MSG_KNE_TEMP_CAL                       = _UxGT("Calibrate temperature");
+  LSTR MSG_KNE_HOTEND_CAL                     = _UxGT("Calibrate nozzle");
+  LSTR MSG_KNE_BED_CAL                        = _UxGT("Calibrate bed");
+  LSTR MSG_KNE_RESTORE_WARNING                = _UxGT("Erase calibration?");
+  LSTR MSG_KNE_CUSTOM_MOTORS                  = _UxGT("Current: Custom");
+  LSTR MSG_KNE_MOTOR_MODE_CUSTOM              = _UxGT("Motor mode: Custom");
+  LSTR MSG_KNE_INSTALLATION_REQUIRED          = _UxGT("Sensor needs installation");
+  LSTR MSG_KNE_MOTOR_XY_SAVED                 = _UxGT("X/Y only; saves all settings");
+  LSTR MSG_KNE_FILAMENT_TEMP                  = _UxGT("Filament temperature");
+  LSTR MSG_KNE_MANUAL_HEAT                    = _UxGT("Manual heat");
+  LSTR MSG_KNE_CONFIRM                        = _UxGT("CONFIRM");
+  LSTR MSG_KNE_SERVICE_DATA                   = _UxGT("Service information");
+  LSTR MSG_KNE_PHYSICAL_BED                   = _UxGT("Physical bed adjusters?");
+  LSTR MSG_KNE_MOTOR_SAVING_FAILED            = _UxGT("X/Y changed; save failed");
+  LSTR MSG_KNE_MATERIAL_CHOICE                = _UxGT("Material $");
+
+  LSTR MSG_KNE_QUICK_MENU                     = _UxGT("Menu");
+  LSTR MSG_KNE_QUICK_PREHEAT                  = _UxGT("Preheat");
+  LSTR MSG_KNE_QUICK_LOAD                     = _UxGT("Load");
+  LSTR MSG_KNE_QUICK_UNLOAD                   = _UxGT("Unload");
+  LSTR MSG_KNE_QUICK_LEVEL                    = _UxGT("Level and center");
+  LSTR MSG_KNE_QUICK_HINT                     = _UxGT("Turn: choose  Click: open");
+  LSTR MSG_KNE_FINISH_LOAD                      = _UxGT("Click: finish loading");
+  LSTR MSG_KNE_AFTER_LOAD_HEAT                  = _UxGT("Then heat bed for print");
+  LSTR MSG_KNE_LOAD_COMPLETE                    = _UxGT("Filament loaded");
 }
 
 #if FAN_COUNT == 1

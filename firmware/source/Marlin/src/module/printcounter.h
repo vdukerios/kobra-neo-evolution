@@ -99,6 +99,10 @@ class PrintCounter: public Stopwatch {
      */
     static bool loaded;
 
+    #if HAS_SERVICE_INTERVALS
+      static void updateServiceIntervals(const uint32_t delta);
+    #endif
+
   protected:
     /**
      * @brief dT since the last call

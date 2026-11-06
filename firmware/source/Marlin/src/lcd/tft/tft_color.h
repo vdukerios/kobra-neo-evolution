@@ -70,6 +70,33 @@
 
 #define COLOR_DARK_PURPLE     0x9930  // #992380
 
+// KNE: one palette for Home, wheel menus, value editors and confirmations.
+// Only the original 320x240 display with the new interface uses this theme.
+#if HAS_UI_320x240 && ENABLED(PANTALLA_NUEVA)
+  #define KNE_UI_BG       COLOR(0x080C18)
+  #define KNE_UI_CARD     COLOR(0x151F31)
+  #define KNE_UI_TRACK    COLOR(0x243147)
+  #define KNE_UI_SELECT   COLOR(0x233C50)
+  #define KNE_UI_ACC      COLOR(0x59E4BF)
+  #define KNE_UI_DIM      COLOR(0x98A9C2)
+  #define KNE_UI_TEXT     COLOR(0xEDF3FF)
+  #define KNE_UI_WARN     COLOR(0xFFBF69)
+  #define KNE_UI_HOT      COLOR(0xFF8B77)
+  #define KNE_UI_COLD     COLOR(0x68BAFF)
+  #ifndef COLOR_BACKGROUND
+    #define COLOR_BACKGROUND KNE_UI_BG
+  #endif
+  #ifndef COLOR_SELECTION_BG
+    #define COLOR_SELECTION_BG KNE_UI_SELECT
+  #endif
+  #ifndef COLOR_MENU_TEXT
+    #define COLOR_MENU_TEXT KNE_UI_TEXT
+  #endif
+  #ifndef COLOR_MENU_VALUE
+    #define COLOR_MENU_VALUE KNE_UI_ACC
+  #endif
+#endif
+
 #ifndef COLOR_BACKGROUND
   #define COLOR_BACKGROUND    COLOR_DARK
 #endif

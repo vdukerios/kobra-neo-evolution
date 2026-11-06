@@ -2,7 +2,7 @@
 
 > **Note:** no firmware binary is attached to the repository yet; it will appear on the GitHub Releases page after the current source is built and validated. Until then build it yourself ([`BUILD.md`](BUILD.md)). The file you install must be named `firmware.bin`.
 
-> **Version 1.0.0: boots and runs on the author's Kobra Neo.** Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md). Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. If you are not comfortable with the risk, do not flash.
+> **The current 1.0.0 source candidate is uncompiled and untested on hardware; an earlier Keil build booted on the author's Kobra Neo.** Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md). Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. If you are not comfortable with the risk, do not flash.
 
 Time needed: about 30 minutes for the first install, plus the calibration afterwards.
 
@@ -12,7 +12,7 @@ Time needed: about 30 minutes for the first install, plus the calibration afterw
 - A microSD card formatted as **FAT32** (a card of 32 GB or less is the safest choice) and a card reader.
 - A USB cable and a terminal program (for example the serial monitor of your slicer or any serial terminal, 115200 baud) to send G-code such as `M503`. Optional but strongly recommended.
 - A backup of the firmware you run today (see below).
-- `KNE-1.0.0.bin` from [`../releases/v1.0.0/`](../releases/v1.0.0/) (or from the GitHub release page).
+- A validated Keil/Arm Compiler 5 binary. **None is published yet**; the release notes are in [`../releases/v1.0.0/`](../releases/v1.0.0/).
 
 Only the file built with Keil and Arm Compiler 5 is a supported release. Do **not** flash binaries produced by the experimental GCC scripts in `build/`: they do not boot ([`BUILD.md`](BUILD.md)).
 
@@ -22,7 +22,7 @@ Only the file built with Keil and Arm Compiler 5 is a supported release. Do **no
 2. **Get a copy of the firmware you run today** and keep it on a separate SD card or in a folder. This project does not include them because they are not ours:
    - NuclearPhoenixx firmware: <https://github.com/NuclearPhoenixx/Kobra_Neo>
    - Anycubic's original firmware (for example 1.3.3): see the repositories listed in `firmware/README_NUCLEAR.md`.
-3. Verify the downloaded KNE file against `releases/v1.0.0/SHA256.txt` (in Git Bash, inside that folder: `sha256sum -c SHA256.txt`).
+3. Once a binary is published, verify it against its accompanying SHA-256 checksum. There is no published binary/checksum pair yet.
 
 ## 3. Install procedure (SD card)
 
@@ -39,11 +39,11 @@ The complete test order is in [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.m
 
 ## 4. First boot: language
 
-On the first boot the printer asks you to choose a language (English or Spanish). The default is English. You can change it later in the **Configuration** menu. Spanish texts have no accents on purpose (the display font does not render them well).
+The default after a reset is English. Change it in **Configuration > Preferences > Language** (English or Spanish). Spanish texts have no accents on purpose (the display font does not render them well).
 
 ## 5. After flashing: check your settings
 
-Flashing may **reset the settings memory (EEPROM)** to the firmware defaults. Do not assume your old values survived.
+The current source changes the settings version to K10. On the first upgrade from the older Nuclear settings version it **restores factory settings**. This behavior remains uncompiled and untested; do not assume your calibration survived.
 
 1. Send `M503` and compare the output with the file you saved in step 2.
 2. If a value changed, set it again and store it with `M500`. Typical commands: `M301` (nozzle PID), `M304` (bed PID), `M92 E<steps>` (extruder steps), `M851 Z<offset>` (Z offset).

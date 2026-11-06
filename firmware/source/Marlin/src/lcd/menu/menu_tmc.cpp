@@ -31,8 +31,9 @@
 #include "menu_item.h"
 #include "../../module/stepper/indirection.h"
 #include "../../feature/tmc_util.h"
+#include "../../inc/valentin/kne_limits.h"
 
-#define TMC_EDIT_STORED_I_RMS(ST,STR) EDIT_ITEM_P(uint16_4, PSTR(STR), &stepper##ST.val_mA, 100, 3000, []{ stepper##ST.refresh_stepper_current(); })
+#define TMC_EDIT_STORED_I_RMS(ST,STR) EDIT_ITEM_P(uint16_4, PSTR(STR), &stepper##ST.val_mA, KNE_CURRENT_MIN, KNE_CURRENT_MAX, []{ stepper##ST.refresh_stepper_current(); })
 
 void menu_tmc_current() {
   START_MENU();

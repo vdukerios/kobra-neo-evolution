@@ -1,8 +1,12 @@
 # Safety and audit summary
 
-> **Version 1.0.0: boots and runs on the author's Kobra Neo. Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md).** Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. The audits below are **static reviews**: someone read the code and the disassembly. They found problems, some were fixed, and they cannot replace testing on hardware. Watch the heaters and the motors during your first tests.
+> **The current 1.0.0 source candidate is uncompiled and untested on hardware; an earlier Keil build booted on the author's Kobra Neo. Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md).** Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. The audits below are **static reviews**: someone read the code and the disassembly. They found problems, some were fixed, and they cannot replace testing on hardware. Watch the heaters and the motors during your first tests.
 
 Two audits were done on 5 November 2026 (the original reports are in Spanish and are not part of this repository; this page summarizes them). They were made on the first KNE builds, which were compiled with GCC (see section 2). Marks used below: **[verified]** = confirmed by reading code or disassembly; **[assumption]** = could not be confirmed without the printer.
+
+## Current source candidate (6 November 2026)
+
+The [current changes](CHANGES_2026-11-06.md) include later source fixes for menus, settings, motor-current command/restoration bounds, heating workflows, preparation failure and maintenance persistence. These changes have model/static checks only. The tables below describe the earlier audit at the time it was written; their historical "open" labels are not a complete account of the current source. No current binary or physical validation exists.
 
 ## 1. Thermal and machine safety audit
 
@@ -32,7 +36,7 @@ Other findings, medium and low:
 
 ## 2. Boot, installation and build-chain audit
 
-**Outcome in one paragraph.** The static audit of the GCC-built images found **no definite boot failure**, but those GCC-built images **did not boot** on the author's printer (black screen, no serial output). **The cause was not identified.** That is why the release is built with **Keil MDK and Arm Compiler 5** instead: that path reproduces the published Nuclear v1.3.6 firmware byte for byte (except 20 bytes of build-date strings), and the resulting KNE firmware boots and runs. The GCC scripts remain in `build/` as an experimental, non-booting path ([`BUILD.md`](BUILD.md)). The findings below are therefore kept as the record of what was checked, not as proof that a GCC image would start.
+**Outcome in one paragraph.** The static audit of the GCC-built images found **no definite boot failure**, but those GCC-built images **did not boot** on the author's printer (black screen, no serial output). **The cause was not identified.** That is why the release is built with **Keil MDK and Arm Compiler 5** instead: that path reproduces the published Nuclear v1.3.6 firmware byte for byte (except 20 bytes of build-date strings), and an earlier KNE build booted. The latest source has not been compiled. The GCC scripts remain in `build/` as an experimental, non-booting path ([`BUILD.md`](BUILD.md)). The findings below are therefore kept as the record of what was checked, not as proof that a GCC image would start.
 
 **Scope:** the GCC-built binaries (an unmodified Nuclear rebuild and the new firmware) were compared against the reference Keil builds by static disassembly (vector table, start-up code, floating-point unit setup, memory layout, linker map, binary format). **Nothing was executed during the audit.**
 

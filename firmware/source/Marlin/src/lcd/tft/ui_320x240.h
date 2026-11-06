@@ -40,3 +40,8 @@
 #define SYMBOLS_FONT_NAME     Helvetica14_symbols
 
 #include "ui_common.h"
+
+#if ENABLED(PANTALLA_NUEVA)
+  extern uint8_t pantalla_inicio_foco;
+  void kne_inicio_activar();
+#endif

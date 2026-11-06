@@ -26,6 +26,8 @@
 #include "menu_item.h"
 #include "menu.h"
 #include "../../module/planner.h"
+#include "../../module/settings.h"
+#include "../../module/temperature.h"
 #include "../../module/motion.h"
 #include "../../module/printcounter.h"
 #include "../../gcode/queue.h"
@@ -328,16 +330,7 @@ void scroll_screen(const uint8_t limit, const bool is_menu) {
     if (ui.use_click())   {
 
 	if(Beforeprobe_offset != probe.offset.z){
-				
-	
-			persistentStore.read_data(0x9F, (uint8_t*)&planner.settings.acceleration, sizeof(planner.settings.acceleration));
-			persistentStore.read_data(0xA3, (uint8_t*)&planner.settings.retract_acceleration, sizeof(planner.settings.retract_acceleration));
-			persistentStore.read_data(0xA7, (uint8_t*)&planner.settings.travel_acceleration, sizeof(planner.settings.travel_acceleration));
-			#if HAS_CLASSIC_JERK
-			persistentStore.read_data(0xB3, (uint8_t*)&planner.max_jerk, sizeof(planner.max_jerk));
-			#endif
-	
-			gcode.process_subcommands_now_P("M500");
+      ui.completion_feedback(settings.save_estable());
 	}
 
     return  ui.goto_previous_screen_no_defer();
@@ -445,6 +438,10 @@ void LCD_abort_pring()
 	
 
 
+#if E_MANUAL
+  bool kne_filament_prepare_print();
+#endif
+
 bool filament_Staring = false;
 uint8_t filament_cmd = FILA_NO_ACT;
 void unload_load_filament(){
@@ -458,6 +455,14 @@ void unload_load_filament(){
 		return;
 	}
 	if(!filament_Staring) return;
+  if (thermalManager.tooColdToExtrude(active_extruder) || thermalManager.degTargetHotend(active_extruder) < EXTRUDE_MINTEMP) {
+    filament_Staring = false;
+    filament_cmd = FILA_NO_ACT;
+    planner.quick_stop();
+    ui.completion_feedback(false);
+    ui.return_to_status();
+    return;
+  }
 	static millis_t flash_time = 0;
 	if(millis() < (flash_time +1000) ) {
              return;
@@ -479,10 +484,17 @@ void unload_load_filament(){
 	uint8_t *string;
 	filament_Staring = true;
     if (ui.use_click()) 
-    {		filament_cmd = FILA_NO_ACT;
-			filament_Staring = false;
-			planner.quick_stop();
-			return ui.goto_previous_screen_no_defer();
+    {
+      const bool finished_load = filament_cmd == FILA_IN;
+      filament_cmd = FILA_NO_ACT;
+      filament_Staring = false;
+      planner.quick_stop();
+      #if E_MANUAL
+        if (finished_load && kne_filament_prepare_print()) return;
+      #else
+        UNUSED(finished_load);
+      #endif
+      return ui.goto_previous_screen_no_defer();
     }
 
 	if (ui.should_draw()){
@@ -496,14 +508,14 @@ void unload_load_filament(){
 
 			tft.canvas(0, 120, TFT_WIDTH, 30);	
 			tft.set_background(COLOR_BACKGROUND);
-			 tft_string.set(GET_TEXT(MSG_PUSH_BUTTON));
+			 tft_string.set(filament_cmd == FILA_IN ? GET_TEXT(MSG_KNE_FINISH_LOAD) : GET_TEXT(MSG_PUSH_BUTTON));
 
 			tft_string.trim();
 			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_WHITE,tft_string);
 			
 			tft.canvas(0, 150, TFT_WIDTH, 30);	
 			tft.set_background(COLOR_BACKGROUND);
-			tft_string.set(GET_TEXT(MSG_STOP_LOAD_OR_UNLOAD));
+			tft_string.set(filament_cmd == FILA_IN ? GET_TEXT(MSG_KNE_AFTER_LOAD_HEAT) : GET_TEXT(MSG_STOP_LOAD_OR_UNLOAD));
 			tft_string.trim();
 			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_WHITE,tft_string);
 

@@ -30,6 +30,9 @@
 
 #include "menu_item.h"
 #include "../../module/planner.h"
+#include "../../module/settings.h"
+#include "../../module/motion.h"
+#include "../../MarlinCore.h"
 
 #if DISABLED(NO_VOLUMETRICS)
   #include "../../gcode/parser.h"
@@ -57,6 +60,10 @@
 
 void menu_tmc();
 void menu_backlash();
+void kne_menu_calibrar_extrusor();
+void kne_menu_calibrar_temperatura();
+#define KNE_TEXT(ES, EN) (ui.language == 1 ? PSTR(ES) : PSTR(EN))
+
 
 #if HAS_MOTOR_CURRENT_DAC
 
@@ -180,21 +187,10 @@ void menu_backlash();
 
   #include "../../gcode/queue.h"
 
+  void kne_confirm_autotune(const heater_id_t hid);
+
   void _lcd_autotune(const heater_id_t hid) {
-    char cmd[30];
-    int16_t tune_temp;
-    switch (hid) {
-      #if ENABLED(PIDTEMPBED)
-        case H_BED: tune_temp = autotune_temp_bed; break;
-      #endif
-      #if ENABLED(PIDTEMPCHAMBER)
-        case H_CHAMBER: tune_temp = autotune_temp_chamber; break;
-      #endif
-      default: tune_temp = autotune_temp[hid]; break;
-    }
-    sprintf_P(cmd, PSTR("M303 U1 E%i S%i C8"), hid, tune_temp); // Use 8 cycles for higher accuracy instead of the 5 per default
-    queue.inject(cmd);
-    ui.return_to_status();
+    kne_confirm_autotune(hid);
   }
 
 #endif // PID_AUTOTUNE_MENU
@@ -251,16 +247,18 @@ void menu_backlash();
 #if SHOW_MENU_ADVANCED_TEMPERATURE
 
   void menu_advanced_temperature() {
-
+    #if BOTH(AUTOTEMP, HAS_TEMP_HOTEND)
+      LIMIT(planner.autotemp_min, 0, thermalManager.hotend_max_target(0));
+      LIMIT(planner.autotemp_max, planner.autotemp_min, thermalManager.hotend_max_target(0));
+    #endif
     START_MENU();
     BACK_ITEM(MSG_ADVANCED_SETTINGS);
     //
     // Autotemp, Min, Max, Fact
-    //..\source\Marlin\src\lcd\menu\menu_advanced.cpp(263): error:  #167: argument of type "float *" is incompatible with parameter of type "MenuEditItemInfo_int3::type_t *"
     #if BOTH(AUTOTEMP, HAS_TEMP_HOTEND)
       EDIT_ITEM(bool, MSG_AUTOTEMP, &planner.autotemp_enabled);
-      EDIT_ITEM(int3, MSG_MIN, (MenuEditItemInfo_int3::type_t *)&planner.autotemp_min, 0, thermalManager.hotend_max_target(0));
-      EDIT_ITEM(int3, MSG_MAX, (MenuEditItemInfo_int3::type_t *)&planner.autotemp_max, 0, thermalManager.hotend_max_target(0));
+      EDIT_ITEM(float3, MSG_MIN, &planner.autotemp_min, 0, _MIN(planner.autotemp_max, thermalManager.hotend_max_target(0)));
+      EDIT_ITEM(float3, MSG_MAX, &planner.autotemp_max, planner.autotemp_min, thermalManager.hotend_max_target(0));
       EDIT_ITEM(float42_52, MSG_FACTOR, &planner.autotemp_factor, 0, 10);
     #endif
 
@@ -278,8 +276,8 @@ void menu_backlash();
         raw_Ki = unscalePID_i(T.pid.Ki); \
         raw_Kd = unscalePID_d(T.pid.Kd); \
         EDIT_ITEM_FAST_N(float41sign, N, MSG_PID_P_E, &T.pid.Kp, 1, 9990); \
-        EDIT_ITEM_FAST_N(float52sign, N, MSG_PID_I_E, &raw_Ki, 0.01f, 9990, []{ copy_and_scalePID_i(N); }); \
-        EDIT_ITEM_FAST_N(float41sign, N, MSG_PID_D_E, &raw_Kd, 1, 9990, []{ copy_and_scalePID_d(N); })
+        EDIT_ITEM_FAST_N(float52sign, N, MSG_PID_I_E, &raw_Ki, 0.01f, 9990, []{ T.pid.Ki = scalePID_i(raw_Ki); thermalManager.updatePID(); }); \
+        EDIT_ITEM_FAST_N(float41sign, N, MSG_PID_D_E, &raw_Kd, 1, 9990, []{ T.pid.Kd = scalePID_d(raw_Kd); thermalManager.updatePID(); })
 
       #define __PID_HOTEND_MENU_ITEMS(N) \
         raw_Ki = unscalePID_i(PID_PARAM(Ki, N)); \
@@ -310,13 +308,8 @@ void menu_backlash();
 
     #endif
 
-    #if ENABLED(PID_AUTOTUNE_MENU)
-      #define HOTEND_PID_EDIT_MENU_ITEMS(N) \
-        _HOTEND_PID_EDIT_MENU_ITEMS(N); \
-        EDIT_ITEM_FAST_N(int3, N, MSG_PID_AUTOTUNE_E, &autotune_temp[N], 150, thermalManager.hotend_max_target(N), []{ _lcd_autotune(heater_id_t(MenuItemBase::itemIndex)); });
-    #else
-      #define HOTEND_PID_EDIT_MENU_ITEMS(N) _HOTEND_PID_EDIT_MENU_ITEMS(N);
-    #endif
+    // Automatic tuning has a single entry in Calibration.
+    #define HOTEND_PID_EDIT_MENU_ITEMS(N) _HOTEND_PID_EDIT_MENU_ITEMS(N);
 
     HOTEND_PID_EDIT_MENU_ITEMS(0);
     #if ENABLED(PID_PARAMS_PER_HOTEND)
@@ -327,17 +320,11 @@ void menu_backlash();
       #if ENABLED(PID_EDIT_MENU)
         _PID_EDIT_ITEMS_TMPL(H_BED, thermalManager.temp_bed);
       #endif
-      #if ENABLED(PID_AUTOTUNE_MENU)
-        EDIT_ITEM_FAST_N(int3, H_BED, MSG_PID_AUTOTUNE_E, &autotune_temp_bed, PREHEAT_1_TEMP_BED, BED_MAX_TARGET, []{ _lcd_autotune(H_BED); });
-      #endif
     #endif
 
     #if ENABLED(PIDTEMPCHAMBER)
       #if ENABLED(PID_EDIT_MENU)
         _PID_EDIT_ITEMS_TMPL(H_CHAMBER, thermalManager.temp_chamber);
-      #endif
-      #if ENABLED(PID_AUTOTUNE_MENU)
-        EDIT_ITEM_FAST_N(int3, H_CHAMBER, MSG_PID_AUTOTUNE_E, &autotune_temp_chamber, PREHEAT_1_TEMP_CHAMBER, CHAMBER_MAX_TARGET, []{ _lcd_autotune(H_CHAMBER); });
       #endif
     #endif
 
@@ -503,7 +490,7 @@ void menu_backlash();
         EDIT_ITEM(float31sign, MSG_PROBE_XOFFSET, &probe.offset.x, -(X_BED_SIZE), X_BED_SIZE);
         EDIT_ITEM(float31sign, MSG_PROBE_YOFFSET, &probe.offset.y, -(Y_BED_SIZE), Y_BED_SIZE);
       #endif
-      EDIT_ITEM(LCD_Z_OFFSET_TYPE, MSG_ZPROBE_ZOFFSET, &probe.offset.z, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX);
+      // First-layer Z is edited through the shared fine-adjustment screen.
 
       #if ENABLED(PROBE_OFFSET_WIZARD)
         SUBMENU(MSG_PROBE_WIZARD, goto_probe_offset_wizard);
@@ -526,19 +513,207 @@ void menu_advanced_steps_per_mm() {
     EDIT_QSTEPS(I), EDIT_QSTEPS(J), EDIT_QSTEPS(K)
   );
 
-  #if ENABLED(DISTINCT_E_FACTORS)
-    LOOP_L_N(n, E_STEPPERS)
-      EDIT_ITEM_FAST_N(float51, n, MSG_EN_STEPS, &planner.settings.axis_steps_per_mm[E_AXIS_N(n)], 5, 9999, []{
-        const uint8_t e = MenuItemBase::itemIndex;
-        if (e == active_extruder)
-          planner.refresh_positioning();
-        else
-          planner.mm_per_step[E_AXIS_N(e)] = 1.0f / planner.settings.axis_steps_per_mm[E_AXIS_N(e)];
-      });
-  #elif E_STEPPERS
-    EDIT_ITEM_FAST(float51, MSG_E_STEPS, &planner.settings.axis_steps_per_mm[E_AXIS], 5, 9999, []{ planner.refresh_positioning(); });
-  #endif
+  // Extruder steps are edited only in the measured extrusion guide.
 
+  END_MENU();
+}
+
+
+// Measured extrusion calibration: actual movement is explicit and the correction
+// uses the steps in effect at the time of that movement, not a later manual edit.
+static int16_t kne_extrusion_temp = PREHEAT_1_TEMP_HOTEND;
+static float kne_remaining_mm = 20, kne_test_steps = 0, kne_new_steps = 0;
+static bool kne_extruded = false, kne_extrusion_applied = false, kne_measured = false;
+static bool kne_extrusion_canceled = false;
+
+static bool kne_calibration_idle() {
+  return !printer_busy() && !planner.has_blocks_queued() && !queue.has_commands_queued();
+}
+
+static void kne_extrusion_running() {
+  ui.defer_status_screen();
+  if (ui.use_click()) { kne_extrusion_canceled = true; planner.quick_stop(); }
+  if (ui.should_draw()) {
+    MenuItem_static::draw(0, KNE_TEXT("Extruyendo filamento", "Extruding filament"));
+    MenuItem_static::draw(1, KNE_TEXT("Clic para cancelar", "Click to cancel"));
+  }
+}
+
+static void kne_extrude_test() {
+  if (!kne_calibration_idle() || thermalManager.tooColdToExtrude(active_extruder)
+      || thermalManager.degHotend(active_extruder) < kne_extrusion_temp - 2
+      || thermalManager.degTargetHotend(active_extruder) < kne_extrusion_temp - 2
+      || planner.e_factor[active_extruder] <= 0) {
+    ui.completion_feedback(false);
+    return;
+  }
+  kne_test_steps = planner.settings.axis_steps_per_mm[E_AXIS_N(active_extruder)];
+  kne_extruded = kne_extrusion_applied = kne_measured = false;
+  kne_extrusion_canceled = false;
+  kne_remaining_mm = 20;
+  ui.goto_screen(kne_extrusion_running);
+  ui.defer_status_screen();
+  const float old_e = current_position.e;
+  // Existing helper cancels flow/volume scaling and waits for completion.
+  unscaled_e_move(100.0f, 1.0f);
+  thermalManager.disable_all_heaters(); // Stop heating before the hand measurement.
+  current_position.e = old_e;
+  sync_plan_position_e();
+  kne_extruded = !kne_extrusion_canceled;
+  ui.goto_previous_screen();
+}
+
+static void kne_extrusion_review() {
+  kne_new_steps = kne_test_steps * 100.0f / (120.0f - kne_remaining_mm);
+  START_MENU();
+  BACK_ITEM(MSG_BACK);
+  STATIC_ITEM_P(KNE_TEXT("Nuevo valor calculado", "Calculated new value"));
+  STATIC_ITEM_P(GET_TEXT(MSG_E_STEPS), SS_DEFAULT, ftostr51(kne_new_steps));
+  if (kne_extruded && kne_new_steps >= 5 && kne_new_steps <= 9999) {
+    CONFIRM_ITEM_P(KNE_TEXT("Aplicar calculo", "Apply calculation"), MSG_BUTTON_PROCEED, MSG_BUTTON_CANCEL,
+      []{
+        if (!kne_calibration_idle()) return;
+        planner.settings.axis_steps_per_mm[E_AXIS_N(active_extruder)] = kne_new_steps;
+        planner.refresh_positioning();
+        kne_extruded = false;
+        kne_extrusion_applied = true;
+        ui.goto_previous_screen(); // confirmation -> review
+        ui.goto_previous_screen(); // review -> measured calibration
+      }, nullptr, KNE_TEXT("Cambia cantidad", "Changes extrusion"), (const char*)nullptr, PSTR("?")
+    );
+  }
+  else STATIC_ITEM_P(KNE_TEXT("Medicion fuera rango", "Measurement invalid"));
+  END_MENU();
+}
+
+void kne_menu_calibrar_extrusor() {
+  if (printer_busy()) { ui.return_to_status(); return; }
+  START_MENU();
+  BACK_ITEM(MSG_BACK);
+  STATIC_ITEM_P(KNE_TEXT("Use material cargado", "Use loaded material"));
+  STATIC_ITEM_P(KNE_TEXT("Elija su temperatura", "Choose material temp"));
+  EDIT_ITEM(int3, MSG_NOZZLE, &kne_extrusion_temp, EXTRUDE_MINTEMP, thermalManager.hotend_max_target(active_extruder), []{ kne_extruded = false; });
+  CONFIRM_ITEM_P(KNE_TEXT("Calentar boquilla", "Heat nozzle"), MSG_BUTTON_PROCEED, MSG_BUTTON_CANCEL,
+    []{ if (kne_calibration_idle()) thermalManager.setTargetHotend(kne_extrusion_temp, active_extruder); ui.goto_previous_screen(); }, nullptr,
+    KNE_TEXT("Boquilla caliente", "Nozzle will heat"), (const char*)nullptr, PSTR("?")
+  );
+  STATIC_ITEM_P(KNE_TEXT("Espere calor elegido", "Wait for chosen heat"));
+  if (!thermalManager.tooColdToExtrude(active_extruder) && thermalManager.degHotend(active_extruder) >= kne_extrusion_temp - 2) {
+    ACTION_ITEM_P(KNE_TEXT("Purgar 5 mm", "Purge 5 mm"), []{
+      if (!kne_calibration_idle() || thermalManager.tooColdToExtrude(active_extruder) || planner.e_factor[active_extruder] <= 0) return;
+      kne_extruded = kne_measured = false;
+      kne_extrusion_canceled = false;
+      ui.goto_screen(kne_extrusion_running);
+      const float old_e = current_position.e;
+      unscaled_e_move(5.0f, 1.0f);
+      current_position.e = old_e;
+      sync_plan_position_e();
+      ui.goto_screen(kne_menu_calibrar_extrusor);
+    });
+  }
+  STATIC_ITEM_P(KNE_TEXT("Marque a 120 mm", "Mark at 120 mm"));
+  STATIC_ITEM_P(KNE_TEXT("Desde entrada fija", "From a fixed inlet"));
+  if (!thermalManager.tooColdToExtrude(active_extruder) && thermalManager.degHotend(active_extruder) >= kne_extrusion_temp - 2) {
+    CONFIRM_ITEM_P(KNE_TEXT("Extruir 100 mm", "Extrude 100 mm"), MSG_BUTTON_PROCEED, MSG_BUTTON_CANCEL,
+      kne_extrude_test, nullptr, KNE_TEXT("Retire pieza. Marca?", "Clear part. Marked?"), (const char*)nullptr, PSTR("?")
+    );
+  }
+  if (kne_extruded) {
+    STATIC_ITEM_P(KNE_TEXT("Mida hasta la marca", "Measure to the mark"));
+    EDIT_ITEM_P(float51, KNE_TEXT("Restan mm", "Remaining mm"), &kne_remaining_mm, 1, 119, []{ kne_measured = true; });
+    if (kne_measured) SUBMENU_P(KNE_TEXT("Revisar calculo", "Review calculation"), kne_extrusion_review);
+  }
+  EDIT_ITEM(float51, MSG_E_STEPS, &planner.settings.axis_steps_per_mm[E_AXIS_N(active_extruder)], 5, 9999, []{ planner.refresh_positioning(); kne_extruded = false; kne_extrusion_applied = false; });
+  if (kne_extrusion_applied) STATIC_ITEM_P(KNE_TEXT("Resultado aplicado", "Result applied"));
+  STATIC_ITEM_P(KNE_TEXT("Guarda en Ajustes", "Save in Saved settings"));
+  END_MENU();
+}
+
+#if ENABLED(PID_AUTOTUNE_MENU)
+  static heater_id_t kne_tune_heater = H_E0;
+  static bool kne_tune_succeeded = false;
+
+  static void kne_temperature_result() {
+    START_MENU();
+    BACK_ITEM(MSG_BACK);
+    STATIC_ITEM_P(kne_tune_heater == H_BED ? GET_TEXT(MSG_KNE_BED_CAL) : GET_TEXT(MSG_KNE_HOTEND_CAL));
+    if (kne_tune_succeeded) {
+      STATIC_ITEM(MSG_PID_AUTOTUNE_DONE);
+      STATIC_ITEM_P(KNE_TEXT("Resultado aplicado", "Result applied"));
+      STATIC_ITEM_P(KNE_TEXT("Guarda en Ajustes", "Save in Saved settings"));
+    }
+    else STATIC_ITEM_P(KNE_TEXT("Fallo o cancelado", "Failed or canceled"));
+    STATIC_ITEM_P(KNE_TEXT("Calor apagado", "Heaters off"));
+    END_MENU();
+  }
+
+  static void kne_temperature_running() {
+    ui.defer_status_screen();
+    if (ui.use_click()) wait_for_heatup = false;
+    if (ui.should_draw()) {
+      MenuItem_static::draw(0, kne_tune_heater == H_BED ? GET_TEXT(MSG_KNE_BED_CAL) : GET_TEXT(MSG_KNE_HOTEND_CAL));
+      MenuItem_static::draw(1, KNE_TEXT("Autoajuste: 8 ciclos", "Auto tune: 8 cycles"));
+      MenuItem_static::draw(2, KNE_TEXT("Calor en curso", "Heating in progress"));
+      MenuItem_static::draw(3, KNE_TEXT("Clic para cancelar", "Click to cancel"));
+    }
+  }
+
+  static void kne_run_autotune() {
+    if (!kne_calibration_idle()) { ui.completion_feedback(false); return; }
+    const int16_t target = kne_tune_heater == H_BED ? autotune_temp_bed : autotune_temp[0];
+    wait_for_heatup = false;
+    kne_tune_succeeded = false;
+    ui.goto_screen(kne_temperature_running);
+    ui.defer_status_screen();
+    thermalManager.PID_autotune(target, kne_tune_heater, 8, true);
+    // Local temperature.cpp leaves this true only on its completed-cycle exit;
+    // timeout, overshoot and cancellation all clear it. Keep this contract checked.
+    kne_tune_succeeded = wait_for_heatup;
+    wait_for_heatup = false;
+    thermalManager.disable_all_heaters();
+    ui.goto_screen(kne_temperature_result);
+  }
+
+  void kne_confirm_autotune(const heater_id_t hid) {
+    if (!kne_calibration_idle()) { ui.completion_feedback(false); return; }
+    kne_tune_heater = hid;
+    ui.push_current_screen();
+    ui.goto_screen([]{
+      MenuItem_confirm::select_screen(GET_TEXT(MSG_BUTTON_PROCEED), GET_TEXT(MSG_BUTTON_CANCEL),
+        kne_run_autotune, nullptr, KNE_TEXT("Calienta 8 ciclos", "Heats for 8 cycles"),
+        (const char*)nullptr, PSTR("?"));
+    });
+  }
+
+  static void kne_hotend_calibration() {
+    START_MENU();
+    BACK_ITEM(MSG_BACK);
+    STATIC_ITEM(MSG_KNE_HOTEND_CAL);
+    STATIC_ITEM_P(KNE_TEXT("Use temp. de material", "Use material temp"));
+    EDIT_ITEM(int3, MSG_NOZZLE, &autotune_temp[0], 150, thermalManager.hotend_max_target(0));
+    ACTION_ITEM(MSG_PID_AUTOTUNE, []{ kne_confirm_autotune(H_E0); });
+    END_MENU();
+  }
+
+  static void kne_bed_calibration() {
+    START_MENU();
+    BACK_ITEM(MSG_BACK);
+    STATIC_ITEM(MSG_KNE_BED_CAL);
+    STATIC_ITEM_P(KNE_TEXT("Use temp. de material", "Use material temp"));
+    EDIT_ITEM(int3, MSG_BED, &autotune_temp_bed, PREHEAT_1_TEMP_BED, BED_MAX_TARGET);
+    ACTION_ITEM(MSG_PID_AUTOTUNE, []{ kne_confirm_autotune(H_BED); });
+    END_MENU();
+  }
+#endif
+
+void kne_menu_calibrar_temperatura() {
+  if (printer_busy()) { ui.return_to_status(); return; }
+  START_MENU();
+  BACK_ITEM(MSG_BACK);
+  #if ENABLED(PID_AUTOTUNE_MENU)
+    SUBMENU(MSG_KNE_HOTEND_CAL, kne_hotend_calibration);
+    SUBMENU(MSG_KNE_BED_CAL, kne_bed_calibration);
+  #endif
   END_MENU();
 }
 
