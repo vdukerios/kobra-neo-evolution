@@ -399,7 +399,7 @@ const char* ftostr41sign(const float &f) {
 // Convert signed float to string (6 digit) with -1.234 / _0.000 / +1.234 format
 const char* ftostr43sign(const float &f, char plus/*=' '*/) {
 	memset(conv,0,16);
-	int i 	= INTFLOAT(f, 1);
+	int i 	= INTFLOAT(f, 3);
   conv[1] = i ? MINUSOR(i, plus) : ' ';
   conv[2] = DIGIMOD(i, 1000);
   conv[3] = '.';
@@ -440,6 +440,32 @@ const char* ftostr51sign(const float &f) {
   conv[3] = DIGIMOD(i, 100);
   conv[4] = DIGIMOD(i, 10);
   conv[5] = '.';
+  conv[6] = DIGIMOD(i, 1);
+  return conv;
+}
+
+// Temperature coefficients: four integer digits, without a physical unit.
+const char* ftostr61rj(const float &f) {
+  memset(conv, 0, sizeof(conv));
+  const long i = UINTFLOAT(f, 1);
+  conv[0] = RJDIGIT(i, 10000);
+  conv[1] = RJDIGIT(i, 1000);
+  conv[2] = RJDIGIT(i, 100);
+  conv[3] = DIGIMOD(i, 10);
+  conv[4] = '.';
+  conv[5] = DIGIMOD(i, 1);
+  return conv;
+}
+
+const char* ftostr62rj(const float &f) {
+  memset(conv, 0, sizeof(conv));
+  const long i = UINTFLOAT(f, 2);
+  conv[0] = RJDIGIT(i, 100000);
+  conv[1] = RJDIGIT(i, 10000);
+  conv[2] = RJDIGIT(i, 1000);
+  conv[3] = DIGIMOD(i, 100);
+  conv[4] = '.';
+  conv[5] = DIGIMOD(i, 10);
   conv[6] = DIGIMOD(i, 1);
   return conv;
 }

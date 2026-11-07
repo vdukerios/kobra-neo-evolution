@@ -1,6 +1,18 @@
 # Cura setup
 
-> The scripts and profiles were prepared with **Cura 5.12** on Windows. These settings still need validation by more users, and the thumbnail script has not been tested inside a real Cura. Check every value before printing.
+> The scripts and profiles were prepared with **Cura 5.12** and checked with **Cura 5.14** on Windows. These settings still need validation by more users. The thumbnail mechanism (`Snapshot.snapshot()` called from a post-processing script) was verified in a real Cura 5.14: it produced a real picture (132 distinct colours) that the firmware read back correctly. The exact script shipped here (`AgregarMiniatura.py`) is the tested version of that idea but has not been run inside Cura yet. Check every value before printing.
+
+## Quick setup (automatic)
+
+One command sets up everything below. **Close Cura first** and add the printer once (*Settings > Printer > Add printer > Custom FFF printer*, named `Anycubic Kobra Neo`).
+
+```
+python cura/install_cura.py            # Windows: double-click cura/install_cura.bat
+```
+
+What it does: copies both scripts to Cura's `scripts` folder, turns them on for your printer, and writes the KNE start/end G-code and machine limits. Options: `--dry-run` (show changes, write nothing), `--profiles` (also install the PLA / PETG / TPU / PLA Rapido profiles), `--classic-start` (start G-code without `M1100`), `--printer "<name>"`, `--version 5.12`, `--uninstall`. Every file it changes is backed up in `<Cura folder>/kne_installer_backup/<date>/`, and running it twice changes nothing. Tests: `python -I cura/tests/test_install_cura.py` (they use a fake folder and never touch a real Cura).
+
+The manual steps below do the same thing by hand.
 
 ## 1. Install the post-processing scripts
 

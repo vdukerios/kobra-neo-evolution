@@ -64,18 +64,36 @@ void GcodeSuite::M104() {
   #if ENABLED(MIXING_EXTRUDER) && MIXING_VIRTUAL_TOOLS > 1
     constexpr int8_t target_extruder = 0;
   #else
+    if (parser.seen('T')) {
+      const float tool = parser.value_float();
+      if (!parser.has_value() || !isfinite(tool) || tool < 0 || tool >= EXTRUDERS || tool != floorf(tool)) {
+        SERIAL_ERROR_MSG("Invalid hotend index"); return;
+      }
+    }
     const int8_t target_extruder = get_target_extruder_from_command();
     if (target_extruder < 0) return;
   #endif
 
+  const char target_codes[] = "SR";
+  for (uint8_t i = 0; target_codes[i]; ++i) {
+    if (parser.seen(target_codes[i]) && (!parser.has_value()
+        || !thermalManager.valid_target_temperature(parser.value_celsius(), thermalManager.hotend_max_target(target_extruder)))) {
+      SERIAL_ERROR_MSG("Invalid temperature target"); return;
+    }
+  }
+
   bool got_temp = false;
-  int16_t temp = 0;
+  float temp = 0;
 
   // Accept 'I' if temperature presets are defined
   #if PREHEAT_COUNT
+    if (parser.seen('I') && !parser.has_value()) { SERIAL_ERROR_MSG("Invalid preset"); return; }
     got_temp = parser.seenval('I');
     if (got_temp) {
-      const uint8_t index = parser.value_byte();
+      const float requested_index = parser.value_float();
+      if (!isfinite(requested_index) || requested_index < 0 || requested_index >= PREHEAT_COUNT
+          || requested_index != floorf(requested_index)) { SERIAL_ERROR_MSG("Invalid preset"); return; }
+      const uint8_t index = uint8_t(requested_index);
       temp = ui.material_preset[_MIN(index, PREHEAT_COUNT - 1)].hotend_temp;
     }
   #endif
@@ -87,11 +105,12 @@ void GcodeSuite::M104() {
   }
 
   if (got_temp) {
+    if (!thermalManager.valid_target_temperature(temp, thermalManager.hotend_max_target(target_extruder))) { SERIAL_ERROR_MSG("Invalid temperature target"); return; }
     #if ENABLED(SINGLENOZZLE_STANDBY_TEMP)
       singlenozzle_temp[target_extruder] = temp;
       if (target_extruder != active_extruder) return;
     #endif
-    thermalManager.setTargetHotend(temp, target_extruder);
+    thermalManager.setTargetHotend(int16_t(temp), target_extruder);
 
     #if ENABLED(DUAL_X_CARRIAGE)
       if (idex_is_duplicating() && target_extruder == 0)
@@ -140,18 +159,36 @@ void GcodeSuite::M109() {
   #if ENABLED(MIXING_EXTRUDER) && MIXING_VIRTUAL_TOOLS > 1
     constexpr int8_t target_extruder = 0;
   #else
+    if (parser.seen('T')) {
+      const float tool = parser.value_float();
+      if (!parser.has_value() || !isfinite(tool) || tool < 0 || tool >= EXTRUDERS || tool != floorf(tool)) {
+        SERIAL_ERROR_MSG("Invalid hotend index"); return;
+      }
+    }
     const int8_t target_extruder = get_target_extruder_from_command();
     if (target_extruder < 0) return;
   #endif
 
+  const char target_codes[] = "SR";
+  for (uint8_t i = 0; target_codes[i]; ++i) {
+    if (parser.seen(target_codes[i]) && (!parser.has_value()
+        || !thermalManager.valid_target_temperature(parser.value_celsius(), thermalManager.hotend_max_target(target_extruder)))) {
+      SERIAL_ERROR_MSG("Invalid temperature target"); return;
+    }
+  }
+
   bool got_temp = false;
-  int16_t temp = 0;
+  float temp = 0;
 
   // Accept 'I' if temperature presets are defined
   #if PREHEAT_COUNT
+    if (parser.seen('I') && !parser.has_value()) { SERIAL_ERROR_MSG("Invalid preset"); return; }
     got_temp = parser.seenval('I');
     if (got_temp) {
-      const uint8_t index = parser.value_byte();
+      const float requested_index = parser.value_float();
+      if (!isfinite(requested_index) || requested_index < 0 || requested_index >= PREHEAT_COUNT
+          || requested_index != floorf(requested_index)) { SERIAL_ERROR_MSG("Invalid preset"); return; }
+      const uint8_t index = uint8_t(requested_index);
       temp = ui.material_preset[_MIN(index, PREHEAT_COUNT - 1)].hotend_temp;
     }
   #endif
@@ -161,15 +198,16 @@ void GcodeSuite::M109() {
   if (!got_temp) {
     no_wait_for_cooling = parser.seenval('S');
     got_temp = no_wait_for_cooling || parser.seenval('R');
-    if (got_temp) temp = int16_t(parser.value_celsius());
+    if (got_temp) temp = parser.value_celsius();
   }
 
   if (got_temp) {
+    if (!thermalManager.valid_target_temperature(temp, thermalManager.hotend_max_target(target_extruder))) { SERIAL_ERROR_MSG("Invalid temperature target"); return; }
     #if ENABLED(SINGLENOZZLE_STANDBY_TEMP)
       singlenozzle_temp[target_extruder] = temp;
       if (target_extruder != active_extruder) return;
     #endif
-    thermalManager.setTargetHotend(temp, target_extruder);
+    thermalManager.setTargetHotend(int16_t(temp), target_extruder);
 
     #if ENABLED(DUAL_X_CARRIAGE)
       if (idex_is_duplicating() && target_extruder == 0)
@@ -182,7 +220,7 @@ void GcodeSuite::M109() {
        * standby mode, (e.g., in a dual extruder setup) without affecting
        * the running print timer.
        */
-      thermalManager.auto_job_check_timer(true, true);
+      if (!thermalManager.auto_job_check_timer(true, true)) return;
     #endif
 
     #if HAS_DISPLAY

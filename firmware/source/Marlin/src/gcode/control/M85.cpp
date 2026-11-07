@@ -28,8 +28,10 @@
 void GcodeSuite::M85() {
 
   if (parser.seen('S')) {
+    millis_t requested;
+    if (!parser.value_duration_checked(requested, true)) { SERIAL_ERROR_MSG("Invalid inactivity duration"); return; }
     reset_stepper_timeout();
-    max_inactive_time = parser.value_millis_from_seconds();
+    max_inactive_time = requested;
   }
 
 }

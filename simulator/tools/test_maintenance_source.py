@@ -5,7 +5,8 @@ import re
 root = Path(__file__).resolve().parents[2]
 source = root / 'firmware/source/Marlin'
 counter = (source / 'src/module/printcounter.cpp').read_text(encoding='utf-8')
-reset = counter.split('void PrintCounter::resetServiceInterval', 1)[1].split('bool PrintCounter::needsService', 1)[0]
+reset = counter.split('bool PrintCounter::resetServiceInterval', 1)[1].split('bool PrintCounter::needsService', 1)[0]
+assert 'return saveStats();' in reset, 'Reset must report the actual storage result'
 for n in [1, 2, 3]:
     branch = re.search(r'case ' + str(n) + r':(.*?)(?=case |\n\s*})', reset, re.S)[1]
     assert re.search(r'data.nextService' + str(n) + r'\s*=\s*SERVICE_INTERVAL_SEC_' + str(n) + r';\s*break;', branch)

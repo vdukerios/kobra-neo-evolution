@@ -41,8 +41,13 @@
   #define MONITOR_DRIVER_STATUS_INTERVAL_MS 500U
 #endif
 
-constexpr uint16_t _tmc_thrs(const uint16_t msteps, const uint32_t thrs, const uint32_t spmm) {
-  return 12650000UL * msteps / (256 * thrs * spmm);
+inline uint32_t _tmc_thrs(const uint16_t msteps, const uint32_t thrs, const float spmm) {
+  // Zero means disabled in both directions. Never divide by a zero register.
+  if (!msteps || !thrs || !isfinite(spmm) || spmm <= 0) return 0;
+  const uint64_t numerator = uint64_t(12650000UL) * msteps,
+                 threshold_product = uint64_t(256) * thrs;
+  const double result = double(numerator) / (double(threshold_product) * double(spmm));
+  return result >= double(UINT32_MAX) ? UINT32_MAX : uint32_t(result);
 }
 
 template<char AXIS_LETTER, char DRIVER_ID>
@@ -120,7 +125,13 @@ class TMCMarlin : public TMC, public TMCStorage<AXIS_LETTER, DRIVER_ID> {
       uint32_t get_pwm_thrs() {
         return _tmc_thrs(this->microsteps(), this->TPWMTHRS(), planner.settings.axis_steps_per_mm[AXIS_ID]);
       }
+      bool pwm_thrs_is_valid(const uint32_t thrs) {
+        const float spmm = planner.settings.axis_steps_per_mm[AXIS_ID];
+        const uint32_t reg = _tmc_thrs(this->microsteps(), thrs, spmm);
+        return isfinite(spmm) && spmm > 0 && (!thrs || (reg > 0 && reg <= 0xFFFFFUL));
+      }
       void set_pwm_thrs(const uint32_t thrs) {
+        if (!pwm_thrs_is_valid(thrs)) return;
         TMC::TPWMTHRS(_tmc_thrs(this->microsteps(), thrs, planner.settings.axis_steps_per_mm[AXIS_ID]));
         TERN_(HAS_LCD_MENU, this->stored.hybrid_thrs = (thrs > 255) ? 255 : thrs);
       }
@@ -189,7 +200,13 @@ class TMCMarlin<TMC2208Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> : public TMC220
       uint32_t get_pwm_thrs() {
         return _tmc_thrs(this->microsteps(), this->TPWMTHRS(), planner.settings.axis_steps_per_mm[AXIS_ID]);
       }
+      bool pwm_thrs_is_valid(const uint32_t thrs) {
+        const float spmm = planner.settings.axis_steps_per_mm[AXIS_ID];
+        const uint32_t reg = _tmc_thrs(this->microsteps(), thrs, spmm);
+        return isfinite(spmm) && spmm > 0 && (!thrs || (reg > 0 && reg <= 0xFFFFFUL));
+      }
       void set_pwm_thrs(const uint32_t thrs) {
+        if (!pwm_thrs_is_valid(thrs)) return;
         TMC2208Stepper::TPWMTHRS(_tmc_thrs(this->microsteps(), thrs, planner.settings.axis_steps_per_mm[AXIS_ID]));
         TERN_(HAS_LCD_MENU, this->stored.hybrid_thrs = (thrs > 255) ? 255 : thrs);
       }
@@ -237,7 +254,13 @@ class TMCMarlin<TMC2209Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> : public TMC220
       uint32_t get_pwm_thrs() {
         return _tmc_thrs(this->microsteps(), this->TPWMTHRS(), planner.settings.axis_steps_per_mm[AXIS_ID]);
       }
+      bool pwm_thrs_is_valid(const uint32_t thrs) {
+        const float spmm = planner.settings.axis_steps_per_mm[AXIS_ID];
+        const uint32_t reg = _tmc_thrs(this->microsteps(), thrs, spmm);
+        return isfinite(spmm) && spmm > 0 && (!thrs || (reg > 0 && reg <= 0xFFFFFUL));
+      }
       void set_pwm_thrs(const uint32_t thrs) {
+        if (!pwm_thrs_is_valid(thrs)) return;
         TMC2209Stepper::TPWMTHRS(_tmc_thrs(this->microsteps(), thrs, planner.settings.axis_steps_per_mm[AXIS_ID]));
         TERN_(HAS_LCD_MENU, this->stored.hybrid_thrs = (thrs > 255) ? 255 : thrs);
       }

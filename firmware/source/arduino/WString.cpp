@@ -72,7 +72,7 @@ String::String(unsigned char value, unsigned char base)
 	init();
 	char buf[1 + 8 * sizeof(unsigned char)];
 //	utoa(value, buf, base);
-    sprintf(buffer, "%u", value);
+    snprintf(buf, sizeof(buf), "%u", (unsigned int)value);
 	*this = buf;
 }
 
@@ -81,7 +81,7 @@ String::String(int value, unsigned char base)
 	init();
 	char buf[2 + 8 * sizeof(int)];
 //	itoa(value, buf, base);
-    sprintf(buffer, "%d", value);
+    snprintf(buf, sizeof(buf), "%d", value);
 	*this = buf;
 }
 
@@ -90,7 +90,7 @@ String::String(unsigned int value, unsigned char base)
 	init();
 	char buf[1 + 8 * sizeof(unsigned int)];
 //	utoa(value, buf, base);
-    sprintf(buffer, "%u", value);
+    snprintf(buf, sizeof(buf), "%u", (unsigned int)value);
 	*this = buf;
 }
 
@@ -310,7 +310,7 @@ unsigned char String::concat(unsigned int num)
 {
 	char buf[1 + 3 * sizeof(unsigned int)];
 //	utoa(num, buf, 10);
-    sprintf(buffer, "%u", num);
+    snprintf(buf, sizeof(buf), "%u", num);
     
 	return concat(buf, strlen(buf));
 }
@@ -327,22 +327,24 @@ unsigned char String::concat(unsigned long num)
 {
 	char buf[1 + 3 * sizeof(unsigned long)];
 //	ultoa(num, buf, 10);
-    sprintf(buf, "%ld", num);
+    snprintf(buf, sizeof(buf), "%lu", num);
 	return concat(buf, strlen(buf));
 }
 
 unsigned char String::concat(float num)
 {
 	char buf[20];
-	char* string = dtostrf(num, 4, 2, buf);
-	return concat(string, strlen(string));
+	const int length = snprintf(buf, sizeof(buf), "%4.2f", (double)num);
+	if (length < 0 || (unsigned int)length >= sizeof(buf)) return 0;
+	return concat(buf, (unsigned int)length);
 }
 
 unsigned char String::concat(double num)
 {
 	char buf[20];
-	char* string = dtostrf(num, 4, 2, buf);
-	return concat(string, strlen(string));
+	const int length = snprintf(buf, sizeof(buf), "%4.2f", (double)num);
+	if (length < 0 || (unsigned int)length >= sizeof(buf)) return 0;
+	return concat(buf, (unsigned int)length);
 }
 
 //unsigned char String::concat(const __FlashStringHelper * str)

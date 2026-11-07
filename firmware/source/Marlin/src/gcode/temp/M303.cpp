@@ -62,16 +62,30 @@ void GcodeSuite::M303() {
 
   #define SI TERN(PIDTEMPBED, H_BED, H_E0)
   #define EI TERN(PIDTEMP, HOTENDS - 1, H_BED)
-  const heater_id_t e = (heater_id_t)parser.intval('E');
-  if (!WITHIN(e, SI, EI)) {
-    SERIAL_ECHOLNPGM(STR_PID_BAD_HEATER_ID); //STR_PID_BAD_EXTRUDER_NUM
-    TERN_(EXTENSIBLE_UI, ExtUI::onPidTuning(ExtUI::result_t::PID_BAD_EXTRUDER_NUM));
-    return;
+  const float requested_heater = parser.floatval('E', 0);
+  const float requested_cycles = parser.floatval('C', 5);
+  if ((parser.seen('E') && !parser.has_value()) || !isfinite(requested_heater)
+      || requested_heater != floorf(requested_heater) || requested_heater < SI || requested_heater > EI) {
+    SERIAL_ECHOLNPGM(STR_PID_BAD_HEATER_ID); return;
   }
-
-  const int c = parser.intval('C', 5);
+  if ((parser.seen('C') && !parser.has_value()) || !isfinite(requested_cycles)
+      || requested_cycles != floorf(requested_cycles) || requested_cycles < 3 || requested_cycles > 127) {
+    SERIAL_ERROR_MSG("Invalid PID cycles"); return;
+  }
+  const heater_id_t e = heater_id_t(requested_heater);
+  const float temp = parser.celsiusval('S', e < 0 ? PREHEAT_1_TEMP_BED : PREHEAT_1_TEMP_HOTEND);
+  #if HAS_PID_FOR_BOTH
+    const float maximum = e < 0 ? BED_MAX_TARGET : thermalManager.hotend_max_target(e);
+  #elif ENABLED(PIDTEMPBED)
+    const float maximum = BED_MAX_TARGET;
+  #else
+    const float maximum = thermalManager.hotend_max_target(e);
+  #endif
+  if ((parser.seen('S') && !parser.has_value()) || !thermalManager.valid_target_temperature(temp, maximum) || temp <= 0) {
+    SERIAL_ERROR_MSG("Invalid PID target"); return;
+  }
+  const int8_t c = int8_t(requested_cycles);
   const bool u = parser.boolval('U');
-  const int16_t temp = parser.celsiusval('S', e < 0 ? PREHEAT_1_TEMP_BED : PREHEAT_1_TEMP_HOTEND);
 
   #if DISABLED(BUSY_WHILE_HEATING)
     KEEPALIVE_STATE(NOT_BUSY);

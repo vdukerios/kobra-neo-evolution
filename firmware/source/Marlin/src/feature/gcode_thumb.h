@@ -24,7 +24,8 @@ namespace GcodeThumb {
   uint8_t width();                              // 0 si no hay miniatura
   uint8_t height();                             // 0 si no hay miniatura
   const uint16_t* pixels();                     // width()*height() pixeles RGB565, fila por fila; nullptr si no hay
-  void unload();                                // descarta la miniatura
+  void unload();                                // descarta la miniatura y el tiempo estimado
+  uint32_t estimated_seconds();                 // ";TIME:<s>" de la cabecera de Cura (0 si no hay); se lee al cargar
 }
 
 #else
@@ -34,6 +35,7 @@ namespace GcodeThumb {
   inline bool ready() { return false; }
   inline uint8_t width() { return 0; }
   inline uint8_t height() { return 0; }
+  inline uint32_t estimated_seconds() { return 0; }
   inline const uint16_t* pixels() { return nullptr; }
   inline void unload() {}
 }

@@ -14,38 +14,107 @@
 #include "../tft/tft_string.h"
 #include "menu_guia_textos.h"
 
-//
-// Pantalla de texto comun: titulo centrado (fila 0), hasta 6 lineas de texto
-// separadas por '\n' (filas 1 a 6) y un pie (fila 7). Cada fila es un lienzo de
-// 30 px que se pinta completo, asi no queda nada de la pantalla anterior.
-//
-static void guia_dibujar(const char *titulo, const uint16_t colorTitulo, const char *texto, const char *pie) {
-  char buf[40];
+static const uint16_t GUIA_TEXT_WIDTH = 284;
 
-  tft.canvas(0, 0, TFT_WIDTH, 30);
-  tft.set_background(COLOR_BACKGROUND);
+#if defined(KNE_UI_CARD)
+  #define GUIA_CARD_BG KNE_UI_CARD
+  #define GUIA_BADGE_BG KNE_UI_SELECT
+#else
+  #define GUIA_CARD_BG COLOR_SELECTION_BG
+  #define GUIA_BADGE_BG COLOR_BACKGROUND
+#endif
+
+static void guia_tarjeta(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t r, uint16_t color) {
+  #if ENABLED(PANTALLA_NUEVA)
+    tft.add_round(x, y, w, h, r, color);
+  #else
+    tft.add_bar(x, y, w, h, color);
+  #endif
+}
+
+// The display font has proportional glyphs: wrap and center in pixels, not characters.
+// All guide/help copy is ASCII; the simulator reads the same pages, icons and font.
+static const char *guia_siguiente_linea(const char *p, char *out, const uint16_t maxw) {
+  while (*p == ' ') p++;
+  uint8_t n = 0, espacio = 0;
+  uint16_t ancho = 0;
+  while (p[n] && p[n] != '\n' && n < 63) {
+    const uint8_t w = tft_string.glyph(uint8_t(p[n]))->DWidth;
+    if (ancho + w > maxw) break;
+    if (p[n] == ' ') espacio = n;
+    ancho += w;
+    n++;
+  }
+  if (p[n] && p[n] != '\n' && espacio) n = espacio;
+  if (!n && *p && *p != '\n') n = 1;
+  memcpy(out, p, n);
+  out[n] = 0;
+  p += n;
+  if (*p == '\n') p++;
+  while (*p == ' ') p++;
+  return p;
+}
+
+static void guia_texto_centrado(const char *s, uint16_t y, const uint16_t color) {
+  char titulo[64];
+  strncpy(titulo, s, sizeof(titulo) - 1);
+  titulo[sizeof(titulo) - 1] = 0;
   tft_string.set(titulo);
+  if (tft_string.width() > GUIA_TEXT_WIDTH) {
+    uint8_t n = strlen(titulo);
+    do {
+      if (n) n--;
+      titulo[n] = 0;
+      tft_string.set(titulo);
+      tft_string.add("...");
+    } while (n && tft_string.width() > GUIA_TEXT_WIDTH);
+  }
   tft_string.trim();
-  tft.add_text(tft_string.center(TFT_WIDTH), 5, colorTitulo, tft_string);
+  tft.add_text(tft_string.center(TFT_WIDTH), y, color, tft_string, GUIA_TEXT_WIDTH);
+}
 
-  for (uint8_t r = 1; r <= 6; r++) {
-    tft.canvas(0, 30 * r, TFT_WIDTH, 30);
-    tft.set_background(COLOR_BACKGROUND);
-    if (texto && *texto) {
-      uint8_t i = 0;
-      while (*texto && *texto != '\n' && i < sizeof(buf) - 1) buf[i++] = *texto++;
-      buf[i] = '\0';
-      if (*texto == '\n') texto++;
-      tft_string.set(buf);
-      tft.add_text(10, 5, COLOR_WHITE, tft_string);
+static void guia_dibujar(const char *titulo, const uint16_t colorTitulo, const char *texto, const char *pie, const uint8_t icono = GUIA_ICON_TOTAL) {
+  char buf[64];
+  tft.canvas(0, 0, TFT_WIDTH, 36);
+  tft.set_background(COLOR_BACKGROUND);
+  guia_tarjeta(8, 4, 304, 26, 6, GUIA_CARD_BG);
+  tft.add_bar(8, 10, 3, 14, COLOR_MENU_VALUE);
+  guia_texto_centrado(titulo, 7, colorTitulo);
+
+  const bool ilustrada = icono < GUIA_ICON_TOTAL;
+  tft.canvas(0, 36, TFT_WIDTH, 172);
+  tft.set_background(COLOR_BACKGROUND);
+  guia_tarjeta(8, 2, 304, 168, 8, GUIA_CARD_BG);
+  if (ilustrada) {
+    guia_tarjeta(138, 8, 44, 40, 6, GUIA_BADGE_BG);
+    // Coalesce lit pixels into horizontal runs to keep the existing draw queue small.
+    for (uint8_t y = 0; y < 32; y++) {
+      const uint32_t row = guia_iconos[icono][y];
+      for (uint8_t x = 0; x < 32;) {
+        if (!(row & (1UL << (31 - x)))) { x++; continue; }
+        const uint8_t begin = x;
+        do { x++; } while (x < 32 && (row & (1UL << (31 - x))));
+        tft.add_bar((TFT_WIDTH - 32) / 2 + begin, 12 + y, x - begin, 1, COLOR_MENU_VALUE);
+      }
     }
   }
 
-  tft.canvas(0, 210, TFT_WIDTH, 30);
+  const uint16_t top = ilustrada ? 54 : 12, height = ilustrada ? 110 : 148;
+  const uint8_t max_lineas = height / 22;
+  const char *p = texto ? texto : "";
+  uint8_t lineas = 0;
+  while (*p && lineas < max_lineas) { p = guia_siguiente_linea(p, buf, GUIA_TEXT_WIDTH); lineas++; }
+  p = texto ? texto : "";
+  const uint16_t offset = top + (height - lineas * 22) / 2;
+  for (uint8_t r = 0; r < lineas; r++) {
+    p = guia_siguiente_linea(p, buf, GUIA_TEXT_WIDTH);
+    guia_texto_centrado(buf, offset + r * 22, COLOR_MENU_TEXT);
+  }
+
+  tft.canvas(0, 208, TFT_WIDTH, 32);
   tft.set_background(COLOR_BACKGROUND);
-  tft_string.set(pie);
-  tft_string.trim();
-  tft.add_text(tft_string.center(TFT_WIDTH), 5, COLOR_GREY, tft_string);
+  guia_tarjeta(8, 4, 304, 24, 6, GUIA_CARD_BG);
+  guia_texto_centrado(pie, 6, COLOR_MENU_VALUE);
 }
 
 //
@@ -69,7 +138,7 @@ static void guia_pantalla_pagina() {
     const uint8_t idioma = guia_idioma();
     char pie[56];
     sprintf_P(pie, guia_pie_pagina[idioma], (unsigned int)(guia_pagina_sel + 1), (unsigned int)t.n);
-    guia_dibujar(t.titulo[idioma], COLOR_YELLOW, t.paginas[idioma][guia_pagina_sel], pie);
+    guia_dibujar(t.titulo[idioma], COLOR_MENU_VALUE, t.paginas[idioma][guia_pagina_sel], pie, t.iconos[guia_pagina_sel]);
   }
 }
 
@@ -128,7 +197,7 @@ static void guia_pantalla_ayuda() {
   ui.encoderPosition = 0;
   if (ui.use_click() || girado) { ui.goto_previous_screen(); return; }
   if (ui.should_draw())
-    guia_dibujar(guia_etq, COLOR_YELLOW, guia_txt_ayuda, guia_pie_ayuda[guia_idioma()]);
+    guia_dibujar(guia_etq, COLOR_MENU_VALUE, guia_txt_ayuda, guia_pie_ayuda[guia_idioma()]);
 }
 
 // Devuelve false (sin cambiar de pantalla) si la opcion no tiene texto de ayuda

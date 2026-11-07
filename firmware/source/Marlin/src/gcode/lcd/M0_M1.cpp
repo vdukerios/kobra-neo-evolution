@@ -47,8 +47,15 @@
  */
 void GcodeSuite::M0_M1() {
   millis_t ms = 0;
-  if (parser.seenval('P')) ms = parser.value_millis();              // Milliseconds to wait
-  if (parser.seenval('S')) ms = parser.value_millis_from_seconds(); // Seconds to wait
+  millis_t requested;
+  if (parser.seen('P')) {
+    if (!parser.value_duration_checked(requested, false)) { SERIAL_ERROR_MSG("Invalid wait duration"); return; }
+    ms = requested;
+  }
+  if (parser.seen('S')) {
+    if (!parser.value_duration_checked(requested, true)) { SERIAL_ERROR_MSG("Invalid wait duration"); return; }
+    ms = requested; // S keeps precedence over P; both supplied values must be valid.
+  }
 
   planner.synchronize();
 

@@ -9,9 +9,10 @@ en_result_t sdio_main(void)
 
 bool steup_sdio(void)
 {
-    hal_sdio_init();
-    return true;
+    return hal_sdio_init();
 }
+
+uint32_t SDIO_CardSize(void) { return sdio_card_blocks(); }
 
 bool SDIO_ReadBlock_DMA(uint32_t blockAddress, uint8_t *data)
 {

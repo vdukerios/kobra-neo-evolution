@@ -34,12 +34,6 @@ using namespace Anycubic;
 #include "../../sd/cardreader.h"
 #include "../../feature/powerloss.h"
 
-static void lcd_power_loss_recovery_resume() {
-  ui.start_flag=1;
-  ui.return_to_status();
-  queue.inject_P(PSTR("M1000"));
-}
-
 void lcd_power_loss_recovery_cancel() {
   recovery.cancel();
   ui.return_to_status();
@@ -54,7 +48,8 @@ void menu_job_recovery() {
   ui.defer_status_screen();  
   START_MENU();
   STATIC_ITEM(MSG_OUTAGE_RECOVERY);
-  ACTION_ITEM(MSG_RESUME_PRINT, lcd_power_loss_recovery_resume);
+  STATIC_ITEM_P(TERN0(HAS_MULTI_LANGUAGE, ui.language > 0) ? PSTR("Recovery unavailable") : PSTR("Recuperacion no disponible"));
+  STATIC_ITEM_P(TERN0(HAS_MULTI_LANGUAGE, ui.language > 0) ? PSTR("Position not verified") : PSTR("Posicion sin verificar"));
   ACTION_ITEM(MSG_STOP_PRINT, lcd_power_loss_recovery_cancel);
   END_MENU();
 }

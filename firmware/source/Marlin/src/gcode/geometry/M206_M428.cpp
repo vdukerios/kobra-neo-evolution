@@ -26,6 +26,8 @@
 
 #include "../gcode.h"
 #include "../../module/motion.h"
+#include "../../module/planner.h"
+#include "../../module/motion_numeric.h"
 #include "../../lcd/marlinui.h"
 #include "../../libs/buzzer.h"
 #include "../../MarlinCore.h"
@@ -44,6 +46,13 @@ void m206_report() {
  * ***              In the 2.0 release, it will simply be disabled by default.
  */
 void GcodeSuite::M206() {
+  LOOP_XYZ(i) if (parser.seen(XYZ_CHAR(i))) {
+    const float value = parser.value_linear_units(), sum = value + position_shift[i];
+    if (!kne_numeric::axis_value_valid(value, planner.settings.axis_steps_per_mm[i])
+      || !kne_numeric::axis_value_valid(sum, planner.settings.axis_steps_per_mm[i])) {
+      SERIAL_ERROR_MSG("Unrepresentable workspace"); return;
+    }
+  }
   LOOP_XYZ(i)
     if (parser.seen(XYZ_CHAR(i)))
       set_home_offset((AxisEnum)i, parser.value_linear_units());

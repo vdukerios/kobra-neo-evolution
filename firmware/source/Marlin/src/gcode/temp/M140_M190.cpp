@@ -54,14 +54,26 @@
 void GcodeSuite::M140() {
   if (DEBUGGING(DRYRUN)) return;
 
+  const char target_codes[] = "SR";
+  for (uint8_t i = 0; target_codes[i]; ++i) {
+    if (parser.seen(target_codes[i]) && (!parser.has_value()
+        || !thermalManager.valid_target_temperature(parser.value_celsius(), BED_MAX_TARGET))) {
+      SERIAL_ERROR_MSG("Invalid temperature target"); return;
+    }
+  }
+
   bool got_temp = false;
-  int16_t temp = 0;
+  float temp = 0;
 
   // Accept 'I' if temperature presets are defined
   #if PREHEAT_COUNT
+    if (parser.seen('I') && !parser.has_value()) { SERIAL_ERROR_MSG("Invalid preset"); return; }
     got_temp = parser.seenval('I');
     if (got_temp) {
-      const uint8_t index = parser.value_byte();
+      const float requested_index = parser.value_float();
+      if (!isfinite(requested_index) || requested_index < 0 || requested_index >= PREHEAT_COUNT
+          || requested_index != floorf(requested_index)) { SERIAL_ERROR_MSG("Invalid preset"); return; }
+      const uint8_t index = uint8_t(requested_index);
       temp = ui.material_preset[_MIN(index, PREHEAT_COUNT - 1)].bed_temp;
     }
   #endif
@@ -73,7 +85,8 @@ void GcodeSuite::M140() {
   }
 
   if (got_temp) {
-    thermalManager.setTargetBed(temp);
+    if (!thermalManager.valid_target_temperature(temp, BED_MAX_TARGET)) { SERIAL_ERROR_MSG("Invalid temperature target"); return; }
+    thermalManager.setTargetBed(int16_t(temp));
 
     #if ENABLED(PRINTJOB_TIMER_AUTOSTART)
       /**
@@ -104,14 +117,26 @@ void GcodeSuite::M140() {
 void GcodeSuite::M190() {
   if (DEBUGGING(DRYRUN)) return;
 
+  const char target_codes[] = "SR";
+  for (uint8_t i = 0; target_codes[i]; ++i) {
+    if (parser.seen(target_codes[i]) && (!parser.has_value()
+        || !thermalManager.valid_target_temperature(parser.value_celsius(), BED_MAX_TARGET))) {
+      SERIAL_ERROR_MSG("Invalid temperature target"); return;
+    }
+  }
+
   bool got_temp = false;
-  int16_t temp = 0;
+  float temp = 0;
 
   // Accept 'I' if temperature presets are defined
   #if PREHEAT_COUNT
+    if (parser.seen('I') && !parser.has_value()) { SERIAL_ERROR_MSG("Invalid preset"); return; }
     got_temp = parser.seenval('I');
     if (got_temp) {
-      const uint8_t index = parser.value_byte();
+      const float requested_index = parser.value_float();
+      if (!isfinite(requested_index) || requested_index < 0 || requested_index >= PREHEAT_COUNT
+          || requested_index != floorf(requested_index)) { SERIAL_ERROR_MSG("Invalid preset"); return; }
+      const uint8_t index = uint8_t(requested_index);
       temp = ui.material_preset[_MIN(index, PREHEAT_COUNT - 1)].bed_temp;
     }
   #endif
@@ -121,14 +146,17 @@ void GcodeSuite::M190() {
   if (!got_temp) {
     no_wait_for_cooling = parser.seenval('S');
     got_temp = no_wait_for_cooling || parser.seenval('R');
-    if (got_temp) temp = int16_t(parser.value_celsius());
+    if (got_temp) temp = parser.value_celsius();
   }
 
   if (!got_temp) return;
 
-  thermalManager.setTargetBed(temp);
+  if (!thermalManager.valid_target_temperature(temp, BED_MAX_TARGET)) { SERIAL_ERROR_MSG("Invalid temperature target"); return; }
+  thermalManager.setTargetBed(int16_t(temp));
 
-  TERN_(PRINTJOB_TIMER_AUTOSTART, thermalManager.auto_job_check_timer(true, false));
+  #if ENABLED(PRINTJOB_TIMER_AUTOSTART)
+    if (!thermalManager.auto_job_check_timer(true, false)) return;
+  #endif
 
   ui.set_status_P( GET_TEXT(MSG_BED_HEATING));
   //ui.set_status_P(thermalManager.isHeatingBed() ? GET_TEXT(MSG_BED_HEATING) : GET_TEXT(MSG_BED_COOLING));

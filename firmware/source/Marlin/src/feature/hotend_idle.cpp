@@ -54,30 +54,40 @@ static bool    pausa_apagada = false;   // se apagaron calentadores con la impre
 static int16_t pausa_boq[HOTENDS];      // objetivos de boquilla previos
 static int16_t pausa_cama = 0;          // objetivo de cama previo
 
-static void pausa_reanudar() {
-  if (printingIsPaused()) return;       // sigue en pausa: esperar
-  pausa_apagada = false;                // antes de esperar: evita reentrada desde idle()
-  if (!printingIsActive()) return;      // cancelada o terminada: no recalentar
+static bool resume_in_progress = false;
+
+bool HotendIdleProtection::resume() {
+  if (resume_in_progress) return false;
+  if (!pausa_apagada) return true;
+  if (!printingIsPaused() && !printingIsActive()) { pausa_apagada = false; return true; }
+  resume_in_progress = true; // block reentry during the waits' idle service
   ui.set_status_P(GET_TEXT(MSG_KNE_REHEAT_RESUME));
   #if HAS_HEATED_BED
-    if (pausa_cama > thermalManager.degTargetBed()) thermalManager.setTargetBed(pausa_cama);
+    thermalManager.setTargetBed(pausa_cama);
   #endif
-  HOTEND_LOOP() {
-    if (pausa_boq[e] > thermalManager.degTargetHotend(e)) thermalManager.setTargetHotend(pausa_boq[e], e);
-  }
+  HOTEND_LOOP() thermalManager.setTargetHotend(pausa_boq[e], e);
+  bool ready = true;
   #if HAS_HEATED_BED
-    if (thermalManager.degTargetBed() > 0) (void)thermalManager.wait_for_bed(false);
+    if (pausa_cama > 0) ready = thermalManager.wait_for_bed(false);
+    ready = ready && thermalManager.degTargetBed() == pausa_cama;
   #endif
   HOTEND_LOOP() {
-    if (thermalManager.degTargetHotend(e) > 0) (void)thermalManager.wait_for_hotend(e, false);
+    if (!ready || (!printingIsPaused() && !printingIsActive())) { ready = false; break; }
+    if (pausa_boq[e] > 0) ready = thermalManager.wait_for_hotend(e, false);
+    if (thermalManager.degTargetHotend(e) != pausa_boq[e]) ready = false;
   }
+  ready = ready && (printingIsPaused() || printingIsActive());
+  if (!ready) thermalManager.disable_all_heaters();
+  else pausa_apagada = false;
+  resume_in_progress = false;
+  return ready; // caller must keep the job paused on cancellation
 }
 
 void HotendIdleProtection::check_hotends(const millis_t &ms) {
   bool do_prot = false;
   // "Ocupada" incluye imprimir (M1100, esperas de temperatura, G29) y esperar calentamiento:
   // si no, el modo Express se apagaria mientras la cama sube a temperatura.
-  const bool busy = TERN0(HAS_RESUME_CONTINUE, wait_for_user) || planner.has_blocks_queued() || wait_for_heatup || printingIsActive()
+  const bool busy = TERN0(HAS_RESUME_CONTINUE, wait_for_user) || planner.has_blocks_queued() || wait_for_heatup || resume_in_progress || printingIsActive()
                    || TERN0(MODOS_IMPRESION, m1100_activo());   // M1100 en curso (host o SD): no apagar la cama a mitad de la espera termica
   if (!busy) {
     HOTEND_LOOP() {
@@ -103,7 +113,8 @@ void HotendIdleProtection::check_e_motion(const millis_t &ms) {
 void HotendIdleProtection::check() {
   const millis_t ms = millis();                   // Shared millis
 
-  if (pausa_apagada) pausa_reanudar();            // reanudada tras apagado por inactividad: recalentar
+  // Reheat only on an explicit resume request, before starting the job.
+  if (!resume_in_progress && !printingIsPaused() && !printingIsActive()) pausa_apagada = false;
 
   check_hotends(ms);                              // Any hotends need protection?
   check_e_motion(ms);                             // Motion will protect them

@@ -154,7 +154,7 @@ class PrintCounter: public Stopwatch {
      * @brief Save the Print Statistics
      * @details Save the statistics to EEPROM
      */
-    static void saveStats();
+    static bool saveStats();
 
     /**
      * @brief Serial output the Print Statistics
@@ -182,9 +182,10 @@ class PrintCounter: public Stopwatch {
     static bool start();
     static bool stop();
     static void reset();
+    static void resume(const millis_t with_time);
 
     #if HAS_SERVICE_INTERVALS
-      static void resetServiceInterval(const int index);
+      static bool resetServiceInterval(const int index);
       static bool needsService(const int index);
     #endif
 

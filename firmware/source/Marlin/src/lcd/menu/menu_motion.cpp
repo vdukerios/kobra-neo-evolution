@@ -78,7 +78,7 @@ void menu_temperature();
     soft_endstop.get_manual_axis_limits(axis, min, max);
 	min =  min < 0? 0:min;
 	
-	if(current_position.x <0 || current_position.y <0) gcode.process_subcommands_now_P(PSTR("G92.9 X0 Y0"));
+	// Preserve the physical reference when moving a single axis.
    
     // Delta limits XY based on the current offset from center
     // This assumes the center is 0,0

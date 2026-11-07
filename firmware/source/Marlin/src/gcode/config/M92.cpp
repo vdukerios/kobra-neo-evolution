@@ -22,6 +22,7 @@
 
 #include "../gcode.h"
 #include "../../module/planner.h"
+#include "../../module/motion_numeric.h"
 
 void report_M92(const bool echo=true, const int8_t e=-1) {
   if (echo) SERIAL_ECHO_START(); else SERIAL_CHAR(' ');
@@ -70,25 +71,26 @@ void GcodeSuite::M92() {
     #endif
   )) return report_M92(true, target_extruder);
 
-  LOOP_XYZE(i) {
-    if (parser.seenval(axis_codes[i])) {
-      if (i == E_AXIS) {
-        const float value = parser.value_per_axis_units((AxisEnum)(E_AXIS_N(target_extruder)));
-        if (value < 20) {
-          float factor = planner.settings.axis_steps_per_mm[E_AXIS_N(target_extruder)] / value; // increase e constants if M92 E14 is given for netfab.
-          #if HAS_CLASSIC_JERK && HAS_CLASSIC_E_JERK
-            planner.max_jerk.e *= factor;
-          #endif
-          planner.settings.max_feedrate_mm_s[E_AXIS_N(target_extruder)] *= factor;
-          planner.max_acceleration_steps_per_s2[E_AXIS_N(target_extruder)] *= factor;
-        }
-        planner.settings.axis_steps_per_mm[E_AXIS_N(target_extruder)] = value;
-      }
-      else {
-        planner.settings.axis_steps_per_mm[i] = parser.value_per_axis_units((AxisEnum)i);
-      }
+  planner_settings_t candidate = planner.settings;
+  float e_scaling = 1;
+  LOOP_XYZE(i) if (parser.seenval(axis_codes[i])) {
+    const uint8_t axis = i == E_AXIS ? E_AXIS_N(target_extruder) : i;
+    const float value = parser.value_per_axis_units((AxisEnum)axis);
+    if (!kne_numeric::positive(value)) { SERIAL_ERROR_MSG("Invalid steps per unit"); return; }
+    candidate.axis_steps_per_mm[axis] = value;
+    if (i == E_AXIS && value < 20) {
+      e_scaling = planner.settings.axis_steps_per_mm[axis] / value;
+      candidate.max_feedrate_mm_s[axis] *= e_scaling;
     }
   }
+  if (!kne_numeric::settings_valid(candidate) || !kne_numeric::position_valid(current_position, candidate, active_extruder)) {
+    SERIAL_ERROR_MSG("Unrepresentable steps per unit"); return;
+  }
+  #if HAS_CLASSIC_JERK && HAS_CLASSIC_E_JERK
+    if (!isfinite(planner.max_jerk.e * e_scaling)) { SERIAL_ERROR_MSG("Invalid extrusion jerk"); return; }
+    planner.max_jerk.e *= e_scaling;
+  #endif
+  planner.settings = candidate;
   planner.refresh_positioning();
 
   #if ENABLED(MAGIC_NUMBERS_GCODE)

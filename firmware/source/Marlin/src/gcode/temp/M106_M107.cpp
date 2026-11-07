@@ -55,6 +55,31 @@
  *           3-255 = Set the speed for use with T2
  */
 void GcodeSuite::M106() {
+  const char checked[] = "P" "S"
+    #if PREHEAT_COUNT
+      "I"
+    #endif
+    #if ENABLED(EXTRA_FAN_SPEED)
+      "T"
+    #endif
+  ;
+  for (uint8_t i = 0; checked[i]; ++i) {
+    const char key = checked[i];
+    if (!parser.seen(key)) continue;
+    const float value = parser.value_float();
+    const float limit = key == 'P' ? _CNT_P - 1 :
+      #if PREHEAT_COUNT
+        key == 'I' ? PREHEAT_COUNT - 1 :
+      #endif
+      255;
+    // P (ventilador) e I (preajuste) son indices enteros; S y T (velocidad) admiten decimales: Cura escribe
+    // p. ej. "M106 S127.5" y rechazarlo dejaba el ventilador de la pieza apagado durante toda la impresion.
+    const bool indice = key == 'P' || key == 'I';
+    if (!parser.has_value() || !isfinite(value) || value < 0 || value > limit || (indice && value != floorf(value))) {
+      SERIAL_ERROR_MSG("Invalid fan value"); return;
+    }
+  }
+
   const uint8_t pfan = parser.byteval('P', _ALT_P);
 
   if (pfan < _CNT_P) {
@@ -88,6 +113,21 @@ void GcodeSuite::M106() {
  * M107: Fan Off
  */
 void GcodeSuite::M107() {
+  const char checked[] = "P";
+  for (uint8_t i = 0; checked[i]; ++i) {
+    const char key = checked[i];
+    if (!parser.seen(key)) continue;
+    const float value = parser.value_float();
+    const float limit = key == 'P' ? _CNT_P - 1 :
+      #if PREHEAT_COUNT
+        key == 'I' ? PREHEAT_COUNT - 1 :
+      #endif
+      255;
+    if (!parser.has_value() || !isfinite(value) || value < 0 || value > limit || value != floorf(value)) {
+      SERIAL_ERROR_MSG("Invalid fan value"); return;
+    }
+  }
+
   const uint8_t p = parser.byteval('P', _ALT_P);
   thermalManager.set_fan_speed(p, 0);
 }

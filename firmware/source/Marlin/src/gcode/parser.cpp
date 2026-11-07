@@ -182,7 +182,11 @@ void GCodeParser::parse(char *p) {
         // Get the code number - integer digits only
         codenum = 0;
 
-        do { codenum = codenum * 10 + *p++ - '0'; } while (NUMERIC(*p));
+        do {
+          const uint8_t digit = *p++ - '0';
+          if (codenum > (UINT16_MAX - digit) / 10U) { reset(); return; }
+          codenum = codenum * 10U + digit;
+        } while (NUMERIC(*p));
 
         // Apply the sign, if any
         TERN_(SIGNED_CODENUM, codenum *= sign);
@@ -192,22 +196,18 @@ void GCodeParser::parse(char *p) {
       #if ENABLED(USE_GCODE_SUBCODES)
         if (*p == '.') {
           p++;
-          while (NUMERIC(*p))
-            subcode = subcode * 10 + *p++ - '0';
+          while (NUMERIC(*p)) {
+            const uint8_t digit = *p++ - '0';
+            if (subcode > (UINT8_MAX - digit) / 10U) { reset(); return; }
+            subcode = subcode * 10U + digit;
+          }
         }
       #endif
 
       // Skip all spaces to get to the first argument, or nul
       while (*p == ' ') p++;
 
-      #if ENABLED(GCODE_MOTION_MODES)
-        if (letter == 'G'
-          && (codenum <= TERN(ARC_SUPPORT, 3, 1) || codenum == 5 || TERN0(G38_PROBE_TARGET, codenum == 38))
-        ) {
-          motion_mode_codenum = codenum;
-          TERN_(USE_GCODE_SUBCODES, motion_mode_subcode = subcode);
-        }
-      #endif
+
 
       break;
 
@@ -295,6 +295,24 @@ void GCodeParser::parse(char *p) {
 
       while (*p == ' ') p++;                    // Skip spaces between parameters & values
 
+      // Validate every numeric token before any command can change state.
+      // Cut at the next parameter, so adjacent E remains an extrusion parameter.
+      const char *special = p;
+      if (*special == '+' || *special == '-') ++special;
+      if ((((special[0] | 0x20) == 'i') && ((special[1] | 0x20) == 'n') && ((special[2] | 0x20) == 'f'))
+          || (((special[0] | 0x20) == 'n') && ((special[1] | 0x20) == 'a') && ((special[2] | 0x20) == 'n'))) {
+        reset(); return;
+      }
+      char *number_end = p;
+      while (*number_end && DECIMAL_SIGNED(*number_end)) ++number_end;
+      if (number_end != p) {
+        const char saved = *number_end;
+        *number_end = '\0';
+        const float numeric = strtof(p, nullptr);
+        *number_end = saved;
+        if (!isfinite(numeric)) { reset(); return; }
+      }
+
       #if ENABLED(GCODE_QUOTED_STRINGS)
         const bool is_str = (*p == '"'), has_val = is_str || valid_float(p);
         char * const valptr = has_val ? is_str ? unescape_string(p) : p : nullptr;
@@ -335,6 +353,14 @@ void GCodeParser::parse(char *p) {
       while (*p == ' ') p++;                    // Skip over all spaces
     }
   }
+      #if ENABLED(GCODE_MOTION_MODES)
+        if (letter == 'G'
+          && (codenum <= TERN(ARC_SUPPORT, 3, 1) || codenum == 5 || TERN0(G38_PROBE_TARGET, codenum == 38))
+        ) {
+          motion_mode_codenum = codenum;
+          TERN_(USE_GCODE_SUBCODES, motion_mode_subcode = subcode);
+        }
+      #endif
 }
 
 #if ENABLED(CNC_COORDINATE_SYSTEMS)

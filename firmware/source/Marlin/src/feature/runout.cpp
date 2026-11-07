@@ -39,7 +39,7 @@
 
 FilamentMonitor runout;
 
-uint8_t FilamentSensorBase::state_original = FIL_RUNOUT_STATE;
+uint8_t FilamentSensorBase::state_original = 0;
 
 bool FilamentMonitorBase::enabled = true,
      FilamentMonitorBase::filament_ran_out;  // = false

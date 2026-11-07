@@ -89,6 +89,12 @@ public:
   // SD Card Logging
   static void openLogFile(char * const path);
   static void write_command(char * const buf);
+  static bool write_failed;
+  static bool upload_session, logging_session, write_session_finishing;
+  static bool write_session_active() { return upload_session || logging_session; }
+  static bool write_session_logging() { return logging_session; }
+  static bool finish_write_session();
+  static bool is_write_end_command(const char * const buf);
 
   #if DISABLED(NO_SD_AUTOSTART)     // Auto-Start auto#.g file handling
     static uint8_t autofile_index;  // Next auto#.g index to run, plus one. Ignored by autofile_check when zero.
@@ -275,8 +281,8 @@ private:
   // Directory items
   //
   static bool is_dir_or_gcode(const dir_t &p);
-  static int countItems(SdFile dir);
-  static void selectByIndex(SdFile dir, const uint8_t index);
+  static uint16_t countItems(SdFile dir);
+  static void selectByIndex(SdFile dir, const uint16_t index);
   static void selectByName(SdFile dir, const char * const match);
   static void printListing(SdFile parent, const char * const prepend=nullptr);
 

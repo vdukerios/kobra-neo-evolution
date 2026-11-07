@@ -368,10 +368,11 @@ FORCE_INLINE bool is_M29(const char * const cmd) {  // matches "M29" & "M29 ", b
 #define PS_QUOTED 2
 #define PS_PAREN  3
 #define PS_ESC    4
+#define PS_OVERFLOW 8
 
 inline void process_stream_char(const char c, uint8_t &sis, char (&buff)[MAX_CMD_SIZE], int &ind) {
 
-  if (sis == PS_EOL) return;    // EOL comment or overflow
+  if (sis == PS_EOL || sis == PS_OVERFLOW) return;    // EOL comment or overflow
 
   #if ENABLED(PAREN_COMMENTS)
     else if (sis == PS_PAREN) { // Inline comment
@@ -415,9 +416,8 @@ inline void process_stream_char(const char c, uint8_t &sis, char (&buff)[MAX_CMD
     if (ind) buff[--ind] = '\0';
   }
   else {
+    if (ind >= MAX_CMD_SIZE - 1) { sis = PS_OVERFLOW; return; }
     buff[ind++] = c;
-    if (ind >= MAX_CMD_SIZE - 1)
-      sis = PS_EOL;             // Skip the rest on overflow
   }
 }
 
@@ -426,6 +426,8 @@ inline void process_stream_char(const char c, uint8_t &sis, char (&buff)[MAX_CMD
  * keep sensor readings going and watchdog alive.
  */
 inline bool process_line_done(uint8_t &sis, char (&buff)[MAX_CMD_SIZE], int &ind) {
+  const bool overflow = sis == PS_OVERFLOW;
+  if (overflow) { ind = 0; SERIAL_ERROR_MSG("Command too long; discarded"); }
   sis = PS_NORMAL;                    // "Normal" Serial Input State
   buff[ind] = '\0';                   // Of course, I'm a Terminator.
   const bool is_empty = (ind == 0);   // An empty line?
@@ -603,10 +605,11 @@ void GCodeQueue::get_serial_commands() {
 
       const char sd_char = (char)n;
       const bool is_eol = ISEOL(sd_char);
+      if (n >= 0 && !is_eol)
+        process_stream_char(sd_char, sd_input_state, command_buffer[index_w], sd_count);
       if (is_eol || card_eof) {
 
         // Reset stream state, terminate the buffer, and commit a non-empty command
-        if (!is_eol && sd_count) ++sd_count;          // End of file with no newline
         if (!process_line_done(sd_input_state, command_buffer[index_w], sd_count)) {
 
           // M808 S saves the sdpos of the next line. M808 loops to a new sdpos.
@@ -621,8 +624,7 @@ void GCodeQueue::get_serial_commands() {
 
         if (card.eof()) card.fileHasFinished();         // Handle end of file reached
       }
-      else
-        process_stream_char(sd_char, sd_input_state, command_buffer[index_w], sd_count);
+
     }
   }
 
@@ -654,12 +656,12 @@ void GCodeQueue::advance() {
 
   #if ENABLED(SDSUPPORT)
 
-    if (card.flag.saving) {
+    if (card.write_session_active()) {
       char* command = command_buffer[index_r];
-      if (is_M29(command)) {
+      if (card.is_write_end_command(command)) {
         // M29 closes the file
-        card.closefile();
-        SERIAL_ECHOLNPGM(STR_FILE_SAVED);
+        if (card.finish_write_session()) SERIAL_ECHOLNPGM(STR_FILE_SAVED);
+        else SERIAL_ERROR_MSG(STR_SD_ERR_WRITE_TO_FILE);
 
         #if !defined(__AVR__) || !defined(USBCON)
           #if ENABLED(SERIAL_STATS_DROPPED_RX)
@@ -675,7 +677,7 @@ void GCodeQueue::advance() {
       else {
         // Write the string from the read buffer to SD
         card.write_command(command);
-        if (card.flag.logging)
+        if (card.write_session_logging())
           gcode.process_next_command(); // The card is saving because it's logging
         else
           ok_to_send();

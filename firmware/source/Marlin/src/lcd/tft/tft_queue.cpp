@@ -34,33 +34,88 @@ uint8_t *TFT_Queue::current_task = nullptr;
 uint8_t *TFT_Queue::last_task = nullptr;
 uint8_t *TFT_Queue::last_parameter = nullptr;
 
-void TFT_Queue::reset() {
-  tft.abort();
+bool TFT_Queue::failed = false;
+bool TFT_Queue::failure_pending = false;
 
+void TFT_Queue::clear_storage() {
   end_of_queue = queue;
   current_task = nullptr;
   last_task = nullptr;
   last_parameter = nullptr;
+  *end_of_queue = TASK_END_OF_QUEUE;
+}
+
+void TFT_Queue::reset() {
+  tft.abort();
+  clear_storage();
+  failed = failure_pending = false;
+}
+
+void TFT_Queue::reject() {
+  // Latch once. Keep accepted tasks and their DMA data alive until drained.
+  if (failed) return;
+  failed = failure_pending = true;
+  finish_sketch();
+}
+
+bool TFT_Queue::reserve(size_t sizeNeeded) {
+  if (failed) return false;
+  const size_t used = end_of_queue - queue;
+  // Every allocation leaves one byte for TASK_END_OF_QUEUE, even at capacity.
+  if (used >= sizeof(queue) || sizeNeeded > sizeof(queue) - used - 1) {
+    reject();
+    return false;
+  }
+  return true;
+}
+
+bool TFT_Queue::reserve_canvas(size_t sizeNeeded) {
+  if (failed) return false;
+  // A fill, a sealed canvas or a missing parent cannot accept parameters.
+  if (!last_task || ((queueTask_t *)last_task)->type != TASK_CANVAS
+      || ((queueTask_t *)last_task)->state != TASK_STATE_SKETCH) {
+    reject();
+    return false;
+  }
+  return reserve(sizeNeeded);
+}
+
+void TFT_Queue::show_failure() {
+  // Called only after the consumer and DMA have released all accepted tasks.
+  static uint8_t message[] = "LCD: cola llena / queue full";
+  static uint8_t action[] = "Volver / Back";
+  static_assert(sizeof(queueTask_t) + sizeof(parametersCanvas_t)
+    + sizeof(parametersCanvasBackground_t) + 2 * sizeof(parametersCanvasText_t)
+    + sizeof(message) + sizeof(action) + 1 <= TFT_QUEUE_SIZE, "TFT queue cannot hold its error message");
+  failure_pending = false;
+  failed = false; // Only this bounded diagnostic may allocate after rejection.
+  canvas(0, 0, TFT_WIDTH, TFT_HEIGHT);
+  set_background(COLOR_BACKGROUND);
+  add_text(8, 8, COLOR_WHITE, message, TFT_WIDTH - 16);
+  add_text(8, 32, COLOR_WHITE, action, TFT_WIDTH - 16);
+  finish_sketch();
+  failed = true;  // An explicit reset / screen change is needed before retrying.
 }
 
 void TFT_Queue::async() {
-  if (!current_task) return;
-  queueTask_t *task = (queueTask_t *)current_task;
-
-  // Check IO busy status
+  // Never recycle task memory or the pixel buffer while DMA owns them.
   if (tft.is_busy()) return;
+  if (current_task && *current_task != TASK_END_OF_QUEUE
+      && ((queueTask_t *)current_task)->state == TASK_STATE_COMPLETED)
+    current_task = ((queueTask_t *)current_task)->nextTask;
 
-  if (task->state == TASK_STATE_COMPLETED) {
-    task = (queueTask_t *)task->nextTask;
-    current_task = (uint8_t *)task;
+  if (current_task && *current_task == TASK_END_OF_QUEUE) clear_storage();
+  if (!current_task) {
+    if (failure_pending) show_failure();
+    else return;
   }
 
   finish_sketch();
-
+  queueTask_t *task = (queueTask_t *)current_task;
   switch (task->type) {
-    case TASK_END_OF_QUEUE: reset();      break;
-    case TASK_FILL:         fill(task);   break;
-    case TASK_CANVAS:       canvas(task); break;
+    case TASK_FILL:   fill(task);   break;
+    case TASK_CANVAS: canvas(task); break;
+    default: reject();             break;
   }
 }
 
@@ -102,7 +157,7 @@ void TFT_Queue::fill(queueTask_t *task) {
 void TFT_Queue::canvas(queueTask_t *task) {
   parametersCanvas_t *task_parameters = (parametersCanvas_t *)(((uint8_t *)task) + sizeof(queueTask_t));
 
-  uint16_t i;
+  uint32_t i;
   uint8_t *item = ((uint8_t *)task_parameters) + sizeof(parametersCanvas_t);
 
   if (task->state == TASK_STATE_READY) {
@@ -155,6 +210,8 @@ void TFT_Queue::canvas(queueTask_t *task) {
 
 void TFT_Queue::fill(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color) {
   finish_sketch();
+  if (!width || !height) return;
+  if (!reserve(sizeof(queueTask_t) + sizeof(parametersFill_t))) return;
 
   queueTask_t *task = (queueTask_t *)end_of_queue;
   last_task = (uint8_t *)task;
@@ -169,7 +226,7 @@ void TFT_Queue::fill(uint16_t x, uint16_t y, uint16_t width, uint16_t height, ui
   task_parameters->width = width;
   task_parameters->height = height;
   task_parameters->color = ENDIAN_COLOR(color);
-  task_parameters->count = width * height;
+  task_parameters->count = uint32_t(width) * height;
 
   *end_of_queue = TASK_END_OF_QUEUE;
   task->nextTask = end_of_queue;
@@ -181,6 +238,8 @@ void TFT_Queue::fill(uint16_t x, uint16_t y, uint16_t width, uint16_t height, ui
 
 void TFT_Queue::canvas(uint16_t x, uint16_t y, uint16_t width, uint16_t height) {
   finish_sketch();
+  if (!width || !height || width > TFT_BUFFER_SIZE) { reject(); return; }
+  if (!reserve(sizeof(queueTask_t) + sizeof(parametersCanvas_t))) return;
 
   queueTask_t *task = (queueTask_t *)end_of_queue;
   last_task = (uint8_t *) task;
@@ -204,7 +263,7 @@ void TFT_Queue::canvas(uint16_t x, uint16_t y, uint16_t width, uint16_t height) 
 }
 
 void TFT_Queue::set_background(uint16_t color) {
-  handle_queue_overflow(sizeof(parametersCanvasBackground_t));
+  if (!reserve_canvas(sizeof(parametersCanvasBackground_t))) return;
   parametersCanvas_t *task_parameters = (parametersCanvas_t *)(((uint8_t *)last_task) + sizeof(queueTask_t));
   parametersCanvasBackground_t *parameters = (parametersCanvasBackground_t *)end_of_queue;
   last_parameter = end_of_queue;
@@ -217,17 +276,13 @@ void TFT_Queue::set_background(uint16_t color) {
   parameters->nextParameter = end_of_queue;
 }
 
-#define QUEUE_SAFETY_FREE_SPACE 100
-
-void TFT_Queue::handle_queue_overflow(uint16_t sizeNeeded) {
-  if (uintptr_t(end_of_queue) + sizeNeeded + (QUEUE_SAFETY_FREE_SPACE) - uintptr_t(queue) >= TFT_QUEUE_SIZE) {
-    end_of_queue = queue;
-    ((parametersCanvasText_t *)last_parameter)->nextParameter = end_of_queue;
-  }
-}
-
 void TFT_Queue::add_text(uint16_t x, uint16_t y, uint16_t color, uint8_t *string, uint16_t maxWidth) {
-  handle_queue_overflow(sizeof(parametersCanvasText_t) + maxWidth);
+  if (failed) return;
+  if (!string) { reject(); return; }
+  size_t length = 0;
+  while (length < sizeof(queue) && string[length]) ++length;
+  if (length == sizeof(queue) || length >= 65535U) { reject(); return; }
+  if (!reserve_canvas(sizeof(parametersCanvasText_t) + length + 1)) return;
   parametersCanvas_t *task_parameters = (parametersCanvas_t *)(((uint8_t *)last_task) + sizeof(queueTask_t));
   parametersCanvasText_t *parameters = (parametersCanvasText_t *)end_of_queue;
   last_parameter = end_of_queue;
@@ -243,51 +298,43 @@ void TFT_Queue::add_text(uint16_t x, uint16_t y, uint16_t color, uint8_t *string
 
   end_of_queue += sizeof(parametersCanvasText_t);
 
-  /* TODO: Deal with maxWidth */
+  // maxWidth is a pixel limit; storage always contains the complete string.
   while ((*(end_of_queue++) = *pointer++) != 0x00);
 
   parameters->nextParameter = end_of_queue;
-  parameters->stringLength = pointer - string;
+  parameters->stringLength = uint16_t(length + 1);
   task_parameters->count++;
 }
 
 void TFT_Queue::add_image(int16_t x, int16_t y, MarlinImage image, uint16_t *colors) {
-  handle_queue_overflow(sizeof(parametersCanvasImage_t));
-  parametersCanvas_t *task_parameters = (parametersCanvas_t *)(((uint8_t *)last_task) + sizeof(queueTask_t));
+  if (uint32_t(image) >= uint32_t(imgCount)) { reject(); return; }
+  const colorMode_t color_mode = Images[image].colorMode;
+  uint8_t color_count;
+  switch (color_mode) {
+    case HIGHCOLOR:  color_count = 0;  break;
+    case GREYSCALE1: color_count = 1;  break;
+    case GREYSCALE2: color_count = 3;  break;
+    case GREYSCALE4: color_count = 15; break;
+    default: reject(); return;
+  }
+  if (color_count && !colors) { reject(); return; }
+  if (!reserve_canvas(sizeof(parametersCanvasImage_t) + color_count * sizeof(uint16_t))) return;
+  parametersCanvas_t *task_parameters = (parametersCanvas_t *)(last_task + sizeof(queueTask_t));
   parametersCanvasImage_t *parameters = (parametersCanvasImage_t *)end_of_queue;
   last_parameter = end_of_queue;
-
   parameters->type = CANVAS_ADD_IMAGE;
   parameters->x = x;
   parameters->y = y;
   parameters->image = image;
-
   end_of_queue += sizeof(parametersCanvasImage_t);
-  task_parameters->count++;
-  parameters->nextParameter = end_of_queue;
-
-  colorMode_t color_mode = Images[image].colorMode;
-
-  if (color_mode == HIGHCOLOR) return;
-
   uint16_t *color = (uint16_t *)end_of_queue;
-  uint8_t color_count = 0;
-
-  switch (color_mode) {
-    case GREYSCALE1: color_count =  1; break;
-    case GREYSCALE2: color_count =  3; break;
-    case GREYSCALE4: color_count = 15; break;
-    default: break;
-  }
-
-  uint16_t tmp;
   while (color_count--) {
-    tmp = *colors++;
+    const uint16_t tmp = *colors++;
     *color++ = ENDIAN_COLOR(tmp);
   }
-
   end_of_queue = (uint8_t *)color;
   parameters->nextParameter = end_of_queue;
+  task_parameters->count++;
 }
 
 #if ENABLED(PANTALLA_NUEVA)
@@ -295,11 +342,12 @@ void TFT_Queue::add_image(int16_t x, int16_t y, MarlinImage image, uint16_t *col
 // Texto a doble tamano: reutiliza add_text y solo cambia el tipo del elemento.
 void TFT_Queue::add_text_big(uint16_t x, uint16_t y, uint16_t color, uint8_t *string) {
   add_text(x, y, color, string, 0);
-  ((parametersCanvasText_t *)last_parameter)->type = CANVAS_ADD_TEXT_BIG;
+  if (!failed && last_parameter)
+    ((parametersCanvasText_t *)last_parameter)->type = CANVAS_ADD_TEXT_BIG;
 }
 
 void TFT_Queue::add_round(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t radius, uint16_t color) {
-  handle_queue_overflow(sizeof(parametersCanvasRound_t));
+  if (!reserve_canvas(sizeof(parametersCanvasRound_t))) return;
   parametersCanvas_t *task_parameters = (parametersCanvas_t *)(((uint8_t *)last_task) + sizeof(queueTask_t));
   parametersCanvasRound_t *parameters = (parametersCanvasRound_t *)end_of_queue;
   last_parameter = end_of_queue;
@@ -318,7 +366,7 @@ void TFT_Queue::add_round(uint16_t x, uint16_t y, uint16_t width, uint16_t heigh
 }
 
 void TFT_Queue::add_pixels(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const uint16_t *data, uint16_t dimRows) {
-  handle_queue_overflow(sizeof(parametersCanvasPixels_t));
+  if (!reserve_canvas(sizeof(parametersCanvasPixels_t))) return;
   parametersCanvas_t *task_parameters = (parametersCanvas_t *)(((uint8_t *)last_task) + sizeof(queueTask_t));
   parametersCanvasPixels_t *parameters = (parametersCanvasPixels_t *)end_of_queue;
   last_parameter = end_of_queue;
@@ -348,6 +396,7 @@ uint16_t gradient(uint16_t colorA, uint16_t colorB, uint16_t factor) {
 }
 
 void TFT_Queue::add_image(int16_t x, int16_t y, MarlinImage image, uint16_t color_main, uint16_t color_background, uint16_t color_shadow) {
+  if (uint32_t(image) >= uint32_t(imgCount)) { reject(); return; }
   uint16_t colors[16];
   colorMode_t color_mode = Images[image].colorMode;
   uint16_t i;
@@ -374,7 +423,7 @@ void TFT_Queue::add_image(int16_t x, int16_t y, MarlinImage image, uint16_t colo
 }
 
 void TFT_Queue::add_bar(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color) {
-  handle_queue_overflow(sizeof(parametersCanvasBar_t));
+  if (!reserve_canvas(sizeof(parametersCanvasBar_t))) return;
   parametersCanvas_t *task_parameters = (parametersCanvas_t *)(((uint8_t *)last_task) + sizeof(queueTask_t));
   parametersCanvasBar_t *parameters = (parametersCanvasBar_t *)end_of_queue;
   last_parameter = end_of_queue;
@@ -392,7 +441,7 @@ void TFT_Queue::add_bar(uint16_t x, uint16_t y, uint16_t width, uint16_t height,
 }
 
 void TFT_Queue::add_rectangle(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color) {
-  handle_queue_overflow(sizeof(parametersCanvasRectangle_t));
+  if (!reserve_canvas(sizeof(parametersCanvasRectangle_t))) return;
   parametersCanvas_t *task_parameters = (parametersCanvas_t *)(((uint8_t *)last_task) + sizeof(queueTask_t));
   parametersCanvasRectangle_t *parameters = (parametersCanvasRectangle_t *)end_of_queue;
   last_parameter = end_of_queue;

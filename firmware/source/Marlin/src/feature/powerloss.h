@@ -50,6 +50,8 @@
 
 typedef struct {
   uint8_t valid_head;
+  uint32_t format_magic;
+  uint16_t format_version, format_size, checksum;
 
   // Machine state
   xyze_pos_t current_position;
@@ -128,12 +130,17 @@ typedef struct {
 
   uint8_t print_progress;
 
-  bool valid() { return valid_head && valid_head == valid_foot; }
+  bool valid() const;
 
 } job_recovery_info_t;
 
 class PrintJobRecovery {
   public:
+    // Recovery is unavailable until an executed physical boundary is demonstrable.
+    // Keep the stored format/EEPROM byte unchanged; the legacy byte only arms outage safety.
+    static constexpr bool supported = false;
+    static bool outage_monitor_enabled;
+    static void report_unavailable();
     static const char filename[10];
 
     static SdFile file;
@@ -170,7 +177,7 @@ class PrintJobRecovery {
     static void enable(const bool onoff);
     static void changed();
 
-    static inline bool exists() { return card.jobRecoverFileExists(); }
+    static inline bool exists() { return supported && card.jobRecoverFileExists(); }
     static inline void open(const bool read) { card.openJobRecoveryFile(read); }
     static inline void close() { file.close(); }
 
@@ -178,10 +185,10 @@ class PrintJobRecovery {
     static void resume();
     static void purge();
 
-    static inline void cancel() { purge(); IF_DISABLED(NO_SD_AUTOSTART, card.autofile_begin()); }
+    static inline void cancel() { purge(); if (supported) { IF_DISABLED(NO_SD_AUTOSTART, card.autofile_begin()); } }
 
     static void load();
-    static void save(const bool force=ENABLED(SAVE_EACH_CMD_MODE), const float zraise=0);
+    static bool save(const bool force=ENABLED(SAVE_EACH_CMD_MODE), const float zraise=0);
 
     #if PIN_EXISTS(POWER_LOSS)
       static void outage();
@@ -189,9 +196,9 @@ class PrintJobRecovery {
     #endif
 
     // The referenced file exists
-    static inline bool interrupted_file_exists() { return card.fileExists(info.sd_filename); }
+    static inline bool interrupted_file_exists() { return supported && info.valid() && card.isMounted() && card.fileExists(info.sd_filename); }
 
-    static inline bool valid() { return info.valid() && interrupted_file_exists(); }
+    static inline bool valid() { return supported && info.valid() && interrupted_file_exists(); }
 
     #if ENABLED(DEBUG_POWER_LOSS_RECOVERY)
       static void debug(PGM_P const prefix);
@@ -200,7 +207,7 @@ class PrintJobRecovery {
     #endif
 
   private:
-    static void write();
+    static bool write();
 
     #if ENABLED(BACKUP_POWER_SUPPLY)
       static void retract_and_lift(const float &zraise);

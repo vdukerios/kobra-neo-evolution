@@ -26,6 +26,7 @@
 
 #include "../gcode.h"
 #include "../../sd/cardreader.h"
+#include "../../lcd/marlinui.h"
 #include "../../module/planner.h" // for synchronize()
 
 #include "../../MarlinCore.h" // for startOrResumeJob
@@ -40,19 +41,30 @@
  *    M32 S60 !PATH/TO/FILE.GCO#  ; Start FILE.GCO at byte 60
  */
 void GcodeSuite::M32() {
+  if (!parser.string_arg || strlen(parser.string_arg) >= MAXPATHNAMELENGTH) return;
+  char requested_file[MAXPATHNAMELENGTH];
+  strcpy(requested_file, parser.string_arg);
+  const uint8_t call_procedure = parser.boolval('P');
+  const bool has_offset = parser.seenval('S');
+  uint32_t offset = 0;
+  if (has_offset && !parser.value_ulong_checked(offset)) return;
+  const uint32_t abort_epoch = TERN0(HAS_DISPLAY, ui.print_abort_count);
   if (IS_SD_PRINTING()) planner.synchronize();
 
-  if (card.isMounted()) {
-    const uint8_t call_procedure = parser.boolval('P');
+  if (card.isMounted() && !card.flag.abort_sd_printing
+      && !TERN0(HAS_DISPLAY, abort_epoch != ui.print_abort_count)) {
+    card.openFileRead(requested_file, call_procedure);
+    if (has_offset) {
+      if (offset > card.getFileSize()) return;
+      card.setIndex(offset);
+    }
 
-    card.openFileRead(parser.string_arg, call_procedure);
-
-    if (parser.seenval('S')) card.setIndex(parser.value_long());
-
-    card.startFileprint();
-
+    if (!card.isFileOpen()) return;
     // Procedure calls count as normal print time.
-    if (!call_procedure) startOrResumeJob();
+    if (!call_procedure && !startOrResumeJob()) return;
+    if (card.flag.abort_sd_printing || !card.isMounted() || !card.isFileOpen()
+        || TERN0(HAS_DISPLAY, abort_epoch != ui.print_abort_count)) return;
+    card.startFileprint();
   }
 }
 

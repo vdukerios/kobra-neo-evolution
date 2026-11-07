@@ -15,9 +15,13 @@
   #define BNC_Z_SEGURO "10"
   // Altura intermedia y altura de trabajo final (mm).
   // El offset del sensor se CONSERVA durante todo el proceso (nunca queda un 0 guardado en la EEPROM).
-  // Con el offset ya calibrado, Z=0.5 deja la boquilla a ~0.5 mm de la cama y el usuario baja con la rueda.
+  // La boquilla se detiene a Z=0 (metodo estandar de la hoja de papel): el valor que el usuario encuentra
+  // con la rueda ES el offset real. (Con 0.5 el recorrido hasta la hoja quedaba sumado al offset guardado
+  // y la boquilla quedaba ~0.5 mm baja.) Con el offset ya calibrado, Z=0 deja la boquilla justo sobre la cama.
   #define BNC_Z_INTERMEDIA "2"
-  #define BNC_Z_TRABAJO    "0.5"
+  #define BNC_Z_TRABAJO    "0"
+  // Temperatura de boquilla durante el ajuste con la hoja (cerca de la de impresion). Se apaga al salir.
+  #define BNC_TEMP_AJUSTE  "200"
   // Velocidades (mm/min)
   #define BNC_F_Z_SUBIR   "900"
   #define BNC_F_XY        "4000"

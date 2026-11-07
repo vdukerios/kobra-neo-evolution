@@ -34,6 +34,7 @@
 #include "../../sd/cardreader.h"
 #if ENABLED(MODOS_IMPRESION)
   #include "../../feature/modos_impresion.h"
+  #include "../fontutils.h"
   #include "../tft/tft.h"   // tft_string: medir y recortar el nombre del archivo
   #include "../../feature/gcode_thumb.h"
 #endif
@@ -47,13 +48,13 @@ void lcd_sd_updir() {
 
 #if ENABLED(SD_REPRINT_LAST_SELECTED_FILE)
 
-  uint16_t sd_encoder_position = 0xFFFF;
-  int8_t sd_top_line, sd_items;
+  uint32_t sd_encoder_position = UINT32_MAX;
+  int32_t sd_top_line, sd_items;
 
   void MarlinUI::reselect_last_file() {
-    if (sd_encoder_position == 0xFFFF) return;
+    if (sd_encoder_position == UINT32_MAX) return;
     goto_screen(menu_media, sd_encoder_position, sd_top_line, sd_items);
-    sd_encoder_position = 0xFFFF;
+    sd_encoder_position = UINT32_MAX;
     defer_status_screen();
     TERN_(HAS_TOUCH_SLEEP, ui.wakeup_screen());
   }
@@ -64,12 +65,10 @@ inline void sdcard_start_selected_file() {
 
   feedrate_percentage = 100;
   recovery.info.sdpos = 0;//Clean recovery.info.sdpos when start printing
-  //Read EEPROM date 
-  persistentStore.read_data(0x9F, (uint8_t*)&planner.settings.acceleration, sizeof(planner.settings.acceleration));
-  persistentStore.read_data(0xA3, (uint8_t*)&planner.settings.retract_acceleration, sizeof(planner.settings.retract_acceleration));
-  persistentStore.read_data(0xA7, (uint8_t*)&planner.settings.travel_acceleration, sizeof(planner.settings.travel_acceleration));
-  #if HAS_CLASSIC_JERK
-  persistentStore.read_data(0xB3, (uint8_t*)&planner.max_jerk, sizeof(planner.max_jerk));
+  // Current settings were loaded and validated as one record at startup.
+  // Do not restore acceleration from unrelated raw EEPROM byte offsets.
+  #if ENABLED(MODOS_IMPRESION)
+    modos_impresion_iniciando = true;   // el archivo se abre por cola: no tratar la salida de Confirmar como cancelacion
   #endif
   card.openAndPrintFile(card.filename);
   ui.return_to_status();
@@ -78,27 +77,39 @@ inline void sdcard_start_selected_file() {
 
 #if ENABLED(MODOS_IMPRESION)
 
-// Recorta el nombre del archivo con "..." para que etiqueta + nombre quepan en 316 px.
+// Recorta el nombre del archivo con "..." para que etiqueta + nombre quepan en 292 px.
 // Devuelve s tal cual si cabe; si no, un buffer propio (valido hasta la siguiente llamada).
 static const char* kne_nombre_ajustado(const char *s) {
   static char out[MAX_STRING_LENGTH + 1];
   tft_string.set(GET_TEXT(MSG_KNE_FILE_COLON));
   const uint16_t wlabel = tft_string.width();
-  const uint16_t maxw = (316 > wlabel) ? (316 - wlabel) : 0;
-  uint16_t total = 0, len = 0;
-  for (const char *p = s; *p; p++, len++)
-    if ((uint8_t(*p) & 0xC0) != 0x80) total += tft_string.glyph(uint8_t(*p))->DWidth;
-  if (total <= maxw && len <= MAX_STRING_LENGTH) return s;
-  const uint16_t dots = 3 * tft_string.glyph(uint8_t('.'))->DWidth;
-  uint16_t w = 0;
-  uint8_t cut = 0;
-  for (uint8_t i = 0; s[i] && i < MAX_STRING_LENGTH - 3; i++) {
-    if ((uint8_t(s[i]) & 0xC0) == 0x80) continue;   // continuacion de un caracter multibyte
-    if (w + dots > maxw) break;
-    cut = i;
-    w += tft_string.glyph(uint8_t(s[i]))->DWidth;
+  const uint16_t maxw = 292 > wlabel ? 292 - wlabel : 0;
+  const uint8_t label_length = strlen((const char *)tft_string.string());
+  uint32_t total = 0, characters = 0;
+  uint8_t *p = (uint8_t *)s;
+  while (*p) {
+    wchar_t wc;
+    p = get_utf8_value_cb(p, read_byte_ram, &wc);
+    total += tft_string.glyph(uint8_t(wc & 0xFF))->DWidth;
+    ++characters;
   }
-  for (uint8_t j = 0; j < cut; j++) out[j] = s[j];
+  if (total <= maxw && characters + label_length <= MAX_STRING_LENGTH) return s;
+  const uint16_t dots = 3 * tft_string.glyph(uint8_t('.'))->DWidth;
+  uint16_t width = 0, cut = 0;
+  characters = 0;
+  p = (uint8_t *)s;
+  while (*p) {
+    wchar_t wc;
+    uint8_t *next = get_utf8_value_cb(p, read_byte_ram, &wc);
+    const uint16_t advance = tft_string.glyph(uint8_t(wc & 0xFF))->DWidth;
+    if (width + advance + dots > maxw || next - (uint8_t *)s > MAX_STRING_LENGTH - 3
+        || label_length + characters + 4 > MAX_STRING_LENGTH) break;
+    cut = next - (uint8_t *)s;
+    width += advance;
+    ++characters;
+    p = next;
+  }
+  memcpy(out, s, cut);
   out[cut] = '.'; out[cut + 1] = '.'; out[cut + 2] = '.'; out[cut + 3] = 0;
   return out;
 }
@@ -123,6 +134,7 @@ void menu_confirmar_impresion() {   // no static: menu.cpp la usa para detectar 
 
 static void abrir_confirmar_impresion() {
   print_mode = MODO_COMPLETO;
+  modos_impresion_iniciando = false;
   GcodeThumb::unload();
   GcodeThumb::load(card.filename);   // si falla, la pantalla de impresion usa el marcador de posicion
   ui.push_current_screen();   // N-07: Cancelar vuelve a la lista de archivos (antes caia en el menu principal)
@@ -205,17 +217,17 @@ void menu_media_filelist() {
   else if (card.isMounted())
     ACTION_ITEM_P(PSTR(LCD_STR_FOLDER " .."), lcd_sd_updir);
 
-  if (ui.should_draw()) for (uint16_t i = 0; i < fileCnt; i++) {
-    if (_menuLineNr == _thisItemNr) {
-      card.getfilename_sorted(SD_ORDER(i, fileCnt));
-      if (card.flag.filenameIsDir)
-        MENU_ITEM(sdfolder, MSG_MEDIA_MENU, card);
-      else
-        MENU_ITEM(sdfile, MSG_MEDIA_MENU, card);
-    }
+  const int32_t first_file = _thisItemNr;
+  const int32_t visible_file = _menuLineNr - first_file;
+  if (WITHIN(visible_file, 0, int32_t(fileCnt) - 1)) {
+    _thisItemNr = _menuLineNr;
+    card.getfilename_sorted(SD_ORDER(uint16_t(visible_file), fileCnt));
+    if (card.flag.filenameIsDir)
+      MENU_ITEM(sdfolder, MSG_MEDIA_MENU, card);
     else
-      SKIP_ITEM();
+      MENU_ITEM(sdfile, MSG_MEDIA_MENU, card);
   }
+  _thisItemNr = first_file + int32_t(fileCnt);
   END_MENU();
 }
 

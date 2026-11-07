@@ -66,6 +66,11 @@ void plan_arc(
     constexpr AxisEnum p_axis = X_AXIS, q_axis = Y_AXIS, l_axis = Z_AXIS;
   #endif
 
+  LOOP_XYZE(a) if (!isfinite(cart[a]) || !isfinite(current_position[a])) {
+    SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return;
+  }
+  if (!isfinite(offset.a) || !isfinite(offset.b)) { SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return; }
+
   // Radius vector from center to current location
   ab_float_t rvec = -offset;
 
@@ -75,6 +80,12 @@ void plan_arc(
               rt_X = cart[p_axis] - center_P,
               rt_Y = cart[q_axis] - center_Q,
               start_L = current_position[l_axis];
+
+  if (!isfinite(radius) || radius <= 0 || !isfinite(center_P) || !isfinite(center_Q)
+    || !isfinite(rt_X) || !isfinite(rt_Y)
+    || !isfinite(ABS(center_P) + 4 * radius) || !isfinite(ABS(center_Q) + 4 * radius)) {
+    SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return;
+  }
 
   #ifdef MIN_ARC_SEGMENTS
     uint16_t min_segments = MIN_ARC_SEGMENTS;
@@ -92,7 +103,10 @@ void plan_arc(
   }
   else {
     // Calculate the angle
-    angular_travel = ATAN2(rvec.a * rt_Y - rvec.b * rt_X, rvec.a * rt_X + rvec.b * rt_Y);
+    const float cross = rvec.a * rt_Y - rvec.b * rt_X,
+                dot = rvec.a * rt_X + rvec.b * rt_Y;
+    if (!isfinite(cross) || !isfinite(dot)) { SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return; }
+    angular_travel = ATAN2(cross, dot);
 
     // Angular travel too small to detect? Just return.
     if (!angular_travel) return;
@@ -112,24 +126,16 @@ void plan_arc(
   float linear_travel = cart[l_axis] - start_L,
         extruder_travel = cart.e - current_position.e;
 
-  // If circling around...
-  if (ENABLED(ARC_P_CIRCLES) && circles) {
-    const float total_angular = angular_travel + circles * RADIANS(360),  // Total rotation with all circles and remainder
-              part_per_circle = RADIANS(360) / total_angular,             // Each circle's part of the total
-                 l_per_circle = linear_travel * part_per_circle,          // L movement per circle
-                 e_per_circle = extruder_travel * part_per_circle;        // E movement per circle
-    xyze_pos_t temp_position = current_position;                          // for plan_arc to compare to current_position
-    for (uint16_t n = circles; n--;) {
-      temp_position.e += e_per_circle;                                    // Destination E axis
-      temp_position[l_axis] += l_per_circle;                              // Destination L axis
-      plan_arc(temp_position, offset, clockwise, 0);                      // Plan a single whole circle
-    }
-    linear_travel = cart[l_axis] - current_position[l_axis];
-    extruder_travel = cart.e - current_position.e;
+  // Include all requested circles in the same preflight and segment count.
+  if (ENABLED(ARC_P_CIRCLES) && circles)
+    angular_travel += (clockwise ? -1 : 1) * circles * RADIANS(360);
+  if (!isfinite(angular_travel) || !isfinite(linear_travel) || !isfinite(extruder_travel)) {
+    SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return;
   }
 
   const float flat_mm = radius * angular_travel,
               mm_of_travel = linear_travel ? HYPOT(flat_mm, linear_travel) : ABS(flat_mm);
+  if (!isfinite(flat_mm) || !isfinite(mm_of_travel)) { SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return; }
   if (mm_of_travel < 0.001f) return;
 
   const feedRate_t scaled_fr_mm_s = MMS_SCALED(feedrate_mm_s);
@@ -145,7 +151,14 @@ void plan_arc(
     #endif
   );
   // Divide total travel by nominal segment length
-  uint16_t segments = FLOOR(mm_of_travel / seg_length);
+  if (!isfinite(scaled_fr_mm_s) || scaled_fr_mm_s <= 0 || !isfinite(seg_length) || seg_length <= 0) {
+    SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return;
+  }
+  const float segment_count = FLOOR(mm_of_travel / seg_length);
+  if (!isfinite(segment_count) || segment_count < 0 || segment_count > 65535.0f) {
+    SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return;
+  }
+  uint16_t segments = segment_count;
   NOLESS(segments, min_segments);         // At least some segments
   seg_length = mm_of_travel / segments;
 
@@ -183,6 +196,10 @@ void plan_arc(
               sq_theta_per_segment = sq(theta_per_segment),
               sin_T = theta_per_segment - sq_theta_per_segment * theta_per_segment / 6,
               cos_T = 1 - 0.5f * sq_theta_per_segment; // Small angle approximation
+
+  if (!isfinite(seg_length) || seg_length <= 0 || !isfinite(theta_per_segment)
+    || !isfinite(linear_per_segment) || !isfinite(extruder_per_segment)
+    || !isfinite(sin_T) || !isfinite(cos_T)) { SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return; }
 
   // Initialize the linear axis
   raw[l_axis] = current_position[l_axis];
@@ -318,7 +335,7 @@ void GcodeSuite::G2_G3(const bool clockwise) {
     ab_float_t arc_offset = { 0, 0 };
     if (parser.seenval('R')) {
       const float r = parser.value_linear_units();
-      if (r) {
+      if (isfinite(r) && r) {
         const xy_pos_t p1 = current_position, p2 = destination;
         if (p1 != p2) {
           const xy_pos_t d2 = (p2 - p1) * 0.5f;          // XY vector to midpoint of move from current
@@ -327,6 +344,9 @@ void GcodeSuite::G2_G3(const bool clockwise) {
                       h2 = (r - len) * (r + len),        // factored to reduce rounding error
                       h = (h2 >= 0) ? SQRT(h2) : 0.0f;   // Distance to the arc pivot-point from midpoint
           const xy_pos_t s = { -d2.y, d2.x };            // Perpendicular bisector. (Divide by len for unit vector.)
+          if (!isfinite(len) || len <= 0 || !isfinite(h2) || h2 < 0 || !isfinite(h)) {
+            SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return;
+          }
           arc_offset = d2 + s / len * e * h;             // The calculated offset (mid-point if |r| <= len)
         }
       }
@@ -347,13 +367,15 @@ void GcodeSuite::G2_G3(const bool clockwise) {
       if (parser.seenval(bchar)) arc_offset.b = parser.value_linear_units();
     }
 
-    if (arc_offset) {
+    if (isfinite(arc_offset.a) && isfinite(arc_offset.b) && arc_offset) {
 
       #if ENABLED(ARC_P_CIRCLES)
         // P indicates number of circles to do
-        const int8_t circles_to_do = parser.byteval('P');
-        if (!WITHIN(circles_to_do, 0, 100))
-          SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS);
+        const float circles_input = parser.floatval('P');
+        if (!isfinite(circles_input) || !WITHIN(circles_input, 0, 100) || circles_input != FLOOR(circles_input)) {
+          SERIAL_ERROR_MSG(STR_ERR_ARC_ARGS); return;
+        }
+        const uint8_t circles_to_do = circles_input;
       #else
         constexpr uint8_t circles_to_do = 0;
       #endif

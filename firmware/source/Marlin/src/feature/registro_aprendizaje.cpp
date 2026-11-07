@@ -27,6 +27,8 @@ static bool activo = false,         // hay una impresion SD registrada en curso
 static uint32_t estimado_s = 0;     // primer M73 R (en segundos)
 static bool prep_hecha = false;     // M1100 termino bien: el calentamiento ya esta descontado
 static uint32_t prep_s = 0;         // segundos de preparacion (M1100: calentar, esperar, malla) antes de imprimir
+static uint32_t registro_numero = 0;
+static uint32_t csv_inicio = 0;   // durable marker also records the append boundary
 static char nombre[28];             // nombre del archivo, sin comas
 
 // Abre un archivo de la raiz de la SD (nombre 8.3). false si no hay SD o falla.
@@ -54,6 +56,29 @@ static void motivo_a_texto(char * const d, const uint8_t m) {
 static uint16_t hist[APRENDIZAJE_MAX_DATOS]; // cocientes real/estimado en milesimas
 static uint8_t n_hist = 0;
 static float factor = 1.0f;
+static bool historial_sucio = false;
+static uint32_t historial_generacion = 0;
+static int8_t historial_copia = -1;
+struct HistorialCopia {
+  uint32_t magic, generation, count;
+  uint16_t values[APRENDIZAJE_MAX_DATOS];
+  uint32_t crc;
+};
+static uint32_t historial_checksum(const HistorialCopia &v) {
+  const uint8_t *p = (const uint8_t*)&v;
+  uint32_t crc = 2166136261UL;
+  for (size_t i = 0; i < offsetof(HistorialCopia,crc); ++i) crc = (crc ^ p[i]) * 16777619UL;
+  return crc;
+}
+static const char* historial_nombre(const int8_t copia) { return copia ? "FACTOR1.DAT" : "FACTOR0.DAT"; }
+static bool leer_copia(const int8_t copia, HistorialCopia &v) {
+  SdFile f;
+  if (!abrir(f, historial_nombre(copia), O_READ)) return false;
+  const bool ok = f.fileSize() == sizeof(v) && f.read(&v, sizeof(v)) == sizeof(v);
+  const bool cerrado = f.close();
+  return ok && cerrado && v.magic == 0x4B4E4546UL && v.count <= APRENDIZAJE_MAX_DATOS && v.crc == historial_checksum(v);
+}
+static bool guardar_historial();
 
 static void calcular_factor() {
   if (n_hist < APRENDIZAJE_MIN_DATOS) { factor = 1.0f; return; }
@@ -83,11 +108,23 @@ static void agregar_dato(const uint16_t v) {
     n_hist = APRENDIZAJE_MAX_DATOS - 1;
   }
   hist[n_hist++] = v;
+  historial_sucio = true;
 }
 
 // Lee FACTOR.TXT (un numero por linea). Sin SD conserva lo que hubiera en memoria.
 static void cargar_historial() {
   if (!card.isMounted()) return;
+  if (historial_sucio) { guardar_historial(); return; }
+  HistorialCopia a, b;
+  const bool va = leer_copia(0, a), vb = leer_copia(1, b);
+  if (va || vb) {
+    historial_copia = vb && (!va || (int32_t)(b.generation - a.generation) > 0) ? 1 : 0;
+    const HistorialCopia &v = historial_copia ? b : a;
+    n_hist = (uint8_t)v.count;
+    memcpy(hist, v.values, sizeof(hist));
+    historial_generacion = v.generation;
+    calcular_factor(); return;
+  }
   n_hist = 0;
   SdFile f;
   if (abrir(f, PSTR(APRENDIZAJE_ARCHIVO), O_READ)) {
@@ -110,18 +147,24 @@ static void cargar_historial() {
       }
     }
   }
+  historial_sucio = false;
   calcular_factor();
 }
 
-static void guardar_historial() {
-  char buf[APRENDIZAJE_MAX_DATOS * 7 + 1];
-  char *p = buf;
-  for (uint8_t i = 0; i < n_hist; i++) p += sprintf_P(p, PSTR("%u\n"), (unsigned)hist[i]);
+static bool guardar_historial() {
+  if (!historial_sucio) return true;
+  HistorialCopia v = { 0x4B4E4546UL, historial_generacion + 1, n_hist, {0}, 0 };
+  memcpy(v.values, hist, sizeof(hist)); v.crc = historial_checksum(v);
+  const int8_t siguiente = historial_copia == 0 ? 1 : 0;
   SdFile f;
-  if (abrir(f, PSTR(APRENDIZAJE_ARCHIVO), O_CREAT | O_WRITE | O_TRUNC)) {
-    f.write(buf, (uint16_t)(p - buf));
-    f.close();
-  }
+  // The previous verified copy (or FACTOR.TXT during migration) is untouched.
+  if (!abrir(f, historial_nombre(siguiente), O_CREAT | O_WRITE | O_TRUNC)) return false;
+  const bool escrito = f.write((const uint8_t*)&v, sizeof(v)) == sizeof(v) && !f.writeError;
+  const bool cerrado = f.close();
+  HistorialCopia verificado;
+  if (!escrito || !cerrado || !leer_copia(siguiente, verificado) || memcmp(&v, &verificado, sizeof(v))) return false;
+  historial_copia = siguiente; historial_generacion = v.generation;
+  historial_sucio = false; return true;
 }
 
 #endif // APRENDIZAJE_TIEMPOS
@@ -131,49 +174,100 @@ static void guardar_historial() {
 //
 #ifdef REGISTRO_IMPRESIONES
 
-static void anexar_csv(const char * const linea, const uint16_t len) {
+// Only one pending print exists. Its key is the unchanged "n,archivo," prefix.
+// A retry inspects complete tail rows and removes an incomplete final row first.
+static bool anexar_csv(const char * const linea, const uint16_t len, const uint32_t desde) {
   SdFile f;
-  if (!abrir(f, PSTR(REGISTRO_ARCHIVO), O_CREAT | O_WRITE | O_APPEND)) return;
+  if (!abrir(f, PSTR(REGISTRO_ARCHIVO), O_CREAT | O_READ | O_WRITE)) return false;
+  const uint32_t tam = f.fileSize();
+  if (desde > tam) { f.close(); return false; }
+  const uint16_t cuanto = tam > 512 ? 512 : (uint16_t)tam;
+  char cola[513];
+  if (!f.seekSet(tam - cuanto) || f.read(cola, cuanto) != cuanto) { f.close(); return false; }
+  cola[cuanto] = '\0';
+  size_t clave = 0; uint8_t comas = 0;
+  while (clave < len && comas < 2) if (linea[clave++] == ',') ++comas;
+  if (comas != 2) { f.close(); return false; }
+  bool encontrado = false;
+  uint16_t inicio = 0, completo = 0;
+  if (tam > cuanto) { while (inicio < cuanto && cola[inicio] != '\n') ++inicio; if (inicio < cuanto) ++inicio; }
+  for (uint16_t i = inicio; i < cuanto; ++i) if (cola[i] == '\n') {
+    if (tam - cuanto + inicio >= desde && i - inicio >= clave && !memcmp(cola + inicio, linea, clave)) encontrado = true;
+    completo = i + 1; inicio = i + 1;
+  }
+  if (cuanto && cola[cuanto - 1] != '\n') {
+    // No known complete boundary: do not truncate an unbounded/corrupt row.
+    if (tam > cuanto && !completo) { f.close(); return false; }
+    if (!f.truncate(tam - cuanto + completo)) { f.close(); return false; }
+  }
+  if (encontrado) return f.close();
+  if (!f.seekEnd()) { f.close(); return false; }
+  bool ok = true;
   if (f.fileSize() == 0) {
     static const char cab[] = "n,archivo,estimado_s,real_s,resultado\n";
-    f.write(cab, (uint16_t)(sizeof(cab) - 1));
+    ok = f.write(cab, sizeof(cab) - 1) == sizeof(cab) - 1;
   }
-  f.write(linea, len);
-  f.close();
+  if (ok) ok = f.write(linea, len) == len;
+  ok = ok && !f.writeError;
+  const bool cerrado = f.close();
+  return ok && cerrado;
 }
 
-static void escribir_marca(const uint32_t n) {
+static bool escribir_marca(const uint32_t n) {
+  SdFile csv;
+  if (!abrir(csv, PSTR(REGISTRO_ARCHIVO), O_CREAT | O_READ | O_WRITE)) return false;
+  csv_inicio = csv.fileSize();
+  if (!csv.close()) return false;
   SdFile f;
-  if (!abrir(f, PSTR(REGISTRO_PENDIENTE), O_CREAT | O_WRITE | O_TRUNC)) return;
-  char buf[48];
-  const int c = sprintf_P(buf, PSTR("%lu,%s\n"), (unsigned long)n, nombre);
-  if (c > 0) f.write(buf, (uint16_t)c);
-  f.close();
+  if (!abrir(f, PSTR(REGISTRO_PENDIENTE), O_CREAT | O_WRITE | O_TRUNC)) return false;
+  char buf[64];
+  const int c = sprintf_P(buf, PSTR("%lu,%s,%lu\n"), (unsigned long)n, nombre, (unsigned long)csv_inicio);
+  const bool ok = c > 0 && c < (int)sizeof(buf) && f.write(buf, (uint16_t)c) == c && !f.writeError;
+  const bool cerrado = f.close();
+  return ok && cerrado;
 }
-
-static void vaciar_marca() {
+static bool vaciar_marca() {
   SdFile f;
-  if (abrir(f, PSTR(REGISTRO_PENDIENTE), O_CREAT | O_WRITE | O_TRUNC)) f.close();
+  if (!abrir(f, PSTR(REGISTRO_PENDIENTE), O_WRITE)) return false;
+  const bool ok = f.truncate(0);
+  const bool cerrado = f.close();
+  return ok && cerrado;
 }
-
-// Si la marca tiene contenido, la impresion anterior quedo sin cerrar: se anota como interrumpida.
-static void revisar_pendiente(const bool corte_luz) {
-  if (activo || !card.isMounted()) return;
+static bool revisar_pendiente(const bool corte_luz) {
+  if (activo || !card.isMounted()) return false;
   SdFile f;
-  if (!abrir(f, PSTR(REGISTRO_PENDIENTE), O_READ)) return;
-  char buf[48];
-  const int16_t len = f.read(buf, 40);
-  f.close();
-  if (len <= 0) return;
+  if (!abrir(f, PSTR(REGISTRO_PENDIENTE), O_READ)) {
+    // Exclusive create distinguishes missing from unreadable; never overwrite a failed read.
+    if (!abrir(f, PSTR(REGISTRO_PENDIENTE), O_CREAT | O_EXCL | O_WRITE)) return false;
+    return f.close();
+  }
+  char buf[64];
+  const uint32_t tam = f.fileSize();
+  const int16_t len = f.read(buf, sizeof(buf) - 1);
+  const bool cerrado = f.close();
+  if (!cerrado || len < 0) return false;
+  if (!len) return true;
+  if ((uint32_t)len != tam || buf[len - 1] != '\n') return false;
   int16_t l = len;
-  while (l > 0 && (buf[l - 1] == '\n' || buf[l - 1] == '\r')) l--;
-  if (l <= 0) { vaciar_marca(); return; }
+  while (l > 0 && (buf[l - 1] == '\n' || buf[l - 1] == '\r')) --l;
+  if (l <= 0) return vaciar_marca();
   buf[l] = '\0';
+  // A torn marker must remain available for inspection, never become a CSV row.
+  if (buf[0] < '0' || buf[0] > '9' || !strchr(buf, ',')) return false;
+  uint32_t desde = 0;
+  char *separador = strchr(strchr(buf, ',') + 1, ',');
+  if (separador) {
+    *separador++ = '\0';
+    if (!*separador) return false;
+    for (const char *p = separador; *p; ++p) {
+      if (*p < '0' || *p > '9' || desde > (0xFFFFFFFFUL - (*p - '0')) / 10UL) return false;
+      desde = desde * 10UL + (*p - '0');
+    }
+  } // Old two-field markers remain readable (boundary zero).
   char linea[96], mot[40];
   motivo_a_texto(mot, corte_luz ? REG_CORTE : REG_INTERRUMPIDA);
   const int c = sprintf_P(linea, PSTR("%s,0,0,%s\n"), buf, mot);
-  if (c > 0) anexar_csv(linea, (uint16_t)c);
-  vaciar_marca();
+  return c > 0 && c < (int)sizeof(linea) && anexar_csv(linea, (uint16_t)c, desde) && vaciar_marca();
 }
 
 // Ultimas lineas para la pantalla
@@ -232,7 +326,7 @@ uint8_t registro_cargar_ultimas() {
     while (*fin && *fin != '\n') fin++;
     const bool completa = (*fin == '\n');
     if (*fin) *fin = '\0';
-    if (p[0] >= '0' && p[0] <= '9') {
+    if (completa && p[0] >= '0' && p[0] <= '9') {
       if (n == 5) { for (uint8_t i = 1; i < 5; i++) ult[i - 1] = ult[i]; n = 4; }
       ult[n++] = p;
     }
@@ -263,8 +357,8 @@ void registro_inicio() {
     cargar_historial(); // el factor se lee al iniciar, no en cada refresco
   #endif
   #ifdef REGISTRO_IMPRESIONES
-    revisar_pendiente(false);  // por si quedo una impresion anterior sin cerrar
-    escribir_marca(print_job_timer.getStats().totalPrints);
+    registro_numero = print_job_timer.getStats().totalPrints;
+    if (!revisar_pendiente(false) || !escribir_marca(registro_numero)) { SERIAL_ERROR_MSG("Print log marker failed"); return; }
   #endif
 
   activo = true;
@@ -283,10 +377,12 @@ void registro_fin(const uint32_t real_s) {
     char linea[112], mot[40];
     motivo_a_texto(mot, m);
     const int c = sprintf_P(linea, PSTR("%lu,%s,%lu,%lu,%s\n"),
-      (unsigned long)print_job_timer.getStats().totalPrints, nombre,
+      (unsigned long)registro_numero, nombre,
       (unsigned long)estimado_s, (unsigned long)real_s, mot);
-    if (c > 0) anexar_csv(linea, (uint16_t)c);
-    vaciar_marca();
+    if (c > 0 && c < (int)sizeof(linea) && anexar_csv(linea, (uint16_t)c, csv_inicio)) {
+      if (!vaciar_marca()) SERIAL_ERROR_MSG("Print log pending cleanup failed");
+    }
+    else SERIAL_ERROR_MSG("Print log append failed; marker retained");
   #endif
 
   #ifdef APRENDIZAJE_TIEMPOS
@@ -295,11 +391,11 @@ void registro_fin(const uint32_t real_s) {
     // Solo se aprende si M1100 descuenta la preparacion (si no, el calentamiento infla el cociente)
     // y se descartan los cocientes absurdos (fuera de 0.4 - 3.0).
     if (m == REG_FINALIZADA && prep_hecha && estimado_s > 0 && util_s > 0) {
-      const uint32_t q = (util_s * 1000UL) / estimado_s;
+      const uint64_t q = ((uint64_t)util_s * 1000UL) / estimado_s;
       if (q >= 400UL && q <= 3000UL) {
         agregar_dato((uint16_t)q);
         calcular_factor();
-        guardar_historial();
+        if (!guardar_historial()) SERIAL_ERROR_MSG("Time factor storage failed");
       }
     }
   #endif
@@ -310,7 +406,7 @@ void registro_motivo_finalizada() { if (activo) finalizada = true; }
 void registro_marca_filamento()   { if (activo) filamento_visto = true; }
 
 void registro_estimado_m73(const uint32_t minutos) {
-  if (activo && estimado_s == 0 && minutos > 0) estimado_s = minutos * 60UL;
+  if (activo && estimado_s == 0 && minutos > 0 && minutos <= 0xFFFFFFFFUL / 60UL) estimado_s = minutos * 60UL;
 }
 
 void registro_arranque(const bool corte_luz) {

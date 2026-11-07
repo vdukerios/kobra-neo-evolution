@@ -749,6 +749,11 @@ bool SdBaseFile::openCachedEntry(uint8_t dirIndex, uint8_t oflag) {
   // make sure it is a normal file or subdirectory
   if (DIR_IS_FILE(p)) {
     fileSize_ = p->fileSize;
+    if ((!firstCluster_ && fileSize_) || (firstCluster_ && !vol_->validCluster(firstCluster_))) goto FAIL;
+    if (firstCluster_) {
+      uint32_t allocated;
+      if (!vol_->chainSize(firstCluster_, &allocated) || allocated < fileSize_) goto FAIL;
+    }
     type_ = FAT_FILE_TYPE_NORMAL;
   }
   else if (DIR_IS_SUBDIR(p)) {
@@ -1014,7 +1019,7 @@ int16_t SdBaseFile::read(void* buf, uint16_t nbyte) {
   uint32_t block;  // raw device block number
 
   // error if not open or write only
-  if (!isOpen() || !(flags_ & O_READ)) return -1;
+  if (!isOpen() || !(flags_ & O_READ) || curPosition_ > fileSize_ || (nbyte && !buf) || nbyte > INT16_MAX) return -1;
 
   // max bytes left in file
   NOMORE(nbyte, fileSize_ - curPosition_);
@@ -1035,6 +1040,7 @@ int16_t SdBaseFile::read(void* buf, uint16_t nbyte) {
         else if (!vol_->fatGet(curCluster_, &curCluster_))  // get next cluster from FAT
           return -1;
       }
+      if (!vol_->validCluster(curCluster_)) return -1;
       block = vol_->clusterStartBlock(curCluster_) + blockOfCluster;
     }
     uint16_t n = toRead;
@@ -1452,7 +1458,6 @@ SdBaseFile::SdBaseFile(const char* path, uint8_t oflag) {
  * \return true for success, false for failure.
  */
 bool SdBaseFile::seekSet(const uint32_t pos) {
-  uint32_t nCur, nNew;
   // error if file not open or seek past end of file
   if (!isOpen() || pos > fileSize_) return false;
 
@@ -1465,25 +1470,25 @@ bool SdBaseFile::seekSet(const uint32_t pos) {
     return true;
   }
 
-  // calculate cluster index for cur and new position
-  nCur = (curPosition_ - 1) >> (vol_->clusterSizeShift_ + 9);
-  nNew = (pos - 1) >> (vol_->clusterSizeShift_ + 9);
-
-  if (nNew < nCur || curPosition_ == 0)
-    curCluster_ = firstCluster_;      // must follow chain from first cluster
-  else
-    nNew -= nCur;                     // advance from curPosition
-
-  while (nNew--)
-    if (!vol_->fatGet(curCluster_, &curCluster_)) return false;
+  uint32_t allocated;
+  if (!vol_->chainSize(firstCluster_, &allocated) || allocated < fileSize_) return false;
+  const uint32_t clusterIndex = (pos - 1) >> (vol_->clusterSizeShift_ + 9);
+  if (clusterIndex >= vol_->clusterCount_) return false;
+  uint32_t candidate = firstCluster_;
+  if (!vol_->validCluster(candidate)) return false;
+  for (uint32_t step = 0; step < clusterIndex; ++step) {
+    uint32_t next;
+    if (!vol_->fatGet(candidate, &next) || !vol_->validCluster(next)) return false;
+    candidate = next;
+  }
+  curCluster_ = candidate;
 
   curPosition_ = pos;
   return true;
 }
 
 void SdBaseFile::setpos(filepos_t* pos) {
-  curPosition_ = pos->position;
-  curCluster_ = pos->cluster;
+  if (pos) (void)seekSet(pos->position);
 }
 
 /**
@@ -1722,7 +1727,13 @@ int16_t SdBaseFile::write(const void* buf, uint16_t nbyte) {
   uint16_t nToWrite = nbyte;
 
   // error if not a normal file or is read-only
-  if (!isFile() || !(flags_ & O_WRITE)) goto FAIL;
+  if (!isFile() || !(flags_ & O_WRITE) || curPosition_ > fileSize_
+      || (nbyte && !buf) || nbyte > INT16_MAX || nbyte > UINT32_MAX - curPosition_) goto FAIL;
+  if (firstCluster_) {
+    uint32_t allocated;
+    if (!vol_->chainSize(firstCluster_, &allocated) || allocated < fileSize_) goto FAIL;
+  }
+  else if (fileSize_) goto FAIL;
 
   // seek to end of file if append flag
   if ((flags_ & O_APPEND) && curPosition_ != fileSize_) {
@@ -1747,10 +1758,12 @@ int16_t SdBaseFile::write(const void* buf, uint16_t nbyte) {
         uint32_t next;
         if (!vol_->fatGet(curCluster_, &next)) goto FAIL;
         if (vol_->isEOC(next)) {
+          if (curPosition_ < fileSize_) goto FAIL;
           // add cluster if at end of chain
           if (!addCluster()) goto FAIL;
         }
         else {
+          if (!vol_->validCluster(next)) goto FAIL;
           curCluster_ = next;
         }
       }
@@ -1762,6 +1775,7 @@ int16_t SdBaseFile::write(const void* buf, uint16_t nbyte) {
     NOMORE(n, nToWrite);
 
     // block for data write
+    if (!vol_->validCluster(curCluster_)) goto FAIL;
     uint32_t block = vol_->clusterStartBlock(curCluster_) + blockOfCluster;
     if (n == 512) {
       // full block - don't need to use cache

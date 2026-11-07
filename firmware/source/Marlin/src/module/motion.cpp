@@ -1056,6 +1056,9 @@ FORCE_INLINE void segment_idle(millis_t &next_idle_ms) {
  * Before exit, current_position is set to destination.
  */
 void prepare_line_to_destination() {
+  if (!planner.numeric_move_valid(destination, MMS_SCALED(feedrate_mm_s), active_extruder)) {
+    SERIAL_ERROR_MSG("Unrepresentable move"); destination = current_position; return;
+  }
   apply_motion_limits(destination);
 
   #if EITHER(PREVENT_COLD_EXTRUSION, PREVENT_LENGTHY_EXTRUDE)
@@ -1872,7 +1875,9 @@ void homeaxis(const AxisEnum axis) {
 
 #if HAS_WORKSPACE_OFFSET
   void update_workspace_offset(const AxisEnum axis) {
-    workspace_offset[axis] = home_offset[axis] + position_shift[axis];
+    const float next = home_offset[axis] + position_shift[axis];
+    if (!isfinite(next)) return;
+    workspace_offset[axis] = next;
     if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("Axis ", XYZ_CHAR(axis), " home_offset = ", home_offset[axis], " position_shift = ", position_shift[axis]);
   }
 #endif
@@ -1883,6 +1888,7 @@ void homeaxis(const AxisEnum axis) {
    * Also refreshes the workspace offset.
    */
   void set_home_offset(const AxisEnum axis, const float v) {
+    if (!isfinite(v) || !isfinite(v + position_shift[axis])) return;
     home_offset[axis] = v;
     update_workspace_offset(axis);
   }

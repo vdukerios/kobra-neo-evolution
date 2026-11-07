@@ -63,6 +63,7 @@
  */
 
 #include "planner.h"
+#include "motion_numeric.h"
 #include "stepper.h"
 #include "motion.h"
 #include "temperature.h"
@@ -789,6 +790,8 @@ void Planner::calculate_trapezoid_for_block(block_t* const block, const float &e
   #endif
 
   const int32_t accel = block->acceleration_steps_per_s2;
+  NOMORE(initial_rate, block->nominal_rate);
+  NOMORE(final_rate, block->nominal_rate);
 
           // Steps required for acceleration, deceleration to/from nominal rate
   uint32_t accelerate_steps = CEIL(estimate_acceleration_distance(initial_rate, block->nominal_rate, accel)),
@@ -1757,6 +1760,10 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   , feedRate_t fr_mm_s, const uint8_t extruder, const float &millimeters/*=0.0*/
 ) {
 
+  LOOP_XYZE(i) {
+    const int64_t delta = int64_t(target[i]) - position[i];
+    if (delta < -1073741696LL || delta > 1073741696LL) return false;
+  }
   const int32_t da = target.a - position.a,
                 db = target.b - position.b,
                 dc = target.c - position.c;
@@ -1980,6 +1987,30 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   // Bail if this is a zero-length block
   if (block->step_event_count < MIN_STEPS_PER_SEGMENT) return false;
 
+  // Validate actual rounded step geometry before enabling motors or changing E.
+  const double numeric_speed = _MAX(fr_mm_s, esteps ? settings.min_feedrate_mm_s : settings.min_travel_feedrate_mm_s),
+               numeric_length = block->millimeters,
+               numeric_duration = 1000000.0 * numeric_length / numeric_speed,
+               numeric_rate = ceil(double(block->step_event_count) * numeric_speed / numeric_length),
+               numeric_density = double(block->step_event_count) / numeric_length;
+  if (!(numeric_length > 0) || !isfinite(numeric_length) || !(numeric_speed > 0)
+    || !(numeric_duration >= 0.5 && numeric_duration <= 2147483520.0)
+    || !(numeric_rate >= 1 && numeric_rate <= 2147483520.0)) return false;
+  double numeric_factor = 1, numeric_accel = ceil((esteps ? settings.acceleration : settings.travel_acceleration) * numeric_density);
+  if (!block->steps.a && !block->steps.b && !block->steps.c) numeric_accel = ceil(settings.retract_acceleration * numeric_density);
+  LOOP_XYZE(i) {
+    const uint8_t axis = i == E_AXIS ? E_AXIS_N(extruder) : i;
+    const double axis_speed = fabs(double(steps_dist_mm[i])) * numeric_speed / numeric_length;
+    if (axis_speed > settings.max_feedrate_mm_s[axis]) numeric_factor = _MIN(numeric_factor, double(settings.max_feedrate_mm_s[axis]) / axis_speed);
+    if (block->steps[i]) numeric_accel = _MIN(numeric_accel, floor(double(max_acceleration_steps_per_s2[axis]) * block->step_event_count / block->steps[i]));
+  }
+  if (!(numeric_accel >= 1 && numeric_accel <= 2147483520.0)
+    || !(numeric_rate * numeric_factor >= 1)
+    || !(numeric_rate * numeric_rate / (2 * numeric_accel) <= 2147483520.0)) return false;
+  #if ENABLED(S_CURVE_ACCELERATION)
+    if (!(numeric_rate * double(STEPPER_TIMER_RATE) / numeric_accel <= 4294967040.0)) return false;
+  #endif
+
   #if ENABLED(MIXING_EXTRUDER)
     MIXER_POPULATE_BLOCK();
   #endif
@@ -2077,6 +2108,9 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   // Calculate inverse time for this move. No divide by zero due to previous checks.
   // Example: At 120mm/s a 60mm move takes 0.5s. So this will give 2.0.
   float inverse_secs = fr_mm_s * inverse_millimeters;
+  if (!isfinite(inverse_secs) || inverse_secs <= 0
+    || !WITHIN(double(1000000.0f / inverse_secs), 0.5, 2147483520.0)
+    || !WITHIN(double(CEIL(block->step_event_count * inverse_secs)), 1.0, 2147483520.0)) return false;
 
   // Get the number of non busy movements in queue (non busy means that they can be altered)
   const uint8_t moves_queued = nonbusy_movesplanned();
@@ -2688,6 +2722,13 @@ bool Planner::buffer_segment(const float &a, const float &b, const float &c, con
   , const feedRate_t &fr_mm_s, const uint8_t extruder, const float &millimeters/*=0.0*/
 ) {
 
+  const xyze_pos_t numeric_target = { a, b, c, e };
+  xyze_pos_t numeric_from;
+  LOOP_XYZE(i) numeric_from[i] = position[i] * steps_to_mm[i == E_AXIS ? E_AXIS_N(extruder) : i];
+  if (!kne_numeric::move_valid(numeric_from, numeric_target, settings, fr_mm_s, extruder, e_factor[extruder])) {
+    SERIAL_ERROR_MSG("Unrepresentable move"); return false;
+  }
+
   // If we are cleaning, do not accept queuing of movements
   if (cleaning_buffer_counter) return false;
 
@@ -2764,6 +2805,39 @@ bool Planner::buffer_segment(const float &a, const float &b, const float &c, con
   return true;
 } // buffer_segment()
 
+bool Planner::numeric_move_valid(const xyze_pos_t &target, const float speed, const uint8_t extruder) {
+  xyze_pos_t from = current_position, to = target;
+  if (!kne_numeric::move_valid(from, to, settings, speed, extruder, e_factor[extruder])) return false;
+  #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+    if (leveling_active) {
+      double cuts[GRID_MAX_POINTS_X + GRID_MAX_POINTS_Y + 2]; uint8_t count = 0;
+      cuts[count++] = 0; cuts[count++] = 1;
+      for (uint8_t i = 0; i < 2; ++i) if (target[i] != current_position[i]) {
+        const uint8_t points = i == X_AXIS ? GRID_MAX_POINTS_X : GRID_MAX_POINTS_Y;
+        for (uint8_t n=1; n<points-1; ++n) {
+          const double edge = double(bilinear_start[i]) + double(bilinear_grid_spacing[i]) * n,
+                       fraction = (edge - current_position[i]) / (double(target[i]) - current_position[i]);
+          if (fraction > 0 && fraction < 1) cuts[count++] = fraction;
+        }
+      }
+      for (uint8_t i=1; i<count; ++i) for (uint8_t j=i; j && cuts[j]<cuts[j-1]; --j) { const double tmp=cuts[j]; cuts[j]=cuts[j-1]; cuts[j-1]=tmp; }
+      xyze_pos_t previous = current_position; apply_modifiers(previous);
+      for (uint8_t n=1; n<count; ++n) {
+        if (cuts[n] == cuts[n-1]) continue;
+        xyze_pos_t point;
+        LOOP_XYZE(i) point[i] = double(current_position[i]) + (double(target[i]) - current_position[i]) * cuts[n];
+        apply_modifiers(point);
+        if (!kne_numeric::move_valid(previous, point, settings, speed, extruder, e_factor[extruder])) return false;
+        previous = point;
+      }
+    }
+  #endif
+  #if HAS_POSITION_MODIFIERS
+    apply_modifiers(from); apply_modifiers(to);
+  #endif
+  return kne_numeric::move_valid(from, to, settings, speed, extruder, e_factor[extruder]);
+}
+
 /**
  * Add a new linear movement to the buffer.
  * The target is cartesian. It's translated to
@@ -2780,6 +2854,8 @@ bool Planner::buffer_line(const float &rx, const float &ry, const float &rz, con
     , const float &inv_duration
   #endif
 ) {
+  const xyze_pos_t requested = { rx, ry, rz, e };
+  if (!numeric_move_valid(requested, fr_mm_s, extruder)) { SERIAL_ERROR_MSG("Unrepresentable move"); return false; }
   xyze_pos_t machine = { rx, ry, rz, e };
   TERN_(HAS_POSITION_MODIFIERS, apply_modifiers(machine));
 
@@ -2897,6 +2973,8 @@ bool Planner::buffer_line(const float &rx, const float &ry, const float &rz, con
  */
 
 void Planner::set_machine_position_mm(const float &a, const float &b, const float &c, const float &e) {
+  const xyze_pos_t requested = { a, b, c, e };
+  if (!kne_numeric::position_valid(requested, settings, active_extruder)) { SERIAL_ERROR_MSG("Unrepresentable position"); return; }
   TERN_(DISTINCT_E_FACTORS, last_extruder = active_extruder);
   TERN_(HAS_POSITION_FLOAT, position_float.set(a, b, c, e));
   position.set(LROUND(a * settings.axis_steps_per_mm[A_AXIS]),
@@ -2934,6 +3012,7 @@ void Planner::set_e_position_mm(const float &e) {
   TERN_(DISTINCT_E_FACTORS, last_extruder = active_extruder);
 
   const float e_new = e - TERN0(FWRETRACT, fwretract.current_retract[active_extruder]);
+  if (!kne_numeric::axis_value_valid(e_new, settings.axis_steps_per_mm[axis_index])) { SERIAL_ERROR_MSG("Unrepresentable E position"); return; }
   position.e = LROUND(settings.axis_steps_per_mm[axis_index] * e_new);
   TERN_(HAS_POSITION_FLOAT, position_float.e = e_new);
   TERN_(IS_KINEMATIC, position_cart.e = e);
@@ -2946,6 +3025,7 @@ void Planner::set_e_position_mm(const float &e) {
 
 // Recalculate the steps/s^2 acceleration rates, based on the mm/s^2
 void Planner::reset_acceleration_rates() {
+  if (!kne_numeric::settings_valid(settings)) { SERIAL_ERROR_MSG("Invalid motion settings"); return; }
   #if ENABLED(DISTINCT_E_FACTORS)
     #define AXIS_CONDITION (i < E_AXIS || i == E_AXIS_N(active_extruder))
   #else
@@ -2962,6 +3042,9 @@ void Planner::reset_acceleration_rates() {
 
 // Recalculate position, steps_to_mm if settings.axis_steps_per_mm changes!
 void Planner::refresh_positioning() {
+  if (!kne_numeric::settings_valid(settings) || !kne_numeric::position_valid(current_position, settings, active_extruder)) {
+    SERIAL_ERROR_MSG("Invalid motion settings"); return;
+  }
   LOOP_XYZE_N(i) steps_to_mm[i] = 1.0f / settings.axis_steps_per_mm[i];
   set_position_mm(current_position);
   reset_acceleration_rates();
@@ -2979,7 +3062,45 @@ inline void limit_and_warn(float &val, const uint8_t axis, PGM_P const setting_n
   }
 }
 
+float Planner::bounded_acceleration(const uint8_t axis, const float value) {
+  #if ENABLED(LIMITED_MAX_ACCEL_EDITING)
+    constexpr xyze_float_t limits =
+      #ifdef MAX_ACCEL_EDIT_VALUES
+        MAX_ACCEL_EDIT_VALUES;
+      #else
+        DEFAULT_MAX_ACCELERATION;
+      #endif
+    return constrain(value, 0.1f, limits[axis > E_AXIS ? E_AXIS : axis]
+      #ifndef MAX_ACCEL_EDIT_VALUES
+        * 2
+      #endif
+    );
+  #else
+    UNUSED(axis); return value;
+  #endif
+}
+float Planner::bounded_feedrate(const uint8_t axis, const float value) {
+  #if ENABLED(LIMITED_MAX_FR_EDITING)
+    constexpr xyze_float_t limits =
+      #ifdef MAX_FEEDRATE_EDIT_VALUES
+        MAX_FEEDRATE_EDIT_VALUES;
+      #else
+        DEFAULT_MAX_FEEDRATE;
+      #endif
+    return constrain(value, 0.1f, limits[axis > E_AXIS ? E_AXIS : axis]
+      #ifndef MAX_FEEDRATE_EDIT_VALUES
+        * 2
+      #endif
+    );
+  #else
+    UNUSED(axis); return value;
+  #endif
+}
+
 void Planner::set_max_acceleration(const uint8_t axis, float targetValue) {
+  if (!isfinite(targetValue) || targetValue < 1 || targetValue != FLOOR(targetValue)) return;
+  targetValue = bounded_acceleration(axis, targetValue);
+  if (!kne_numeric::acceleration_valid(targetValue, settings.axis_steps_per_mm[axis])) return;
   #if ENABLED(LIMITED_MAX_ACCEL_EDITING)
     #ifdef MAX_ACCEL_EDIT_VALUES
       constexpr xyze_float_t max_accel_edit = MAX_ACCEL_EDIT_VALUES;
@@ -2997,6 +3118,10 @@ void Planner::set_max_acceleration(const uint8_t axis, float targetValue) {
 }
 
 void Planner::set_max_feedrate(const uint8_t axis, float targetValue) {
+  if (!kne_numeric::feedrate_valid(targetValue)) return;
+  targetValue = bounded_feedrate(axis, targetValue);
+  planner_settings_t candidate = settings; candidate.max_feedrate_mm_s[axis] = targetValue;
+  if (!kne_numeric::settings_valid(candidate)) return;
   #if ENABLED(LIMITED_MAX_FR_EDITING)
     #ifdef MAX_FEEDRATE_EDIT_VALUES
       constexpr xyze_float_t max_fr_edit = MAX_FEEDRATE_EDIT_VALUES;
@@ -3011,6 +3136,7 @@ void Planner::set_max_feedrate(const uint8_t axis, float targetValue) {
 }
 
 void Planner::set_max_jerk(const AxisEnum axis, float targetValue) {
+  if (!isfinite(targetValue) || targetValue < 0 || !isfinite(targetValue * targetValue)) return;
   #if HAS_CLASSIC_JERK
     #if ENABLED(LIMITED_JERK_EDITING)
       constexpr xyze_float_t max_jerk_edit =

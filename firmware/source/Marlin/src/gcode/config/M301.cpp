@@ -46,6 +46,29 @@
  *   F[float] Kf term
  */
 void GcodeSuite::M301() {
+  const char checked[] = "EPID"
+    #if ENABLED(PID_EXTRUSION_SCALING)
+      "CL"
+    #endif
+    #if ENABLED(PID_FAN_SCALING)
+      "F"
+    #endif
+  ;
+  for (uint8_t i = 0; checked[i]; ++i) {
+    const char key = checked[i];
+    if (!parser.seen(key)) continue;
+    if (!parser.has_value()) { SERIAL_ERROR_MSG("Invalid PID value"); return; }
+    const float value = parser.value_float();
+    if (!isfinite(value) || value < 0
+        || (key == 'I' && !isfinite(scalePID_i(value)))
+        || (key == 'D' && !isfinite(scalePID_d(value)))
+        || (key == 'E' && (value >= HOTENDS || value != floorf(value)))
+        #if ENABLED(PID_EXTRUSION_SCALING)
+          || (key == 'L' && (value > LPQ_MAX_LEN || value != floorf(value)))
+        #endif
+    ) { SERIAL_ERROR_MSG("Invalid PID value"); return; }
+  }
+
 
   // multi-extruder PID patch: M301 updates or prints a single extruder's PID values
   // default behavior (omitting E parameter) is to update for extruder 0 only

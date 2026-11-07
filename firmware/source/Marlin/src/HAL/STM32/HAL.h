@@ -34,6 +34,7 @@
 #include "../../inc/MarlinConfigPre.h"
 
 #include <stdint.h>
+#include "../../../../board/bsp_adc.h"
 
 #ifdef USBCON
   #include <USBSerial.h>
@@ -103,7 +104,7 @@ typedef int16_t pin_t;
 // result of last ADC conversion
 extern uint16_t HAL_adc_result;
 
-extern uint16_t g_adc_value[3];
+extern volatile uint16_t g_adc_value[3];
 extern uint8_t g_adc_idx;
 
 // ------------------------
@@ -132,8 +133,7 @@ extern "C" char* _sbrk(int incr);
 //#pragma GCC diagnostic ignored "-Wunused-function"
 
 static inline int freeMemory() {
-  volatile char top;
-  return top;
+  return -1; // unavailable: no validated stack/heap measurement on this target
 }
 
 //#pragma GCC diagnostic pop
@@ -169,7 +169,14 @@ inline static uint32_t HAL_adc_read()
 #define HAL_ADC_RESOLUTION  ADC_RESOLUTION // 12
 #define HAL_START_ADC(pin)  HAL_adc_start(pin)
 #define HAL_READ_ADC()      HAL_adc_read()
-#define HAL_ADC_READY()     true
+inline static bool HAL_adc_ready() {
+  if (!adc_dma_sample_ready()) return false;
+  adc_dma_progress_ms = millis();
+  return true;
+}
+#define HAL_ADC_READY()     HAL_adc_ready()
+#define HAL_ADC_PROGRESS()  adc_dma_progress
+#define HAL_ADC_PROGRESS_MS() adc_dma_progress_ms
 
 //inline void HAL_adc_init() { analogReadResolution(HAL_ADC_RESOLUTION); }
 

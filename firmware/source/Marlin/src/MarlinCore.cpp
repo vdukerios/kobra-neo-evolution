@@ -258,7 +258,7 @@ volatile HomingState homing_state = NOT_HOMING;
 
 
 // For M109 and M190, this flag may be cleared (by M108) to exit the wait loop
-bool wait_for_heatup = true;
+bool wait_for_heatup = false;
 
 
 // For M0/M1, this flag may be cleared (by M108) to exit the wait-for-user loop
@@ -465,7 +465,10 @@ bool printingIsPaused() {
   return did_pause_print || print_job_timer.isPaused() || IS_SD_PAUSED();
 }
 
-void startOrResumeJob() {
+bool startOrResumeJob() {
+  #if ENABLED(HOTEND_IDLE_TIMEOUT)
+    if (!hotend_idle.resume()) return false;
+  #endif
   if (!printingIsPaused()) {
     TERN_(GCODE_REPEAT_MARKERS, repeat.reset());
     TERN_(CANCEL_OBJECTS, cancelable.reset());
@@ -475,6 +478,7 @@ void startOrResumeJob() {
     #endif
   }
   print_job_timer.start();
+  return true;
 }
 
 #if ENABLED(SDSUPPORT)
@@ -741,7 +745,7 @@ void idle(TERN_(ADVANCED_PAUSE_FEATURE, bool no_stepper_sleep/*=false*/)) {
     if (++idle_depth > 5) SERIAL_ECHOLNPAIR("idle() call depth: ", int(idle_depth));
   #endif
 
-  HAL_watchdog_refresh();
+  // Normal watchdog refresh requires newly acquired and consumed temperatures.
 
   // Core Marlin activities
   manage_inactivity(TERN_(ADVANCED_PAUSE_FEATURE, no_stepper_sleep));
@@ -1121,7 +1125,7 @@ void setup() {
     );
   #endif
   SERIAL_ECHO_MSG("Compiled: " __DATE__);
-  SERIAL_ECHO_MSG(STR_FREE_MEMORY, freeMemory(), STR_PLANNER_BUFFER_BYTES, (int)sizeof(block_t) * (BLOCK_BUFFER_SIZE));
+  SERIAL_ECHO_MSG(STR_FREE_MEMORY, "unavailable", STR_PLANNER_BUFFER_BYTES, (int)sizeof(block_t) * (BLOCK_BUFFER_SIZE));
 
   // Init buzzer pin(s)
   #if USE_BEEPER

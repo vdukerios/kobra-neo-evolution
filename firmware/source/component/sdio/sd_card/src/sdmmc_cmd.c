@@ -1357,6 +1357,7 @@ static en_result_t SDMMC_GetCmdResp1b(M4_SDIOC_TypeDef *SDIOCx,
                 if (u32TmpCnt-- == 0u)
                 {
                     enRet = ErrorTimeout;
+                    break;
                 }
             } while (Reset == SDIOC_GetStatus(SDIOCx, SdiocData0PinLvl));
 
@@ -1651,17 +1652,14 @@ static bool SDMMC_GetCardDetection(M4_SDIOC_TypeDef *SDIOCx)
     __IO uint32_t u32Count = 5000ul * (SystemCoreClock / 8ul /1000ul);
 
     /* Wait until card is stable */
-    do
+    while (u32Count > 0ul)
     {
+        --u32Count;
         if (Set == SDIOC_GetStatus(SDIOCx, SdiocCardStateStable))
         {
+            bRet = (Set == SDIOC_GetStatus(SDIOCx, SdiocCardInserted)) ? true : false;
             break;
         }
-    } while (u32Count--);
-
-    if (u32Count != 0ul)
-    {
-        bRet = (Set == SDIOC_GetStatus(SDIOCx, SdiocCardInserted)) ? true : false;
     }
 
     return bRet;

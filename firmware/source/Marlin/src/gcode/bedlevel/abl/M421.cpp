@@ -30,6 +30,7 @@
 
 #include "../../gcode.h"
 #include "../../../feature/bedlevel/bedlevel.h"
+#include "../../../module/planner.h"
 
 #if ENABLED(EXTENSIBLE_UI)
   #include "../../../lcd/extui/ui_api.h"
@@ -47,7 +48,14 @@
  *  - If both I and J are omitted, set all
  */
 void GcodeSuite::M421() {
-  int8_t ix = parser.intval('I', -1), iy = parser.intval('J', -1);
+  const float ix_input = parser.floatval('I', -1), iy_input = parser.floatval('J', -1);
+  if (!isfinite(ix_input) || !isfinite(iy_input)
+    || !WITHIN(ix_input, -1, GRID_MAX_POINTS_X - 1) || ix_input != FLOOR(ix_input)
+    || !WITHIN(iy_input, -1, GRID_MAX_POINTS_Y - 1) || iy_input != FLOOR(iy_input)) {
+    SERIAL_ERROR_MSG(STR_ERR_MESH_XY);
+    return;
+  }
+  const int8_t ix = ix_input, iy = iy_input;
   const bool hasZ = parser.seenval('Z'),
              hasQ = !hasZ && parser.seenval('Q');
 
@@ -56,6 +64,20 @@ void GcodeSuite::M421() {
       const float zval = parser.value_linear_units();
       uint8_t sx = ix >= 0 ? ix : 0, ex = ix >= 0 ? ix : GRID_MAX_POINTS_X - 1,
               sy = iy >= 0 ? iy : 0, ey = iy >= 0 ? iy : GRID_MAX_POINTS_Y - 1;
+      // Validate the complete edit before changing any cell.
+      if (!isfinite(zval)) { SERIAL_ERROR_MSG("Bad mesh value"); return; }
+      LOOP_S_LE_N(x, sx, ex)
+        LOOP_S_LE_N(y, sy, ey)
+          if (!isfinite(zval + (hasQ ? z_values[x][y] : 0))) {
+            SERIAL_ERROR_MSG("Bad mesh value"); return;
+          }
+      bed_mesh_t candidate;
+      memcpy(candidate, z_values, sizeof(candidate));
+      LOOP_S_LE_N(x, sx, ex) LOOP_S_LE_N(y, sy, ey)
+        candidate[x][y] = zval + (hasQ ? z_values[x][y] : 0);
+      if (!bilinear_mesh_valid(candidate, bilinear_grid_spacing, bilinear_start, planner.settings.axis_steps_per_mm[Z_AXIS])) {
+        SERIAL_ERROR_MSG("Unrepresentable mesh"); return;
+      }
       LOOP_S_LE_N(x, sx, ex) {
         LOOP_S_LE_N(y, sy, ey) {
           z_values[x][y] = zval + (hasQ ? z_values[x][y] : 0);

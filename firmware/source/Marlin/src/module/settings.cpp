@@ -48,6 +48,7 @@
 
 #include "endstops.h"
 #include "planner.h"
+#include "motion_numeric.h"
 #include "stepper.h"
 #include "temperature.h"
 
@@ -570,11 +571,11 @@ void MarlinSettings::postprocess() {
 
   #define EEPROM_START()          if (!persistentStore.access_start()) { SERIAL_ECHO_MSG("No EEPROM."); return false; } \
                                   int eeprom_index = EEPROM_OFFSET
-  #define EEPROM_FINISH()         persistentStore.access_finish()
+  #define EEPROM_FINISH()         do{ eeprom_error |= !persistentStore.access_finish(); }while(0)
   #define EEPROM_SKIP(VAR)        (eeprom_index += sizeof(VAR))
-  #define EEPROM_WRITE(VAR)       do{ persistentStore.write_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc);              }while(0)
-  #define EEPROM_READ(VAR)        do{ persistentStore.read_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc, !validating);  }while(0)
-  #define EEPROM_READ_ALWAYS(VAR) do{ persistentStore.read_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc);               }while(0)
+  #define EEPROM_WRITE(VAR)       do{ eeprom_error |= persistentStore.write_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc);              }while(0)
+  #define EEPROM_READ(VAR)        do{ eeprom_error |= persistentStore.read_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc, !validating);  }while(0)
+  #define EEPROM_READ_ALWAYS(VAR) do{ eeprom_error |= persistentStore.read_data(eeprom_index, (uint8_t*)&VAR, sizeof(VAR), &working_crc);               }while(0)
   #define EEPROM_ASSERT(TST,ERR)  do{ if (!(TST)) { SERIAL_ERROR_MSG(ERR); eeprom_error = true; } }while(0)
 
   #if ENABLED(DEBUG_EEPROM_READWRITE)
@@ -590,6 +591,117 @@ void MarlinSettings::postprocess() {
   const char version[4] = EEPROM_VERSION;
 
   bool MarlinSettings::eeprom_error, MarlinSettings::validating;
+
+  // Inspect a fixed-layout snapshot without changing RAM settings or actuators.
+  // Four-byte locals also avoid unaligned accesses to the packed legacy format.
+  static bool stored_floats(const size_t offset, const size_t count,
+                            const bool positive=false, const bool nonnegative=false,
+                            const bool unavailable_mesh=false) {
+    for (size_t i = 0; i < count; ++i) {
+      float v;
+      if (persistentStore.read_data(EEPROM_OFFSET + offset + i * sizeof(float), (uint8_t*)&v, sizeof(v))) return false;
+      if (unavailable_mesh && isnan(v)) continue; // Factory mesh has no measured points.
+      if (!isfinite(v) || (positive && (!(v > 0) || !isfinite(1.0f / v))) || (nonnegative && v < 0)) return false;
+    }
+    return true;
+  }
+  static bool stored_content_valid() {
+    if (EEPROM_OFFSET + sizeof(SettingsData) > persistentStore.capacity()) return false;
+    char stored_version[4]; uint16_t expected_crc = 0, actual_crc = 0;
+    if (persistentStore.read_data(EEPROM_OFFSET, (uint8_t*)stored_version, sizeof(stored_version))
+        || memcmp(stored_version, EEPROM_VERSION, sizeof(stored_version))
+        || persistentStore.read_data(EEPROM_OFFSET + 4, (uint8_t*)&expected_crc, sizeof(expected_crc))) return false;
+    int payload_pos = EEPROM_OFFSET + 6;
+    if (persistentStore.read_data(payload_pos, nullptr, sizeof(SettingsData) - 6, &actual_crc, false)
+        || expected_crc != actual_crc) return false;
+    planner_settings_t candidate;
+    if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,planner_settings), (uint8_t*)&candidate, sizeof(candidate))
+        || !kne_numeric::settings_valid(candidate)
+        || !kne_numeric::position_valid(current_position, candidate, active_extruder)) return false;
+    float fade;
+    if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,planner_z_fade_height), (uint8_t*)&fade, sizeof(fade)) || !kne_numeric::fade_valid(fade)) return false;
+    uint8_t esteppers, mx, my, gx, gy;
+    #define STORED_BYTE(F,V) if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,F), &(V))) return false
+    STORED_BYTE(esteppers, esteppers);
+    STORED_BYTE(mesh_num_x, mx); STORED_BYTE(mesh_num_y, my);
+    STORED_BYTE(grid_max_x, gx); STORED_BYTE(grid_max_y, gy);
+    #undef STORED_BYTE
+    // This version has one fixed layout. Reject stale dimensions before any VLA or loop.
+    if (esteppers != COUNT(planner.settings.axis_steps_per_mm) - XYZ
+        || mx != TERN(MESH_BED_LEVELING, GRID_MAX_POINTS_X, 3)
+        || my != TERN(MESH_BED_LEVELING, GRID_MAX_POINTS_Y, 3)
+        || gx != TERN(AUTO_BED_LEVELING_BILINEAR, GRID_MAX_POINTS_X, 3)
+        || gy != TERN(AUTO_BED_LEVELING_BILINEAR, GRID_MAX_POINTS_Y, 3)) return false;
+    #define SF(F) if (!stored_floats(offsetof(SettingsData,F), sizeof(((SettingsData*)0)->F) / sizeof(float))) return false
+    #define SP(F) if (!stored_floats(offsetof(SettingsData,F), sizeof(((SettingsData*)0)->F) / sizeof(float), true)) return false
+    #define SN(F) if (!stored_floats(offsetof(SettingsData,F), sizeof(((SettingsData*)0)->F) / sizeof(float), false, true)) return false
+    for (size_t i = 0; i < COUNT(planner.settings.axis_steps_per_mm); ++i) {
+      uint32_t acceleration;
+      if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,planner_settings.max_acceleration_mm_per_s2) + i * sizeof(acceleration), (uint8_t*)&acceleration, sizeof(acceleration)) || !acceleration) return false;
+    }
+    SP(planner_settings.axis_steps_per_mm); SP(planner_settings.max_feedrate_mm_s);
+    SP(planner_settings.acceleration); SP(planner_settings.retract_acceleration); SP(planner_settings.travel_acceleration);
+    SN(planner_settings.min_feedrate_mm_s); SN(planner_settings.min_travel_feedrate_mm_s);
+    SN(planner_max_jerk);
+    #if HAS_JUNCTION_DEVIATION
+      SP(planner_junction_deviation_mm);
+    #endif
+    SF(home_offset); SF(probe_offset); SN(runout_distance_mm); SN(planner_z_fade_height);
+    SF(mbl_z_offset);
+    #if ENABLED(MESH_BED_LEVELING)
+      SF(mbl_z_values);
+    #endif
+    #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+      xy_pos_t spacing;
+      if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,bilinear_grid_spacing), (uint8_t*)&spacing, sizeof(spacing))) return false;
+      if (!isfinite(spacing.x) || !isfinite(spacing.y) || spacing.x < 0 || spacing.y < 0 || ((spacing.x > 0) != (spacing.y > 0))) return false;
+      if (spacing.x > 0 && (!isfinite(1.0f / spacing.x) || !isfinite(1.0f / spacing.y))) return false;
+      SF(bilinear_start);
+      if (!stored_floats(offsetof(SettingsData,z_values), sizeof(bed_mesh_t)/sizeof(float), false, false, spacing.x == 0)) return false;
+      if (spacing.x > 0) {
+        bed_mesh_t mesh; xy_pos_t start;
+        if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,z_values), (uint8_t*)&mesh, sizeof(mesh))
+            || persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,bilinear_start), (uint8_t*)&start, sizeof(start))
+            || !bilinear_mesh_valid(mesh, spacing, start, candidate.axis_steps_per_mm[Z_AXIS])) return false;
+      }
+    #endif
+    #if HAS_HOTEND_OFFSET
+      SF(hotend_offset);
+    #endif
+    #if ENABLED(PIDTEMP)
+      SN(hotendPID);
+      for (uint8_t e = 0; e < HOTENDS; ++e) {
+        float ki;
+        if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,hotendPID) + e * sizeof(PIDCF_t) + offsetof(PIDCF_t,Ki), (uint8_t*)&ki, sizeof(ki))
+            || !(ki > 0) || !isfinite(scalePID_i(ki)) || !isfinite(float(PID_MAX) / scalePID_i(ki))) return false;
+        float kd;
+        if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,hotendPID) + e * sizeof(PIDCF_t) + offsetof(PIDCF_t,Kd), (uint8_t*)&kd, sizeof(kd)) || !isfinite(scalePID_d(kd))) return false;
+      }
+    #endif
+    #if ENABLED(PIDTEMPBED)
+      SN(bedPID); float ki;
+      if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,bedPID) + offsetof(PID_t,Ki), (uint8_t*)&ki, sizeof(ki))
+          || !(ki > 0) || !isfinite(scalePID_i(ki)) || !isfinite(float(MAX_BED_POWER) / scalePID_i(ki))) return false;
+      float kd;
+      if (persistentStore.read_data(EEPROM_OFFSET + offsetof(SettingsData,bedPID) + offsetof(PID_t,Kd), (uint8_t*)&kd, sizeof(kd)) || !isfinite(scalePID_d(kd))) return false;
+    #endif
+    #if ENABLED(FWRETRACT)
+      SF(fwretract_settings);
+      SP(fwretract_settings.retract_feedrate_mm_s);
+      SP(fwretract_settings.retract_recover_feedrate_mm_s);
+      SP(fwretract_settings.swap_retract_recover_feedrate_mm_s);
+    #endif
+    SN(planner_filament_size); SN(planner_volumetric_extruder_limit);
+    SN(planner_extruder_advance_K); SF(coordinate_system); SF(planner_skew_factor);
+    #if EXTRUDERS
+      SF(fc_settings);
+    #endif
+    SN(backlash_distance_mm); SN(backlash_smoothing_mm);
+    #undef SF
+    #undef SP
+    #undef SN
+    return true;
+  }
 
   bool MarlinSettings::size_error(const uint16_t size) {
     if (size != datasize()) {
@@ -984,7 +1096,7 @@ void MarlinSettings::postprocess() {
     //
     {
       _FIELD_TEST(recovery_enabled);
-      const bool recovery_enabled = TERN(POWER_LOSS_RECOVERY, recovery.enabled, ENABLED(PLR_ENABLED_DEFAULT));
+      const bool recovery_enabled = TERN(POWER_LOSS_RECOVERY, recovery.supported ? recovery.enabled : recovery.outage_monitor_enabled, ENABLED(PLR_ENABLED_DEFAULT));
       EEPROM_WRITE(recovery_enabled);
     }
 
@@ -1402,9 +1514,7 @@ void MarlinSettings::postprocess() {
       EEPROM_WRITE(version);
       EEPROM_WRITE(final_crc);
 
-      // Report storage size
-      DEBUG_ECHO_START();
-      DEBUG_ECHOLNPAIR("Settings Stored (", eeprom_size, " bytes; crc ", (uint32_t)final_crc, ")");
+      // Durable result is reported after EEPROM_FINISH below.
 
       eeprom_error |= size_error(eeprom_size);
     }
@@ -1418,7 +1528,8 @@ void MarlinSettings::postprocess() {
         store_mesh(ubl.storage_slot);
     #endif
 
-    //if (!eeprom_error) LCD_MESSAGEPGM(MSG_SETTINGS_STORED);
+    if (eeprom_error) SERIAL_ERROR_MSG("Settings storage failed");
+    else SERIAL_ECHO_MSG("Settings Stored");
 
     TERN_(EXTENSIBLE_UI, ExtUI::onConfigurationStoreWritten(!eeprom_error));
 
@@ -1432,6 +1543,12 @@ void MarlinSettings::postprocess() {
     uint16_t working_crc = 0;
 
     EEPROM_START();
+    eeprom_error = false;
+    if (!stored_content_valid()) {
+      eeprom_error = true;
+      EEPROM_FINISH();
+      return false;
+    }
 
     char stored_ver[4];
     EEPROM_READ_ALWAYS(stored_ver);
@@ -1466,9 +1583,9 @@ void MarlinSettings::postprocess() {
       {
         // Get only the number of E stepper parameters previously stored
         // Any steppers added later are set to their defaults
-        uint32_t tmp1[XYZ + esteppers];
-        float tmp2[XYZ + esteppers];
-        feedRate_t tmp3[XYZ + esteppers];
+        uint32_t tmp1[COUNT(planner.settings.axis_steps_per_mm)];
+        float tmp2[COUNT(planner.settings.axis_steps_per_mm)];
+        feedRate_t tmp3[COUNT(planner.settings.axis_steps_per_mm)];
         EEPROM_READ(tmp1);                         // max_acceleration_mm_per_s2
         EEPROM_READ(planner.settings.min_segment_time_us);
         EEPROM_READ(tmp2);                         // axis_steps_per_mm
@@ -1532,12 +1649,12 @@ void MarlinSettings::postprocess() {
       {
         int8_t runout_sensor_enabled;
         _FIELD_TEST(runout_sensor_enabled);
-        EEPROM_READ(runout_sensor_enabled);
+        EEPROM_READ_ALWAYS(runout_sensor_enabled);
         #if HAS_FILAMENT_SENSOR
-          runout.enabled = runout_sensor_enabled < 0 ? FIL_RUNOUT_ENABLED_DEFAULT : runout_sensor_enabled;
+          if (!validating) runout.enabled = runout_sensor_enabled < 0 ? FIL_RUNOUT_ENABLED_DEFAULT : runout_sensor_enabled;
         #endif
 
-        TERN_(HAS_FILAMENT_SENSOR, if (runout.enabled) runout.reset());
+        TERN_(HAS_FILAMENT_SENSOR, if (!validating && runout.enabled) runout.reset());
 
         float runout_distance_mm;
         EEPROM_READ(runout_distance_mm);
@@ -1837,12 +1954,15 @@ void MarlinSettings::postprocess() {
       //
       {
         _FIELD_TEST(recovery_enabled);
+        bool recovery_enabled;
+        EEPROM_READ_ALWAYS(recovery_enabled);
         #if ENABLED(POWER_LOSS_RECOVERY)
-          const bool &recovery_enabled = recovery.enabled;
-        #else
-          bool recovery_enabled;
+          if (!validating) {
+            recovery.outage_monitor_enabled = recovery_enabled;
+            recovery.enabled = recovery.supported && recovery_enabled;
+            recovery.changed();
+          }
         #endif
-        EEPROM_READ(recovery_enabled);
       }
 
       //
@@ -2212,16 +2332,16 @@ void MarlinSettings::postprocess() {
       //
       // Extensible UI User Data
       //
-      
+
        #if HAS_MULTI_LANGUAGE
       {
         uint8_t Language_ui;
-        EEPROM_READ(Language_ui);
+        EEPROM_READ_ALWAYS(Language_ui);
         if (Language_ui >= NUM_LANGUAGES) Language_ui = 0;
-        ui.set_language(Language_ui);
+        if (!validating) ui.set_language(Language_ui);
       }
       #endif
-      
+
       #if ENABLED(EXTENSIBLE_UI)
         // This is a significant hardware change; don't reserve EEPROM space when not present
         {
@@ -2281,7 +2401,7 @@ void MarlinSettings::postprocess() {
       //
       // Validate Final Size and CRC
       //
-      eeprom_error = size_error(eeprom_index - (EEPROM_OFFSET));
+      eeprom_error |= size_error(eeprom_index - (EEPROM_OFFSET));
       if (eeprom_error) {
         DEBUG_ECHO_START();
         DEBUG_ECHOLNPAIR("Index: ", int(eeprom_index - (EEPROM_OFFSET)), " Size: ", datasize());
@@ -2371,8 +2491,8 @@ void MarlinSettings::postprocess() {
     }
     reset();
     #if ENABLED(EEPROM_AUTO_INIT)
-      (void)save();
-      SERIAL_ECHO_MSG("EEPROM Initialized");
+      if (save()) SERIAL_ECHO_MSG("EEPROM Initialized");
+      else SERIAL_ERROR_MSG("EEPROM initialization failed");
     #endif
     return false;
   }
@@ -2432,8 +2552,8 @@ void MarlinSettings::postprocess() {
 
         // Write crc to MAT along with other data, or just tack on to the beginning or end
         persistentStore.access_start();
-        const bool status = persistentStore.write_data(pos, src, MESH_STORE_SIZE, &crc);
-        persistentStore.access_finish();
+        bool status = persistentStore.write_data(pos, src, MESH_STORE_SIZE, &crc);
+        status |= !persistentStore.access_finish();
 
         if (status) SERIAL_ECHOLNPGM("?Unable to save mesh data.");
         else        DEBUG_ECHOLNPAIR("Mesh saved in slot ", slot);
@@ -2481,8 +2601,6 @@ void MarlinSettings::postprocess() {
 
         if (status) SERIAL_ECHOLNPGM("?Unable to load mesh data.");
         else        DEBUG_ECHOLNPAIR("Mesh loaded from slot ", slot);
-
-        EEPROM_FINISH();
 
       #else
 
@@ -2877,7 +2995,11 @@ void MarlinSettings::reset() {
   //
   // Power-Loss Recovery
   //
-  TERN_(POWER_LOSS_RECOVERY, recovery.enable(ENABLED(PLR_ENABLED_DEFAULT)));
+  #if ENABLED(POWER_LOSS_RECOVERY)
+    recovery.outage_monitor_enabled = ENABLED(PLR_ENABLED_DEFAULT);
+    recovery.enabled = recovery.supported && recovery.outage_monitor_enabled;
+    recovery.changed();
+  #endif
 
   //
   // Firmware Retraction
@@ -3452,7 +3574,7 @@ void MarlinSettings::reset() {
     #if ENABLED(POWER_LOSS_RECOVERY)
       CONFIG_ECHO_HEADING("Power-Loss Recovery:");
       CONFIG_ECHO_START();
-      SERIAL_ECHOLNPAIR("  M413 S", int(recovery.enabled));
+      SERIAL_ECHOLNPAIR("  M413 S", int(recovery.supported && recovery.enabled));
     #endif
 
     #if ENABLED(FWRETRACT)

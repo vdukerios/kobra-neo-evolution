@@ -29,6 +29,10 @@
 
 
 #include "HardwareSerial.h"
+#include "../Marlin/src/inc/MarlinConfig.h"
+#if ENABLED(EMERGENCY_PARSER)
+  #include "../Marlin/src/feature/e_parser.h"
+#endif
 
 
 extern uint8_t g_rxBuffer[128];
@@ -37,6 +41,7 @@ extern uint8_t g_rxBuffer8[128];
 
 HardwareSerial::HardwareSerial(M4_USART_TypeDef *base) :
     _rx_buffer_head(0), _rx_buffer_tail(0)
+    , emergency_state(0)
 {
 	uart_base = base;
 }
@@ -82,6 +87,21 @@ size_t HardwareSerial::write(uint8_t c)
 
 void HardwareSerial::_rx_complete_callback(unsigned char c)
 {
+    #if ENABLED(EMERGENCY_PARSER)
+      // Always observe the received character, even when the normal ring is full.
+      if (this == &MYSERIAL0
+          #ifdef MYSERIAL1
+            || this == &MYSERIAL1
+          #endif
+          #ifdef MYSERIAL2
+            || this == &MYSERIAL2
+          #endif
+      ) {
+        EmergencyParser::State state = (EmergencyParser::State)emergency_state;
+        EmergencyParser::update(state, c);
+        emergency_state = (uint8_t)state;
+      }
+    #endif
     rx_buffer_index_t i = (unsigned int)(_rx_buffer_head + 1) % SERIAL_RX_BUFFER_SIZE;
 
     // if we should be storing the received character into the location

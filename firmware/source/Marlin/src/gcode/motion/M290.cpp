@@ -28,6 +28,7 @@
 #include "../../feature/babystep.h"
 #include "../../module/probe.h"
 #include "../../module/planner.h"
+#include "../../module/motion.h"
 
 #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
   #include "../../core/serial.h"
@@ -56,6 +57,33 @@
 
 #endif
 
+// Change the offset only for a representable, accepted physical adjustment.
+static void m290_adjust(const AxisEnum axis, const float requested, const bool change_offset) {
+  if ((DISABLED(BABYSTEP_WITHOUT_HOMING) && !all_axes_trusted()) || !isfinite(requested)) return;
+  const float spmm = planner.settings.axis_steps_per_mm[axis],
+              steps_f = constrain(requested, -2, 2) * spmm;
+  if (!isfinite(spmm) || spmm <= 0 || !isfinite(steps_f) || !WITHIN(steps_f, -32768, 32767)) return;
+  const int16_t steps = steps_f;
+  if (!steps) return;
+  const float accepted = steps / spmm;
+  #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
+    if (axis == Z_AXIS && change_offset) {
+      const float next_offset = TERN(BABYSTEP_HOTEND_Z_OFFSET,
+        active_extruder == 0 ? probe.offset.z + accepted : hotend_offset[active_extruder].z - accepted,
+        probe.offset.z + accepted);
+      if (!isfinite(next_offset) || !WITHIN(next_offset, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX)) return;
+    }
+  #else
+    UNUSED(change_offset);
+  #endif
+  // The pending step counter must not wrap and reverse the adjustment.
+  if (!WITHIN(int32_t(babystep.steps[BS_AXIS_IND(axis)]) + steps, -32768L, 32767L)) return;
+  if (!babystep.add_steps(axis, steps)) return;
+  #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
+    if (axis == Z_AXIS && change_offset) mod_probe_offset(accepted);
+  #endif
+}
+
 /**
  * M290: Babystepping
  *
@@ -70,23 +98,14 @@
  *  P0 - Don't adjust the Z probe offset
  */
 void GcodeSuite::M290() {
+  const bool change_offset = !parser.seen('P') || parser.value_bool();
   #if ENABLED(BABYSTEP_XY)
     LOOP_XYZ(a)
-      if (parser.seenval(XYZ_CHAR(a)) || (a == Z_AXIS && parser.seenval('S'))) {
-        const float offs = constrain(parser.value_axis_units((AxisEnum)a), -2, 2);
-        babystep.add_mm((AxisEnum)a, offs);
-        #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
-          if (a == Z_AXIS && (!parser.seen('P') || parser.value_bool())) mod_probe_offset(offs);
-        #endif
-      }
+      if (parser.seenval(XYZ_CHAR(a)) || (a == Z_AXIS && parser.seenval('S')))
+        m290_adjust((AxisEnum)a, parser.value_axis_units((AxisEnum)a), change_offset);
   #else
-    if (parser.seenval('Z') || parser.seenval('S')) {
-      const float offs = constrain(parser.value_axis_units(Z_AXIS), -2, 2);
-      babystep.add_mm(Z_AXIS, offs);
-      #if ENABLED(BABYSTEP_ZPROBE_OFFSET)
-        if (!parser.seen('P') || parser.value_bool()) mod_probe_offset(offs);
-      #endif
-    }
+    if (parser.seenval('Z') || parser.seenval('S'))
+      m290_adjust(Z_AXIS, parser.value_axis_units(Z_AXIS), change_offset);
   #endif
 
   if (!parser.seen("XYZ") || parser.seen('R')) {

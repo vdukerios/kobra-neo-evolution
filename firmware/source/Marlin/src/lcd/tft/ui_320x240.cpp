@@ -387,12 +387,27 @@ static void pn_bar(uint16_t x, uint16_t y, uint16_t w, uint8_t h, float f, uint1
 }
 
 static uint32_t pn_restante(uint8_t pct) {
-  #if BOTH(HAS_PRINT_PROGRESS, LCD_SET_PROGRESS_MANUALLY) && ENABLED(SHOW_REMAINING_TIME)
-    return ui.get_remaining_time();
-  #else
-    const duration_t el = print_job_timer.duration();
-    return pct ? el.value * (100 - pct) / pct : 0;
+  // 1) El G-code trae M73 R (script AgregarM73 de Cura): es la mejor estimacion; get_remaining_time() ya aplica
+  //    el factor aprendido.
+  #if BOTH(HAS_PRINT_PROGRESS, LCD_SET_PROGRESS_MANUALLY) && ENABLED(SHOW_REMAINING_TIME) && ENABLED(USE_M73_REMAINING_TIME)
+    if (ui.remaining_time) return ui.get_remaining_time();
   #endif
+  // 2) Sin M73: el tiempo ";TIME:" de la cabecera de Cura, corregido por el factor aprendido, repartido segun
+  //    el avance del archivo. NO se usa la extrapolacion "lo que llevo x lo que falta / lo que llevo": cuenta el
+  //    calentamiento y la espera inicial y se dispara (1:30 saltaba a 2 h).
+  #if ENABLED(MINIATURA_GCODE)
+    uint32_t est = GcodeThumb::estimated_seconds();
+    if (est) {
+      #ifdef APRENDIZAJE_TIEMPOS
+        est = uint32_t(float(est) * tiempo_factor() + 0.5f);
+      #endif
+      const uint32_t r = uint32_t((uint64_t)est * (100 - (pct > 100 ? 100 : pct)) / 100);
+      return r ? r : 1;
+    }
+  #endif
+  // 3) Sin ninguna estimacion del archivo: extrapolar con lo transcurrido (solo con avance).
+  const duration_t el = print_job_timer.duration();
+  return pct ? uint32_t(el.value * (100 - pct) / pct) : 0;
 }
 
 static void pn_card_temp(uint16_t x, const char *label, float cur, int16_t tgt, float maxv, uint16_t accent) {
@@ -488,9 +503,10 @@ static void pn_cabecera(bool pausa, uint8_t pag) {
   for (uint8_t i = 0; i < 3; i++) tft.add_round(268 + 16 * i, 9, 8, 8, 4, i == pag ? PN_ACC : PN_TRACK);
 }
 
-static void pn_pie(uint16_t y, uint16_t h) {
-  pn_band(y, h);
-  pn_txt_c(160, 2, PN_DIM, GET_TEXT(MSG_KNE_HINT_PAGES));
+static void pn_pie(const char *msg) {
+  pn_band(216, 24);
+  pn_txt_c(160, 2, msg[0] ? PN_TXT : PN_DIM,
+    pn_fit(msg[0] ? msg : GET_TEXT(MSG_KNE_HINT_PAGES), 304));
 }
 
 static void pn_miniatura(uint8_t pct) {
@@ -514,7 +530,7 @@ static void pn_miniatura(uint8_t pct) {
   if (pct > 0 && pct < 100) tft.add_bar(tx, ty + dim, w, 1, PN_WARN);   // borde del avance
 }
 
-static void pn_pag0(const char *msg, uint8_t pct, bool pausa) {
+static void pn_pag0(uint8_t pct, bool pausa) {
   char b[24];
   const float cn = thermalManager.degHotend(0), cb = float(thermalManager.wholeDegBed());
   const int16_t tn = int16_t(thermalManager.degTargetHotend(0)), tb = int16_t(thermalManager.degTargetBed());
@@ -529,7 +545,7 @@ static void pn_pag0(const char *msg, uint8_t pct, bool pausa) {
   tft_string.set(b);
   tft.add_text_big(132, 0, PN_ACC, tft_string);
   pn_txt(132, 46, PN_DIM, GET_TEXT(MSG_KNE_REMAINING));
-  { const uint32_t r = pn_restante(pct); if (pct && r) *pn_time(b, r, false) = 0; else pn_s(b, "--")[0] = 0; }
+  { const uint32_t r = pn_restante(pct); if (r) *pn_time(b, r, false) = 0; else pn_s(b, "--")[0] = 0; }
   pn_txt_r(312, 46, PN_TXT, b);
   pn_txt(132, 70, PN_DIM, GET_TEXT(MSG_KNE_ELAPSED));
   *pn_time(b, el.value, false) = 0;
@@ -546,9 +562,8 @@ static void pn_pag0(const char *msg, uint8_t pct, bool pausa) {
   { char *p = pn_u(pn_s(b, GET_TEXT(MSG_KNE_BED_ABBR)), pn_r(cb)); p = pn_u(pn_s(p, "/"), tb); *p = 0; }
   pn_txt(170, 5, pn_tcol(cb, tb), b);
 
-  pn_band(176, 64);                                 // barra de avance y mensaje
+  pn_band(176, 40);                                 // barra de avance y mensaje
   pn_bar(8, 10, 304, 12, pct / 100.0f, PN_ACC);
-  if (msg[0]) pn_txt_c(160, 34, PN_TXT, pn_fit(msg, 316));
 }
 
 static void pn_fila(uint16_t y, const char *etq, const char *val, uint16_t vcol, float f, uint16_t bcol) {
@@ -574,7 +589,6 @@ static void pn_pag1(bool pausa) {                   // temperaturas, velocidad, 
   pn_fila(140, GET_TEXT(MSG_KNE_FLOW), b, PN_TXT, planner.flow_percentage[0] / 200.0f, PN_ACC);
   *pn_s(pn_u(b, fan), " %") = 0;
   pn_fila(178, GET_TEXT(MSG_KNE_FAN), b, PN_TXT, fan / 100.0f, PN_COLD);
-  pn_pie(216, 24);
 }
 
 static void pn_pag2(uint8_t pct, bool pausa) {      // estadisticas
@@ -590,14 +604,13 @@ static void pn_pag2(uint8_t pct, bool pausa) {      // estadisticas
   #endif
   *pn_time(b, el.value, true) = 0;
   pn_fila(64, GET_TEXT(MSG_KNE_ELAPSED), b, PN_TXT, -1, 0);
-  { const uint32_t r = pn_restante(pct); if (pct && r) *pn_time(b, r, true) = 0; else pn_s(b, "--")[0] = 0; }
+  { const uint32_t r = pn_restante(pct); if (r) *pn_time(b, r, true) = 0; else pn_s(b, "--")[0] = 0; }
   pn_fila(102, GET_TEXT(MSG_KNE_REMAINING), b, PN_TXT, -1, 0);
   *pn_s(pn_u(b, pct), " %") = 0;
   pn_fila(140, GET_TEXT(MSG_KNE_PROGRESS), b, PN_ACC, pct / 100.0f, PN_ACC);
   if (axis_should_home(Z_AXIS)) pn_s(b, "--")[0] = 0;
   else *pn_s(pn_dec(b, LOGICAL_Z_POSITION(current_position.z), 1), " mm") = 0;
   pn_fila(178, GET_TEXT(MSG_KNE_Z_HEIGHT), b, PN_TXT, -1, 0);
-  pn_pie(216, 24);
 }
 
 static void pn_dibujar(const char *msg, bool busy, bool paused) {
@@ -605,10 +618,11 @@ static void pn_dibujar(const char *msg, bool busy, bool paused) {
   if (!busy && !paused) { pn_inicio(msg); return; }
   const uint8_t pct = ui.get_progress_percent() > 100 ? 100 : ui.get_progress_percent();
   switch (pantalla_pagina) {
-    default: pn_pag0(msg, pct, paused); break;
+    default: pn_pag0(pct, paused); break;
     case 1:  pn_pag1(paused);           break;
     case 2:  pn_pag2(pct, paused);      break;
   }
+  pn_pie(msg);
 }
 
 #endif // PANTALLA_NUEVA
@@ -1525,8 +1539,8 @@ static void moveAxis(const AxisEnum axis, const int8_t direction) {
                     , do_probe ? new_probe_offset : hotend_offset[active_extruder].z - bsDiff
                     , new_probe_offset
                   );
-      if (WITHIN(new_offs, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX)) {
-        babystep.add_steps(Z_AXIS, babystep_increment);
+      if (isfinite(new_offs) && WITHIN(new_offs, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX)
+          && babystep.add_steps(Z_AXIS, babystep_increment)) {
         if (do_probe)
           probe.offset.z = new_offs;
         else

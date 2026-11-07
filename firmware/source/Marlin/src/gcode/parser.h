@@ -284,6 +284,43 @@ public:
   static inline millis_t value_millis() { return value_ulong(); }
   static inline millis_t value_millis_from_seconds() { return (millis_t)(value_float() * 1000); }
 
+  // Strict decimal unsigned integer, without saturation or narrowing aliases.
+  static inline bool value_ulong_checked(uint32_t &out) {
+    const char *p = value_ptr;
+    if (!p) return false;
+    if (*p == '+') ++p;
+    if (!NUMERIC(*p)) return false;
+    uint32_t result = 0;
+    do {
+      const uint8_t digit = *p++ - '0';
+      if (result > (UINT32_MAX - digit) / 10UL) return false;
+      result = result * 10UL + digit;
+    } while (NUMERIC(*p));
+    if (*p == '.' || *p == '+' || *p == '-') return false;
+    out = result;
+    return true;
+  }
+
+  // Checked duration for the signed rollover-safe clock window.
+  // Read in double before multiplication or narrowing; E remains the next parameter.
+  static inline bool value_duration_checked(millis_t &out, const bool seconds) {
+    if (!value_ptr) return false;
+    char *end = value_ptr;
+    while (*end && DECIMAL_SIGNED(*end)) ++end;
+    if (end == value_ptr) return false;
+    const char saved = *end;
+    *end = '\0';
+    char *parsed_end;
+    const double value = strtod(value_ptr, &parsed_end);
+    const bool complete = parsed_end == end;
+    *end = saved;
+    const double duration = value * (seconds ? 1000.0 : 1.0);
+    if (!complete || !isfinite(value) || value < 0 || !isfinite(duration)
+        || duration > double(INT32_MAX) || (duration > 0 && duration < 1)) return false;
+    out = millis_t(duration); // Zero preserves the command's documented special meaning.
+    return true;
+  }
+
   // Reduce to fewer bits
   static inline int16_t value_int() { return (int16_t)value_long(); }
   static inline uint16_t value_ushort() { return (uint16_t)value_long(); }

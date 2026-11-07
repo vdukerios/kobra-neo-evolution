@@ -24,5 +24,5 @@ configuration = (source / 'Configuration.h').read_text(encoding='utf-8')
 url = 'https://github.com/vdukerios/kobra-neo-evolution'
 for key in ['SOURCE_CODE_URL', 'WEBSITE_URL']:
     assert re.search(r'^#define\s+' + key + r'\s+"' + re.escape(url) + r'"', configuration, re.M)
-assert not list((root / 'releases').rglob('*.bin')), 'This is a source-only update'
-print('Candidate data, routes, behavior, JavaScript and identical hosted demo checked. Firmware remains uncompiled and untested on hardware.')
+assert not list((root / 'releases').rglob('*.bin')), 'Binaries are published as GitHub release assets, not committed'
+print('Candidate data, routes, behavior, JavaScript and identical hosted demo checked. This does not compile the firmware or test it on a printer.')

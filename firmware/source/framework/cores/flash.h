@@ -12,12 +12,14 @@ extern "C" {
 #endif
 
 
-// use 256k to improve compatibility
-// 32 sectors, 8k bytes per sector
-#define FLASH_SECTOR_TOTAL    32
+// HC32F460: 512KB, 64 sectors of 8KB. Data sectors reserved by linker.
+#define FLASH_SECTOR_TOTAL    64
 #define FLASH_SECTOR_SIZE     ((uint32_t)(8*1024U))
 #define FLASH_ALL_START       0
-#define FLASH_ALL_END         ((uint32_t)0x0003FFFFU)
+#define FLASH_ALL_END         ((uint32_t)0x0007FFFFU)
+
+// Preserve logical legacy offsets; container metadata follows its 1KB payload.
+#define FLASH_EEPROM_SHADOW   ((uint32_t)0x0007A000U)
 
 // use last sector to emulate eeprom
 #define FLASH_EEPROM_BASE     ((uint32_t)0x0007E000U)
@@ -35,13 +37,13 @@ extern "C" {
 
 
 namespace Intflash {
-    void eeprom_buffer_fill();
+    bool eeprom_buffer_fill();
     uint8_t eeprom_buffered_read_byte(const uint32_t pos);
     void eeprom_buffered_write_byte(uint32_t pos, uint8_t value);
     uint8_t eeprom_read_byte(const uint32_t pos);
-    void eeprom_write_byte(uint32_t pos, uint8_t value);
-    void eeprom_buffer_flush();
-     uint32_t Flash_Updata(uint32_t flashAddr, const void * dataBuf, uint16_t length);
+    bool eeprom_write_byte(uint32_t pos, uint8_t value);
+    bool eeprom_buffer_flush();
+     uint32_t Flash_Updata(uint32_t flashAddr, const void * dataBuf, uint32_t length);
      en_result_t FlashErasePage(uint32_t u32Addr);
 }
 

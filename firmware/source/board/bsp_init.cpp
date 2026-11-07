@@ -1,6 +1,7 @@
 #include "bsp_init.h"
 #include "bsp_irq.h"
 #include "startup.h"
+#include "../Marlin/src/inc/MarlinConfig.h"
 
 
 void clock_init(void)
@@ -134,7 +135,7 @@ void led_pin_init(void)
     stcPortInit.enPullUp  = Disable;
 
     PORT_Init(PortB, Pin06, &stcPortInit);
-    PORT_Init(PortB, Pin09, &stcPortInit);
+    // PB9 is owned exclusively by the early heater-off initialization.
 	  PORT_Init(PortB, Pin13, &stcPortInit);
 		
 	  PORT_ResetBits(PortB, Pin13);
@@ -210,20 +211,21 @@ void stepper_pin_init(void)
 
 void heater_pin_init(void)
 {
-    stc_port_init_t stcPortInit;
+    // Active KNE map: fail at build time if this board mapping changes.
+    static_assert(HEATER_0_PIN == PB8 && HEATER_BED_PIN == PB9, "Review early heater GPIO map");
+    // Preload off before selecting GPIO or enabling the output driver.
+    if (HEATER_0_INVERTING) PORT_SetBits(PortB, Pin08);
+    else PORT_ResetBits(PortB, Pin08);
+    if (HEATER_BED_INVERTING) PORT_SetBits(PortB, Pin09);
+    else PORT_ResetBits(PortB, Pin09);
+    PORT_SetFunc(PortB, Pin08 | Pin09, Func_Gpio, Disable);
 
-    MEM_ZERO_STRUCT(stcPortInit);
-
-    stcPortInit.enPinMode = Pin_Mode_Out;
-    stcPortInit.enPullUp  = Disable;
-
-#if 0
-    PORT_Init(HEATER_BED_PORT, HEATER_BED_PIN, &stcPortInit);
-    PORT_Init(HEATER_0_PORT,   HEATER_0_PIN,   &stcPortInit);
-
-    PORT_ResetBits(HEATER_BED_PORT, HEATER_BED_PIN);
-    PORT_ResetBits(HEATER_0_PORT,   HEATER_0_PIN);
-#endif
+    stc_port_init_t output;
+    MEM_ZERO_STRUCT(output);
+    output.enPinMode = Pin_Mode_Out;
+    output.enPullUp = Disable;
+    output.enInvert = Disable;
+    PORT_Init(PortB, Pin08 | Pin09, &output);
 }
 
 void fan_pin_init(void)

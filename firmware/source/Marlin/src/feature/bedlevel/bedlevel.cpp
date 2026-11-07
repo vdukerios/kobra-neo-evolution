@@ -26,6 +26,7 @@
 
 #include "bedlevel.h"
 #include "../../module/planner.h"
+#include "../../module/motion_numeric.h"
 
 #if EITHER(MESH_BED_LEVELING, PROBE_MANUALLY)
   #include "../../module/motion.h"
@@ -47,6 +48,9 @@
 #endif
 
 bool leveling_is_valid() {
+  #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+    if (!bilinear_mesh_valid(z_values, bilinear_grid_spacing, bilinear_start, planner.settings.axis_steps_per_mm[Z_AXIS])) return false;
+  #endif
   return TERN1(MESH_BED_LEVELING,          mbl.has_mesh())
       && TERN1(AUTO_BED_LEVELING_BILINEAR, !!bilinear_grid_spacing.x)
       && TERN1(AUTO_BED_LEVELING_UBL,      ubl.mesh_is_valid());
@@ -73,10 +77,19 @@ void set_bed_leveling_enabled(const bool enable/*=true*/) {
       (void)bilinear_z_offset(reset);
     #endif
 
+    xyze_pos_t corrected = current_position;
+    const bool was_active = planner.leveling_active;
+    planner.leveling_active = true;
+    if (was_active) planner.apply_leveling(corrected); else planner.unapply_leveling(corrected);
+    planner.leveling_active = was_active;
+    if (!kne_numeric::position_valid(corrected, planner.settings, active_extruder)) {
+      SERIAL_ERROR_MSG("Unrepresentable leveling position"); return;
+    }
+
     if (planner.leveling_active) {      // leveling from on to off
       if (DEBUGGING(LEVELING)) DEBUG_POS("Leveling ON", current_position);
       // change unleveled current_position to physical current_position without moving steppers.
-      planner.apply_leveling(current_position);
+      current_position = corrected;
       planner.leveling_active = false;  // disable only AFTER calling apply_leveling
       if (DEBUGGING(LEVELING)) DEBUG_POS("...Now OFF", current_position);
     }
@@ -84,7 +97,7 @@ void set_bed_leveling_enabled(const bool enable/*=true*/) {
       if (DEBUGGING(LEVELING)) DEBUG_POS("Leveling OFF", current_position);
       planner.leveling_active = true;   // enable BEFORE calling unapply_leveling, otherwise ignored
       // change physical current_position to unleveled current_position without moving steppers.
-      planner.unapply_leveling(current_position);
+      current_position = corrected;
       if (DEBUGGING(LEVELING)) DEBUG_POS("...Now ON", current_position);
     }
 
@@ -100,8 +113,16 @@ TemporaryBedLevelingState::TemporaryBedLevelingState(const bool enable) : saved(
 
   void set_z_fade_height(const float zfh, const bool do_report/*=true*/) {
 
-    if (planner.z_fade_height == zfh) return;
+    if (!kne_numeric::fade_valid(zfh) || planner.z_fade_height == zfh) return;
 
+    #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+      xyze_pos_t physical = current_position;
+      if (planner.leveling_active) planner.apply_leveling(physical);
+      const float factor = !zfh ? 1 : physical.z >= zfh ? 0 : 1 - physical.z / zfh;
+      xyze_pos_t corrected = physical;
+      corrected.z -= factor * bilinear_z_offset(physical);
+      if (!isfinite(factor) || !kne_numeric::position_valid(corrected, planner.settings, active_extruder)) return;
+    #endif
     const bool leveling_was_active = planner.leveling_active;
     set_bed_leveling_enabled(false);
 

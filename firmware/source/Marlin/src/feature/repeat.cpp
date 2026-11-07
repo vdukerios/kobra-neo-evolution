@@ -37,6 +37,7 @@ repeat_marker_t Repeat::marker[MAX_REPEAT_NESTING];
 uint8_t Repeat::index;
 
 void Repeat::add_marker(const uint32_t sdpos, const uint16_t count) {
+  if (count > INT16_MAX) { SERIAL_ERROR_MSG("Invalid repeat count"); return; }
   if (index >= MAX_REPEAT_NESTING)
     SERIAL_ECHO_MSG("!Too many markers.");
   else {
@@ -71,8 +72,15 @@ void Repeat::early_parse_M808(char * const cmd) {
   if (is_command_M808(cmd)) {
     DEBUG_ECHOLNPAIR("Parsing \"", cmd, "\"");
     parser.parse(cmd);
-    if (parser.seen('L'))
-      add_marker(card.getIndex(), parser.value_ushort());
+    // A rejected parse must never turn an invalid marker into a jump.
+    if (!parser.is_command('M', 808)) return;
+    if (parser.seen('L')) {
+      uint32_t count;
+      if (!parser.has_value() || !parser.value_ulong_checked(count) || count > INT16_MAX) {
+        SERIAL_ERROR_MSG("Invalid repeat count (0..32767)"); return;
+      }
+      add_marker(card.getIndex(), uint16_t(count)); // Only explicit L0 means infinite.
+    }
     else
       Repeat::loop();
   }

@@ -39,13 +39,14 @@
 extern stc_sd_handle_t stcSdhandle;
 
 
-void hal_sdio_init();
+bool hal_sdio_init();
 
-void sdio_controller_init();
+bool sdio_controller_init();
 
 static en_result_t SdiocInitPins(void);
 uint8_t sdio_write(uint32_t blockAddress, const uint8_t *data);
 uint8_t sdio_read(uint32_t blockAddress, uint8_t *data);
+uint32_t sdio_card_blocks();
 
 void sdio_raw_test();
 

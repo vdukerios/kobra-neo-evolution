@@ -186,6 +186,44 @@ def source_context_help(inventory):
     return labels
 
 
+def source_guide():
+    """Read actual guide pages, one-bit drawings and the TFT font; no compiler."""
+    table = (SOURCE / 'src/lcd/menu/menu_guia_textos.h').read_text(encoding='utf-8')
+    art = (SOURCE / 'src/lcd/menu/menu_guia_iconos.h').read_text(encoding='utf-8')
+    icons = {name: [int(x, 16) for x in re.findall(r'0x([0-9A-F]+)UL', rows)]
+             for name, rows in re.findall(r'\{ // (\w+)\s*([\s\S]*?)\n  \},', art)}
+    assert len(icons) == 14 and all(len(rows) == 32 and any(rows) for rows in icons.values())
+    literal = r'"(?:\\.|[^"\\])*"'
+    topics = []
+    for n, en, es in re.findall(r'GUIA_TEMA\((\d),\s*(' + literal + r'),\s*(' + literal + r')\)', table):
+        languages = []
+        for lang in ['en', 'es']:
+            body = re.search(r'guia_t' + n + '_' + lang + r'\[\]\s*=\s*\{([\s\S]*?)\};', table)[1]
+            languages.append([json.loads(s) for s in re.findall(literal, body)])
+        body = re.search(r'guia_t' + n + r'_iconos\[\]\s*=\s*\{([^}]+)\}', table)[1]
+        names = [s.lower() for s in re.findall(r'GUIA_ICON_(\w+)', body)]
+        assert len(languages[0]) == len(languages[1]) == len(names)
+        topics.append(dict(t=[json.loads(en), json.loads(es)], pages=[
+            dict(icon=name, text=[languages[0][i], languages[1][i]]) for i, name in enumerate(names)]))
+    assert len(topics) == 7
+    font_text = (SOURCE / 'src/lcd/tft/fontdata/helvetica_14.cpp').read_bytes().decode('latin1')
+    font_text = font_text.split('ISO10646_CN[]=', 1)[1].split('};', 1)[0]
+    font_text = re.sub(r'/\*[\s\S]*?\*/|//[^\n]*', '', font_text)
+    data = [int(s, 0) for s in re.findall(r'0x[0-9a-fA-F]+|\b\d+\b', font_text)]
+    glyphs, offset = {}, 17
+    for code in range(data[10], data[11] + 1):
+        if data[offset] == 255:
+            offset += 1
+            continue
+        w, h, size, advance, x, y = data[offset:offset + 6]
+        if 32 <= code <= 126:
+            glyphs[chr(code)] = [w, h, advance, x if x < 128 else x - 256,
+                                  y if y < 128 else y - 256, data[offset + 6:offset + 6 + size]]
+        offset += 6 + size
+    assert len(glyphs) == 95
+    return dict(topics=topics, icons=icons, font=dict(ascent=data[13], height=20, glyphs=glyphs))
+
+
 def build_candidate(inventory):
     source_uniqueness = verify_source_routes()
     legacy = runpy.run_path(str(SIM / 'tools/gen_menu_data.py'), run_name='kne_base')
@@ -238,10 +276,15 @@ def build_candidate(inventory):
         sub('Manual adjustments', 'Ajustes manuales', 'menu_advanced_settings'),
         sub('Board cooling', 'Refrigeracion placa', 'menu_controller_fan'),
         item('tog', 'Filament sensor (if fitted)', 'Sensor segun montaje', v='&runout.enabled'),
-        item('tog', 'Power-loss recovery', 'Recuperar tras corte', v='&recovery.enabled'),
+        item('info', 'Recovery unavailable', 'Recuperacion no disponible'),
         sub('Edit bed mesh', 'Editar malla', 'menu_edit_mesh', c=['mesh']),
         sub('Inspect bed corners', 'Inspeccionar esquinas', 'tramming'),
         sub('Service information', 'Datos de servicio', 'menu_kne_service_data')])
+    recovery_title = ['Power Outage', 'Recuperar tras corte de luz']
+    screen('menu_job_recovery', recovery_title[0], recovery_title[1], [
+        item('info', 'Recovery unavailable', 'Recuperacion no disponible'),
+        item('info', 'Position not verified', 'Posicion sin verificar'),
+        item('act', 'Stop print', 'Detener impresion', a='recov_cancel')])
     screens['menu_advanced_settings']['t'] = ['Manual adjustments', 'Ajustes manuales']
     screens['menu_advanced_settings']['items'] = [x for x in screens['menu_advanced_settings']['items']
         if x.get('en') != 'Initialize EEPROM']
@@ -380,7 +423,8 @@ def build_candidate(inventory):
     notes = [n for n in old_notes if not n.startswith('PENDING OVERLAY')]
     notes += ['Local candidate reviewed against current source; firmware not compiled or tested on the printer.',
               'Calibration processes, thermal response and mechanical actions are simulations; actual printer results require validation.',
-              'Service current bounds follow project policy, not electrical certification.']
+              'Service current bounds follow project policy, not electrical certification.',
+              'Power-loss recovery is intentionally unavailable until an executed position boundary is verified.']
     if unknown:
         notes.append('Legacy conditional templates retained where relevant: ' + '; '.join(unknown))
     # Follow real submenus, action destinations and documented dynamic edges.
@@ -413,10 +457,17 @@ def build_candidate(inventory):
               SOURCE / 'src/lcd/language/language_en.h', SOURCE / 'src/lcd/language/language_es.h']
     paths += [SOURCE / 'src/lcd/marlinui.cpp', SOURCE / 'src/lcd/tft/ui_320x240.cpp',
               SOURCE / 'src/lcd/tft/ui_320x240.h', SOURCE / 'src/lcd/tft/ui_common.cpp',
-              SOURCE / 'src/lcd/tft/tft_color.h']
-    hashes = {p.relative_to(ROOT).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.exists()}
+              SOURCE / 'src/lcd/tft/tft_color.h', SOURCE / 'src/lcd/menu/menu_guia_iconos.h',
+              SOURCE / 'src/lcd/tft/fontdata/helvetica_14.cpp']
+    # Track shared behavior changed by the integral source audit as well as menus.
+    paths += [SOURCE / 'src' / name for name in [
+        'module/temperature.cpp', 'module/temperature.h', 'module/motion_numeric.h',
+        'module/planner.cpp', 'module/planner.h', 'feature/powerloss.cpp', 'feature/powerloss.h',
+        'feature/pause.cpp', 'feature/pause.h', 'feature/repeat.cpp', 'feature/babystep.cpp',
+        'sd/cardreader.cpp', 'sd/cardreader.h', 'gcode/queue.cpp', 'gcode/parser.h',
+        'gcode/config/M301.cpp', 'gcode/config/M304.cpp', 'lcd/tft/tft_queue.cpp', 'lcd/tft/tft_queue.h']]
+    hashes = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths if p.exists()}
     revision = '0bc2e73'  # Original working-firmware base; source_hashes identify the candidate.
-    # Do not use publication HEAD: committing generated data would invalidate it.
     meta = dict(screens=len(screens), items=sum(len(sc['items']) for sc in screens.values()),
                 home_shortcuts=dict(focus_order=['menu','preheat','load','unload','level_center','zoffset'],
                                     default_focus='menu', default_material='PLA',
@@ -426,7 +477,7 @@ def build_candidate(inventory):
                 maintenance=dict(interval_hours=[number('SERVICE_INTERVAL_1', 100), number('SERVICE_INTERVAL_2', 200)],
                                  clock='Print job, including preparation; excludes pause and idle',
                                  save_interval_seconds=3600),
-                context_help=source_context_help(inventory),
+                context_help=source_context_help(inventory), guide=source_guide(),
                 active_items=sum(len(sc['items']) for sc in screens.values()), overlay=False,
                 unreachable=[], inventory_screens=len(inventory['pantallas']), uniqueness=uniqueness,
                 provenance=dict(state='local_source_candidate_not_compiled', firmware_commit=revision,
@@ -460,8 +511,8 @@ def main():
     block = '<script id="menu-data">\n/* LOCAL CANDIDATE: SOURCE NOT COMPILED */\n' + js + '</script>'
     candidate = pattern.sub(lambda _: block, html)
     if not args.check:
-        (SIM / 'menu_data.js').write_bytes(('/* KNE source candidate; do not edit generated data. */\n' + js).encode('utf-8'))
-        html_path.write_bytes(candidate.encode('utf-8'))
+        (SIM / 'menu_data.js').write_bytes(('/* KNE source candidate; do not edit generated data. */'+chr(10)+js).encode('utf-8'))
+        html_path.write_text(candidate, encoding='utf-8')
     print(('Checked' if args.check else 'Built') + ': %d screens, %d entries; uncompiled local source candidate.' % (data['meta']['screens'], data['meta']['items']))
     return 0
 

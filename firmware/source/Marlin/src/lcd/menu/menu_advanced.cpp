@@ -275,16 +275,16 @@ void kne_menu_calibrar_temperatura();
       #define _PID_EDIT_ITEMS_TMPL(N,T) \
         raw_Ki = unscalePID_i(T.pid.Ki); \
         raw_Kd = unscalePID_d(T.pid.Kd); \
-        EDIT_ITEM_FAST_N(float41sign, N, MSG_PID_P_E, &T.pid.Kp, 1, 9990); \
-        EDIT_ITEM_FAST_N(float52sign, N, MSG_PID_I_E, &raw_Ki, 0.01f, 9990, []{ T.pid.Ki = scalePID_i(raw_Ki); thermalManager.updatePID(); }); \
-        EDIT_ITEM_FAST_N(float41sign, N, MSG_PID_D_E, &raw_Kd, 1, 9990, []{ T.pid.Kd = scalePID_d(raw_Kd); thermalManager.updatePID(); })
+        EDIT_ITEM_FAST_N(float61, N, MSG_PID_P_E, &T.pid.Kp, 1, 9990); \
+        EDIT_ITEM_FAST_N(float62, N, MSG_PID_I_E, &raw_Ki, 0.01f, 9990, []{ T.pid.Ki = scalePID_i(raw_Ki); thermalManager.updatePID(); }); \
+        EDIT_ITEM_FAST_N(float61, N, MSG_PID_D_E, &raw_Kd, 1, 9990, []{ T.pid.Kd = scalePID_d(raw_Kd); thermalManager.updatePID(); })
 
       #define __PID_HOTEND_MENU_ITEMS(N) \
         raw_Ki = unscalePID_i(PID_PARAM(Ki, N)); \
         raw_Kd = unscalePID_d(PID_PARAM(Kd, N)); \
-        EDIT_ITEM_FAST_N(float41sign, N, MSG_PID_P_E, &PID_PARAM(Kp, N), 1, 9990); \
-        EDIT_ITEM_FAST_N(float52sign, N, MSG_PID_I_E, &raw_Ki, 0.01f, 9990, []{ copy_and_scalePID_i(N); }); \
-        EDIT_ITEM_FAST_N(float41sign, N, MSG_PID_D_E, &raw_Kd, 1, 9990, []{ copy_and_scalePID_d(N); })
+        EDIT_ITEM_FAST_N(float61, N, MSG_PID_P_E, &PID_PARAM(Kp, N), 1, 9990); \
+        EDIT_ITEM_FAST_N(float62, N, MSG_PID_I_E, &raw_Ki, 0.01f, 9990, []{ copy_and_scalePID_i(N); }); \
+        EDIT_ITEM_FAST_N(float61, N, MSG_PID_D_E, &raw_Kd, 1, 9990, []{ copy_and_scalePID_d(N); })
 
       #if ENABLED(PID_EXTRUSION_SCALING)
         #define _PID_HOTEND_MENU_ITEMS(N) \
@@ -568,7 +568,7 @@ static void kne_extrusion_review() {
   START_MENU();
   BACK_ITEM(MSG_BACK);
   STATIC_ITEM_P(KNE_TEXT("Nuevo valor calculado", "Calculated new value"));
-  STATIC_ITEM_P(GET_TEXT(MSG_E_STEPS), SS_DEFAULT, ftostr51(kne_new_steps));
+  STATIC_ITEM_P(GET_TEXT(MSG_E_STEPS), SS_DEFAULT, ftostr51sign(kne_new_steps));
   if (kne_extruded && kne_new_steps >= 5 && kne_new_steps <= 9999) {
     CONFIRM_ITEM_P(KNE_TEXT("Aplicar calculo", "Apply calculation"), MSG_BUTTON_PROCEED, MSG_BUTTON_CANCEL,
       []{
@@ -665,10 +665,7 @@ void kne_menu_calibrar_extrusor() {
     kne_tune_succeeded = false;
     ui.goto_screen(kne_temperature_running);
     ui.defer_status_screen();
-    thermalManager.PID_autotune(target, kne_tune_heater, 8, true);
-    // Local temperature.cpp leaves this true only on its completed-cycle exit;
-    // timeout, overshoot and cancellation all clear it. Keep this contract checked.
-    kne_tune_succeeded = wait_for_heatup;
+    kne_tune_succeeded = thermalManager.PID_autotune(target, kne_tune_heater, 8, true);
     wait_for_heatup = false;
     thermalManager.disable_all_heaters();
     ui.goto_screen(kne_temperature_result);

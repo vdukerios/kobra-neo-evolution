@@ -10,6 +10,8 @@
 
 #if ENABLED(GUIA_AYUDA)
 
+#include "menu_guia_iconos.h"
+
 #define GUIA_EN 0
 #define GUIA_ES 1
 
@@ -62,6 +64,7 @@ static uint8_t guia_idioma() {
 struct GuiaTema {
   const char *titulo[2];
   const char * const *paginas[2];
+  const uint8_t *iconos;
   uint8_t n;
 };
 
@@ -86,13 +89,13 @@ static const char * const guia_t0_es[] = {
 // ---- 2. Cargar filamento / Load filament ----
 static const char * const guia_t1_en[] = {
   "Cut the filament tip at an\nangle with pliers.\nIt feeds in more easily.",
-  "Go to Prepare > Load Filament.\nThe nozzle heats up by itself.\nWait until it finishes.",
+  "Prepare > Load filament.\nChoose material and temperature.\nContinue heats the nozzle.",
   "When it is hot, push the\nfilament in by hand until the\nmotor grabs it.",
   "Wait until clean plastic of the\nright color comes out. Remove\nthe excess strand."
 };
 static const char * const guia_t1_es[] = {
   "Corta la punta del filamento en\ndiagonal con una pinza.\nAsi entra mas facil.",
-  "Ve a Preparar > Cargar filamento.\nLa boquilla calienta sola.\nEspera a que termine.",
+  "Preparar > Cargar filamento.\nElige material y temperatura.\nContinuar calienta la boquilla.",
   "Cuando este caliente, empuja el\nfilamento a mano hasta que el\nmotor lo jale.",
   "Espera a que salga plastico\nlimpio y del color correcto.\nRetira el hilo sobrante."
 };
@@ -161,7 +164,7 @@ static const char * const guia_t5_es[] = {
 static const char * const guia_t6_en[] = {
   "SD Card Print: lists the files\non the card.\nPrepare: heat, load and unload\nfilament.",
   "Move Axis: moves the head or\nthe bed by hand with the wheel.\nLevel and center: probes the\nbed and sets the height.",
-  "Configuration: sound, language,\npower outage recovery, filament\nsensor, About and advanced\nsettings.",
+  "Configuration: calibration,\nmaterials, motor mode,\npreferences, saved settings,\ninformation and service.",
   "Maintenance: lubricate axes and\ncheck belts reminders.",
   "Tip: hold the click for 0.8 s\non an option to see what it\ndoes.",
   "Turning the wheel moves up or\ndown the list. A click enters\nor confirms. The first option\nof every menu always goes back."
@@ -169,18 +172,26 @@ static const char * const guia_t6_en[] = {
 static const char * const guia_t6_es[] = {
   "Imprim. desde SD: lista de los\narchivos de la tarjeta.\nPreparar: calentar, cargar y\ndescargar filamento.",
   "Mover ejes: mueve la cabeza o la\ncama a mano con la rueda.\nNivelar y centrar: mide la cama\ny ajusta la altura.",
-  "Configuracion: sonido, idioma,\nrecuperacion tras corte, sensor\nde filamento, Acerca de y\najustes avanzados.",
+  "Configuracion: calibracion,\nmateriales, modo de motores,\npreferencias, ajustes guardados,\ninformacion y servicio.",
   "Mantenimiento: avisos de\nlubricar ejes y revisar correas.",
   "Truco: manten pulsado el clic\n0,8 s sobre una opcion para ver\nque hace.",
   "Girar la rueda sube o baja por\nla lista. Un clic entra o\nconfirma. La primera opcion de\ncada menu siempre vuelve atras."
 };
 
+static const uint8_t guia_t0_iconos[] = { GUIA_ICON_SD, GUIA_ICON_SPOOL, GUIA_ICON_PAPER, GUIA_ICON_MENU, GUIA_ICON_LAYER, GUIA_ICON_CHECK };
+static const uint8_t guia_t1_iconos[] = { GUIA_ICON_THERMO, GUIA_ICON_NOZZLE, GUIA_ICON_SPOOL, GUIA_ICON_CHECK };
+static const uint8_t guia_t2_iconos[] = { GUIA_ICON_BED, GUIA_ICON_WHEEL, GUIA_ICON_PAPER, GUIA_ICON_WHEEL, GUIA_ICON_CHECK };
+static const uint8_t guia_t3_iconos[] = { GUIA_ICON_BOLT, GUIA_ICON_BOLT, GUIA_ICON_CHECK, GUIA_ICON_WARN };
+static const uint8_t guia_t4_iconos[] = { GUIA_ICON_BED, GUIA_ICON_PAPER, GUIA_ICON_THERMO, GUIA_ICON_WARN };
+static const uint8_t guia_t5_iconos[] = { GUIA_ICON_TOOL, GUIA_ICON_NOZZLE, GUIA_ICON_DROP, GUIA_ICON_TOOL, GUIA_ICON_CHECK };
+static const uint8_t guia_t6_iconos[] = { GUIA_ICON_MENU, GUIA_ICON_WHEEL, GUIA_ICON_TOOL, GUIA_ICON_TOOL, GUIA_ICON_PAPER, GUIA_ICON_WHEEL };
+
 #define GUIA_NUM_TEMAS 7
 #define GUIA_NP(P) uint8_t(sizeof(P) / sizeof(P[0]))
 // Ambos idiomas deben tener el mismo numero de paginas
 #define GUIA_TEMA(N, T_EN, T_ES) \
-  { { T_EN, T_ES }, { guia_t##N##_en, guia_t##N##_es }, GUIA_NP(guia_t##N##_en) }
-#define GUIA_IGUALES(N) static_assert(GUIA_NP(guia_t##N##_en) == GUIA_NP(guia_t##N##_es), "guia_t" #N ": paginas distintas")
+  { { T_EN, T_ES }, { guia_t##N##_en, guia_t##N##_es }, guia_t##N##_iconos, GUIA_NP(guia_t##N##_en) }
+#define GUIA_IGUALES(N) static_assert(GUIA_NP(guia_t##N##_en) == GUIA_NP(guia_t##N##_es) && GUIA_NP(guia_t##N##_en) == GUIA_NP(guia_t##N##_iconos), "guia_t" #N ": paginas distintas")
 
 GUIA_IGUALES(0); GUIA_IGUALES(1); GUIA_IGUALES(2); GUIA_IGUALES(3);
 GUIA_IGUALES(4); GUIA_IGUALES(5); GUIA_IGUALES(6);
@@ -196,7 +207,7 @@ static const GuiaTema guia_temas[GUIA_NUM_TEMAS] = {
 };
 
 // Pie de las pantallas (los dos primeros %u son pagina actual y total)
-static const char * const guia_pie_pagina[2] = { "< %u/%u > Click or turn past end: exit", "< %u/%u > Clic o girar al final: salir" };
+static const char * const guia_pie_pagina[2] = { "< %u/%u > Turn: page. Click: exit", "< %u/%u > Gira: pagina. Clic: salir" };
 static const char * const guia_pie_ayuda[2]  = { "Click: back", "Clic: volver" };
 
 #if ENABLED(GUIA_AYUDA_LARGA)

@@ -27,6 +27,7 @@
 #include "../../gcode.h"
 #include "../../../feature/pause.h"
 #include "../../../module/motion.h"
+#include "../../../module/temperature.h"
 #include "../../../module/printcounter.h"
 
 #if HAS_MULTI_EXTRUDER
@@ -65,6 +66,10 @@
  *  Default values are used for omitted arguments.
  */
 void GcodeSuite::M600() {
+  const float resume_temperature = parser.celsiusval('R', 0);
+  if (!isfinite(resume_temperature) || resume_temperature < 0
+      || resume_temperature > thermalManager.hotend_max_target(active_extruder)) return;
+  const int16_t requested_temperature = int16_t(resume_temperature);
 
   #if ENABLED(MIXING_EXTRUDER)
     const int8_t target_e_stepper = get_target_e_stepper_from_command();
@@ -95,6 +100,52 @@ void GcodeSuite::M600() {
     }
   #endif
 
+  // Initial retract before move to filament change position
+  const float retract = -ABS(parser.seen('E') ? parser.value_axis_units(E_AXIS) : (PAUSE_PARK_RETRACT_LENGTH));
+
+  xyz_pos_t park_point=NOZZLE_PARK_POINT;
+
+  // Lift Z axis
+  if (parser.seenval('Z')) park_point.z = parser.linearval('Z');
+
+  // Move XY axes to filament change position or given position
+  if (parser.seenval('X')) park_point.x = parser.linearval('X');
+  if (parser.seenval('Y')) park_point.y = parser.linearval('Y');
+
+  #if HAS_HOTEND_OFFSET && NONE(DUAL_X_CARRIAGE, DELTA)
+    park_point += hotend_offset[target_extruder];
+  #endif
+
+  #if ENABLED(MMU2_MENUS)
+    // For MMU2 reset retract and load/unload values so they don't mess with MMU filament handling
+    constexpr float unload_length = 0.5f,
+                    slow_load_length = 0.0f,
+                    fast_load_length = 0.0f;
+  #else
+    // Unload filament
+    const float unload_length = -ABS(parser.seen('U') ? parser.value_axis_units(E_AXIS)
+                                                      : fc_settings[target_extruder].unload_length);
+
+    // Slow load filament
+    constexpr float slow_load_length = FILAMENT_CHANGE_SLOW_LOAD_LENGTH;
+
+    // Fast load filament
+    const float fast_load_length = ABS(parser.seen('L') ? parser.value_axis_units(E_AXIS)
+                                                        : fc_settings[target_extruder].load_length);
+  #endif
+
+  const int beep_count = parser.intval('B', -1
+    #ifdef FILAMENT_CHANGE_ALERT_BEEPS
+      + 1 + FILAMENT_CHANGE_ALERT_BEEPS
+    #endif
+  );
+
+  if (!isfinite(retract) || !isfinite(unload_length) || !isfinite(fast_load_length)
+      || ABS(retract) > EXTRUDE_MAXLENGTH || ABS(unload_length) > EXTRUDE_MAXLENGTH || ABS(fast_load_length) > EXTRUDE_MAXLENGTH
+      || !isfinite(park_point.x) || !isfinite(park_point.y) || !isfinite(park_point.z)
+      || !WITHIN(park_point.x, X_MIN_POS, X_MAX_POS) || !WITHIN(park_point.y, Y_MIN_POS, Y_MAX_POS)
+      || park_point.z < 0 || park_point.z > Z_MAX_POS - Z_MIN_POS) return;
+
   // Show initial "wait for start" message
   #if HAS_LCD_MENU && DISABLED(MMU2_MENUS)
     ui.pause_show_message(PAUSE_MESSAGE_CHANGING, PAUSE_MODE_PAUSE_PRINT, target_extruder);
@@ -112,54 +163,14 @@ void GcodeSuite::M600() {
       tool_change(target_extruder, false);
   #endif
 
-  // Initial retract before move to filament change position
-  const float retract = -ABS(parser.seen('E') ? parser.value_axis_units(E_AXIS) : (PAUSE_PARK_RETRACT_LENGTH));
-
-  xyz_pos_t park_point=NOZZLE_PARK_POINT;
-
-  // Lift Z axis
-  if (parser.seenval('Z')) park_point.z = parser.linearval('Z');
-
-  // Move XY axes to filament change position or given position
-  if (parser.seenval('X')) park_point.x = parser.linearval('X');
-  if (parser.seenval('Y')) park_point.y = parser.linearval('Y');
-
-  #if HAS_HOTEND_OFFSET && NONE(DUAL_X_CARRIAGE, DELTA)
-    park_point += hotend_offset[active_extruder];
-  #endif
-
-  #if ENABLED(MMU2_MENUS)
-    // For MMU2 reset retract and load/unload values so they don't mess with MMU filament handling
-    constexpr float unload_length = 0.5f,
-                    slow_load_length = 0.0f,
-                    fast_load_length = 0.0f;
-  #else
-    // Unload filament
-    const float unload_length = -ABS(parser.seen('U') ? parser.value_axis_units(E_AXIS)
-                                                      : fc_settings[active_extruder].unload_length);
-
-    // Slow load filament
-    constexpr float slow_load_length = FILAMENT_CHANGE_SLOW_LOAD_LENGTH;
-
-    // Fast load filament
-    const float fast_load_length = ABS(parser.seen('L') ? parser.value_axis_units(E_AXIS)
-                                                        : fc_settings[active_extruder].load_length);
-  #endif
-
-  const int beep_count = parser.intval('B', -1
-    #ifdef FILAMENT_CHANGE_ALERT_BEEPS
-      + 1 + FILAMENT_CHANGE_ALERT_BEEPS
-    #endif
-  );
 
   if (pause_print(retract, park_point, unload_length, true DXC_PASS)) {
     #if ENABLED(MMU2_MENUS)
       mmu2_M600();
-      resume_print(slow_load_length, fast_load_length, 0, beep_count DXC_PASS);
+      resume_print(slow_load_length, fast_load_length, 0, beep_count, 0, false DXC_PASS);
     #else
-      wait_for_confirmation(true, beep_count DXC_PASS);
-      resume_print(slow_load_length, fast_load_length, ADVANCED_PAUSE_PURGE_LENGTH,
-                   beep_count, (parser.seenval('R') ? parser.value_celsius() : 0) DXC_PASS);
+      if (wait_for_confirmation(true, beep_count DXC_PASS)) resume_print(slow_load_length, fast_load_length, ADVANCED_PAUSE_PURGE_LENGTH,
+                   beep_count, requested_temperature, true DXC_PASS);
     #endif
   }
 

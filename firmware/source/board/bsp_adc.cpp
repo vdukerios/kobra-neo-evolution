@@ -5,7 +5,21 @@
 #define ADC_CH_COUNT    3
 
 
-uint16_t g_adc_value[3];
+volatile uint16_t g_adc_value[3];
+volatile uint32_t adc_dma_progress = 0;
+volatile uint32_t adc_dma_progress_ms = 0;
+
+// Polled from the existing thermal IRQ only. No new IRQ or electrical change.
+// HC32 RM Rev1.5 pp306/307/320: BTC, not TC (CNT=0).
+// IE=0 flag behavior still needs a board test; absent/unclear progress fails closed.
+bool adc_dma_sample_ready(void) {
+    if (DMA_GetIrqFlag(M4_DMA2, DmaCh3, BlkTrnCpltIrq) != Set) return false;
+    if (DMA_ClearIrqFlag(M4_DMA2, DmaCh3, BlkTrnCpltIrq) != Ok) return false;
+    if (DMA_GetIrqFlag(M4_DMA2, DmaCh3, BlkTrnCpltIrq) != Reset) return false;
+    __DMB();
+    ++adc_dma_progress;
+    return true;
+}
 uint8_t g_adc_idx;
 
 
@@ -380,6 +394,7 @@ void adc_dma_config(void)
     DMA_Cmd(M4_DMA2, Enable);
     DMA_ChannelCmd(M4_DMA2, DmaCh3, Enable);
     DMA_ClearIrqFlag(M4_DMA2, DmaCh3, TrnCpltIrq);
+    DMA_ClearIrqFlag(M4_DMA2, DmaCh3, BlkTrnCpltIrq);
     /* AOS must be enabled to use DMA */
     /* AOS enabled at first. */
     /* If you have enabled AOS before, then the following statement is not needed. */

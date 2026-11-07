@@ -1,4 +1,5 @@
 #include "bsp_sdio.h"
+#include <string.h>
 
 
 uint32_t au32WriteBlocks[512];
@@ -25,23 +26,28 @@ stc_sd_handle_t stcSdhandle =
 };
 
 
-void hal_sdio_init()
+// Reuse the permanent, aligned read-test area; production transfers use512 bytes.
+static bool sdio_usable = false;
+
+bool hal_sdio_init()
 {
     SdiocInitPins();
-    sdio_controller_init();
+    return sdio_controller_init();
 }
-
-void sdio_controller_init()
+bool sdio_controller_init()
 {
-    en_result_t enTestResult = Ok;
-
+    sdio_usable = false;
+    DMA_SetTriggerSrc(M4_DMA1, DmaCh0, EVT_MAX);
+    if (DMA_ChannelCmd(M4_DMA1, DmaCh0, Disable) != Ok) return false;
+    uint32_t remaining = 0x10000ul;
+    while (remaining && ((M4_DMA1->CHEN & 1ul) || DMA_GetChFlag(M4_DMA1, DmaCh0Sta) == Set)) --remaining;
+    if (!remaining) return false;
     stcSdhandle.SDIOCx = SDIOC_UNIT;
     stcSdhandle.enDevMode = SdCardDmaMode;
     stcSdhandle.pstcDmaInitCfg = &stcDmaInitCfg;
-    if (Ok != SDCARD_Init(&stcSdhandle, &stcCardInitCfg))
-    {
-        enTestResult = Error;
-    }
+    stcSdhandle.Context = 0;
+    sdio_usable = SDCARD_Init(&stcSdhandle, &stcCardInitCfg) == Ok;
+    return sdio_usable;
 }
 
 static en_result_t SdiocInitPins(void)
@@ -57,26 +63,24 @@ static en_result_t SdiocInitPins(void)
     return Ok;
 }
 
+uint32_t sdio_card_blocks() { return sdio_usable ? stcSdhandle.stcSdCardInfo.u32LogBlockNbr : 0; }
+
 uint8_t sdio_write(uint32_t blockAddress, const uint8_t *data)
 {
-    en_result_t result = SDCARD_WriteBlocks(&stcSdhandle, blockAddress, 1, (uint8_t *)data, 20000);
-
-    if(result == Ok) {
-        return true;
-    } else {
-        return false;
-    }
+    if (!sdio_usable || !data) return false;
+    memcpy(au32ReadBlocks, data, 512);
+    const en_result_t result = SDCARD_WriteBlocks(&stcSdhandle, blockAddress, 1, (uint8_t*)au32ReadBlocks, 20000);
+    if (stcSdhandle.Context == 0xFFFFFFFFul) sdio_usable = false;
+    return result == Ok;
 }
-
 uint8_t sdio_read(uint32_t blockAddress, uint8_t *data)
 {
-    en_result_t result = SDCARD_ReadBlocks(&stcSdhandle, blockAddress, 1, (uint8_t *)data, 20000);
-
-    if(result == Ok) {
-        return true;
-    } else {
-        return false;
-    }
+    if (!sdio_usable || !data) return false;
+    const en_result_t result = SDCARD_ReadBlocks(&stcSdhandle, blockAddress, 1, (uint8_t*)au32ReadBlocks, 20000);
+    if (stcSdhandle.Context == 0xFFFFFFFFul) sdio_usable = false;
+    if (result != Ok) return false;
+    memcpy(data, au32ReadBlocks, 512);
+    return true;
 }
 
 void sdio_raw_test()

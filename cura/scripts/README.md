@@ -33,6 +33,8 @@ Adds a still image of the model (80x80 by default, up to 96x96) at the start of 
 
 ## Install and enable
 
+> Tip: `python ../install_cura.py` copies and enables both scripts for you (close Cura first).
+
 1. Copy `AgregarMiniatura.py` to Cura's **scripts** folder (same as `AgregarM73.py`) and restart Cura.
 2. **Extensions > Post processing > Modify G-code > Add a script > Add thumbnail (printer screen)**.
 3. Adjust the size if you wish (80 recommended). Slice again and save the G-code.

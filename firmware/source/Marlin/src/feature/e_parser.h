@@ -47,11 +47,14 @@ public:
     EP_M1,
     EP_M10,
     EP_M108,
+    EP_M108_TAIL,
     EP_M11,
     EP_M112,
+    EP_M112_TAIL,
     EP_M4,
     EP_M41,
     EP_M410,
+    EP_M410_TAIL,
     #if ENABLED(HOST_PROMPT_SUPPORT)
       EP_M8,
       EP_M87,
@@ -62,11 +65,13 @@ public:
     EP_IGNORE // to '\n'
   };
 
-  static bool killed_by_M112;
-  static bool quickstop_by_M410;
+  static volatile bool killed_by_M112;
+  static volatile bool quickstop_by_M410;
+  static volatile bool canceled_by_M108;
 
   #if ENABLED(HOST_PROMPT_SUPPORT)
-    static uint8_t M876_reason;
+    static volatile uint8_t M876_reason;
+    static volatile bool response_by_M876;
   #endif
 
   EmergencyParser() { enable(); }
@@ -76,6 +81,19 @@ public:
   FORCE_INLINE static void disable() { enabled = false; }
 
   FORCE_INLINE static void update(State &state, const uint8_t c) {
+    if (ISEOL(c)) {
+      if (enabled) switch (state) {
+        case EP_M108: case EP_M108_TAIL: canceled_by_M108 = true; break;
+        case EP_M112: case EP_M112_TAIL: killed_by_M112 = true; break;
+        case EP_M410: case EP_M410_TAIL: quickstop_by_M410 = true; break;
+        #if ENABLED(HOST_PROMPT_SUPPORT)
+          case EP_M876SN: response_by_M876 = true; break;
+        #endif
+        default: break;
+      }
+      state = EP_RESET;
+      return;
+    }
     switch (state) {
       case EP_RESET:
         switch (c) {
@@ -164,23 +182,16 @@ public:
         break;
 
       default:
-        if (ISEOL(c)) {
-          if (enabled) switch (state) {
-            case EP_M108: wait_for_user = wait_for_heatup = false; break;
-            case EP_M112: killed_by_M112 = true; break;
-            case EP_M410: quickstop_by_M410 = true; break;
-            #if ENABLED(HOST_PROMPT_SUPPORT)
-              case EP_M876SN: host_response_handler(M876_reason); break;
-            #endif
-            default: break;
-          }
-          state = EP_RESET;
-        }
+        if ((state == EP_M108 || state == EP_M112 || state == EP_M410)
+            && ((c >= '0' && c <= '9') || c == '.')) { state = EP_IGNORE; break; }
+        if (state == EP_M108) state = EP_M108_TAIL;
+        else if (state == EP_M112) state = EP_M112_TAIL;
+        else if (state == EP_M410) state = EP_M410_TAIL;
     }
   }
 
 private:
-  static bool enabled;
+  static volatile bool enabled;
 };
 
 extern EmergencyParser emergency_parser;

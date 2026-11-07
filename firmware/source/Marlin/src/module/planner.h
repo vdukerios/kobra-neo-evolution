@@ -295,6 +295,9 @@ typedef struct {
 
 class Planner {
   public:
+    static bool numeric_move_valid(const xyze_pos_t &target, const float speed, const uint8_t extruder);
+    static float bounded_acceleration(const uint8_t axis, const float value);
+    static float bounded_feedrate(const uint8_t axis, const float value);
 
     /**
      * The move buffer, calculated in stepper steps
@@ -546,8 +549,9 @@ class Planner {
       FORCE_INLINE static void force_fade_recalc() { last_fade_z = -999.999f; }
 
       FORCE_INLINE static void set_z_fade_height(const float &zfh) {
-        z_fade_height = zfh > 0 ? zfh : 0;
-        inverse_z_fade_height = RECIPROCAL(z_fade_height);
+        if (!isfinite(zfh) || zfh < 0 || (zfh && !isfinite(1.0f / zfh))) return;
+        z_fade_height = zfh;
+        inverse_z_fade_height = zfh ? 1.0f / zfh : 0;
         force_fade_recalc();
       }
 

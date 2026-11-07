@@ -71,6 +71,7 @@ class HardwareSerial : public Stream
 	M4_USART_TypeDef *uart_base;
     // Has any byte been written to the UART since begin()
     bool _written;
+    uint8_t emergency_state; // independent stream; no configuration include cycle
 
     volatile rx_buffer_index_t _rx_buffer_head;
     volatile rx_buffer_index_t _rx_buffer_tail;

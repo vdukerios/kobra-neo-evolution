@@ -591,10 +591,11 @@ en_result_t EFM_SingleProgram(uint32_t u32Addr, uint32_t u32Data)
         if(u16Timeout > 0x1000u)
         {
             enRet = ErrorTimeout;
+            break;
         }
     }
 
-    if(u32Data != *(uint32_t*)u32Addr)
+    if((enRet == Ok) && (u32Data != *(uint32_t*)u32Addr))
     {
         enRet = Error;
     }
@@ -816,6 +817,7 @@ en_result_t EFM_SectorErase(uint32_t u32Addr)
         if(u16Timeout > 0x1000u)
         {
             enRet = ErrorTimeout;
+            break;
         }
     }
 

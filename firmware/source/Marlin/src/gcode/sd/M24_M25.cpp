@@ -47,22 +47,32 @@
  * M24: Start or Resume SD Print
  */
 void GcodeSuite::M24() {
+  if (card.flag.abort_sd_printing || !card.isMounted() || !card.isFileOpen()) return;
 
+  const uint32_t abort_epoch = TERN0(HAS_DISPLAY, ui.print_abort_count);
   #if ENABLED(POWER_LOSS_RECOVERY)
-    if (parser.seenval('S')) card.setIndex(parser.value_long());
-    if (parser.seenval('T')) print_job_timer.resume(parser.value_long());
+    const bool has_position = parser.seenval('S');
+    uint32_t position = 0, elapsed = 0;
+    if (has_position && (!parser.value_ulong_checked(position) || position > card.getFileSize())) return;
+    const bool has_time = parser.seenval('T');
+    if (has_time && !parser.value_ulong_checked(elapsed)) return;
   #endif
 
   #if ENABLED(PARK_HEAD_ON_PAUSE)
     if (did_pause_print) {
-      resume_print(); // will call print_job_timer.start()
+      resume_print(0, 0, PAUSE_PARK_RETRACT_LENGTH); // Preserve normal-pause purge, start timer only on success.
       return;
     }
   #endif
 
   if (card.isFileOpen()) {
-    card.startFileprint();            // SD card will now be read for commands
-    startOrResumeJob();               // Start (or resume) the print job timer
+    if (!startOrResumeJob() || card.flag.abort_sd_printing || !card.isMounted() || !card.isFileOpen()
+        || TERN0(HAS_DISPLAY, abort_epoch != ui.print_abort_count)) return;
+    #if ENABLED(POWER_LOSS_RECOVERY)
+      if (has_position) card.setIndex(position);
+      if (has_time) print_job_timer.resume(elapsed);
+    #endif
+    card.startFileprint();            // Read only after reheat succeeds
     TERN_(POWER_LOSS_RECOVERY, recovery.prepare());
   }
 

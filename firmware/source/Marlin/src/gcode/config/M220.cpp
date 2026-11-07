@@ -37,11 +37,16 @@
  */
 void GcodeSuite::M220() {
 
+  const bool has_speed = parser.seen('S');
+  uint32_t speed = 0;
+  if (has_speed && (!parser.has_value() || !parser.value_ulong_checked(speed) || speed < 1 || speed > 999)) {
+    SERIAL_ERROR_MSG("Invalid speed percentage (1..999)"); return;
+  }
   static int16_t backup_feedrate_percentage = 100;
   if (parser.seen('B')) backup_feedrate_percentage = feedrate_percentage;
   if (parser.seen('R')) feedrate_percentage = backup_feedrate_percentage;
 
-  if (parser.seenval('S')) feedrate_percentage = parser.value_int();
+  if (has_speed) feedrate_percentage = int16_t(speed);
 
   if (!parser.seen_any()) {
     SERIAL_ECHOPAIR("FR:", feedrate_percentage);

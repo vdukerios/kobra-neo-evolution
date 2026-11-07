@@ -50,18 +50,33 @@ void Babystep::step_axis(const AxisEnum axis) {
   }
 }
 
-void Babystep::add_mm(const AxisEnum axis, const float &mm) {
-  add_steps(axis, mm * planner.settings.axis_steps_per_mm[axis]);
+bool Babystep::add_mm(const AxisEnum axis, const float &mm) {
+  const float amount = mm * planner.settings.axis_steps_per_mm[axis];
+  if (!isfinite(amount) || !WITHIN(amount, -32768.0f, 32767.0f)) return false;
+  return add_steps(axis, int16_t(amount));
 }
 
-void Babystep::add_steps(const AxisEnum axis, const int16_t distance) {
-  if (DISABLED(BABYSTEP_WITHOUT_HOMING) && axes_should_home(_BV(axis))) return;
-
-  accum += distance; // Count up babysteps for the UI
-  steps[BS_AXIS_IND(axis)] += distance;
-  TERN_(BABYSTEP_DISPLAY_TOTAL, axis_total[BS_TOTAL_IND(axis)] += distance);
+bool Babystep::add_steps(const AxisEnum axis, const int16_t distance) {
+  if (!distance || (DISABLED(BABYSTEP_WITHOUT_HOMING) && !all_axes_trusted())) return false;
+  const uint32_t saved_mask = __get_PRIMASK();
+  __disable_irq();
+  const int32_t next_steps = int32_t(steps[BS_AXIS_IND(axis)]) + distance,
+                next_accum = int32_t(accum) + distance;
+  bool accepted = WITHIN(next_steps, -32768L, 32767L) && WITHIN(next_accum, -32768L, 32767L);
+  #if ENABLED(BABYSTEP_DISPLAY_TOTAL)
+    const int32_t next_total = int32_t(axis_total[BS_TOTAL_IND(axis)]) + distance;
+    accepted = accepted && WITHIN(next_total, -32768L, 32767L);
+  #endif
+  if (accepted) {
+    steps[BS_AXIS_IND(axis)] = next_steps;
+    accum = next_accum;
+    TERN_(BABYSTEP_DISPLAY_TOTAL, axis_total[BS_TOTAL_IND(axis)] = next_total);
+  }
+  __set_PRIMASK(saved_mask);
+  if (!accepted) return false;
   TERN_(BABYSTEP_ALWAYS_AVAILABLE, gcode.reset_stepper_timeout());
   TERN_(INTEGRATED_BABYSTEPPING, if (has_steps()) stepper.initiateBabystepping());
+  return true;
 }
 
 #endif // BABYSTEPPING

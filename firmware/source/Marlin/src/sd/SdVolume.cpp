@@ -36,6 +36,7 @@
 #include "SdVolume.h"
 
 #include "../MarlinCore.h"
+#include "../module/temperature.h"
 
 #if !USE_MULTIPLE_CARDS
   // raw block cache
@@ -48,7 +49,7 @@
 
 // find a contiguous group of clusters
 bool SdVolume::allocContiguous(uint32_t count, uint32_t* curCluster) {
-  if (ENABLED(SDCARD_READONLY)) return false;
+  if (ENABLED(SDCARD_READONLY) || !curCluster || !count || count > clusterCount_ || (*curCluster && !validCluster(*curCluster))) return false;
 
   // start of group
   uint32_t bgnCluster;
@@ -123,6 +124,7 @@ bool SdVolume::allocContiguous(uint32_t count, uint32_t* curCluster) {
 bool SdVolume::cacheFlush() {
   #if DISABLED(SDCARD_READONLY)
     if (cacheDirty_) {
+      if (!sdCard_ || cacheBlockNumber_ >= sdCard_->cardSize() || (cacheMirrorBlock_ && cacheMirrorBlock_ >= sdCard_->cardSize())) return false;
       if (!sdCard_->writeBlock(cacheBlockNumber_, cacheBuffer_.data))
         return false;
 
@@ -139,6 +141,7 @@ bool SdVolume::cacheFlush() {
 }
 
 bool SdVolume::cacheRawBlock(uint32_t blockNumber, bool dirty) {
+  if (!sdCard_ || blockNumber >= sdCard_->cardSize()) return false;
   if (cacheBlockNumber_ != blockNumber) {
     if (!cacheFlush()) return false;
     if (!sdCard_->readBlock(blockNumber, cacheBuffer_.data)) return false;
@@ -150,19 +153,35 @@ bool SdVolume::cacheRawBlock(uint32_t blockNumber, bool dirty) {
 
 // return the size in bytes of a cluster chain
 bool SdVolume::chainSize(uint32_t cluster, uint32_t* size) {
-  uint32_t s = 0;
-  do {
-    if (!fatGet(cluster, &cluster)) return false;
-    s += 512UL << clusterSizeShift_;
-  } while (!isEOC(cluster));
-  *size = s;
-  return true;
+  if (!size || clusterSizeShift_ > 7) return false;
+  uint32_t s = 0, remaining = clusterCount_;
+  uint32_t anchor = cluster, power = 1, distance = 0;
+  const uint32_t bytes_per_cluster = 512UL << clusterSizeShift_;
+  for (;;) {
+    if (!remaining || !validCluster(cluster)) return false;
+    --remaining;
+    if (s > UINT32_MAX - bytes_per_cluster) return false;
+    uint32_t next;
+    if (!fatGet(cluster, &next)) return false;
+    s += bytes_per_cluster;
+    if (isEOC(next)) { *size = s; return true; }
+    if (!validCluster(next) || next == anchor) return false;
+    // Brent cycle detection needs no extra SD reads or allocated memory.
+    if (++distance == power) {
+      anchor = next;
+      distance = 0;
+      if (power <= UINT32_MAX / 2) power *= 2;
+    }
+    cluster = next;
+    // Do not call idle here: it can re-enter filesystem work using this cache.
+    if (!(remaining & 31)) thermalManager.manage_heater();
+  }
 }
 
 // Fetch a FAT entry
 bool SdVolume::fatGet(uint32_t cluster, uint32_t* value) {
   uint32_t lba;
-  if (cluster > (clusterCount_ + 1)) return false;
+  if (!value || !validCluster(cluster)) return false;
   if (FAT12_SUPPORT && fatType_ == 12) {
     uint16_t index = cluster;
     index += index >> 1;
@@ -203,7 +222,7 @@ bool SdVolume::fatPut(uint32_t cluster, uint32_t value) {
   if (cluster < 2) return false;
 
   // error if not in FAT
-  if (cluster > (clusterCount_ + 1)) return false;
+  if (!validCluster(cluster) || (value && !isEOC(value) && !validCluster(value))) return false;
 
   if (FAT12_SUPPORT && fatType_ == 12) {
     uint16_t index = cluster;
@@ -256,6 +275,8 @@ bool SdVolume::fatPut(uint32_t cluster, uint32_t value) {
 
 // free a cluster chain
 bool SdVolume::freeChain(uint32_t cluster) {
+  uint32_t checkedSize;
+  if (!chainSize(cluster, &checkedSize)) return false;
   // clear free cluster location
   allocSearchStart_ = 2;
 
@@ -327,7 +348,9 @@ int32_t SdVolume::freeClusterCount() {
  * FAT file system in the specified partition or an I/O error.
  */
 bool SdVolume::init(Sd2Card* dev, uint8_t part) {
-  uint32_t totalBlocks, volumeStartBlock = 0;
+  uint32_t totalBlocks, volumeStartBlock = 0, partitionBlocks = 0;
+  const uint32_t physicalBlocks = dev ? dev->cardSize() : 0;
+  if (!physicalBlocks) return false;
   fat32_boot_t* fbs;
 
   sdCard_ = dev;
@@ -346,6 +369,8 @@ bool SdVolume::init(Sd2Card* dev, uint8_t part) {
     if ((p->boot & 0x7F) != 0  || p->totalSectors < 100 || p->firstSector == 0)
       return false; // not a valid partition
     volumeStartBlock = p->firstSector;
+    partitionBlocks = p->totalSectors;
+    if (volumeStartBlock >= physicalBlocks || partitionBlocks > physicalBlocks - volumeStartBlock) return false;
   }
   if (!cacheRawBlock(volumeStartBlock, CACHE_FOR_READ)) return false;
   fbs = &cacheBuffer_.fbs32;
@@ -367,6 +392,13 @@ bool SdVolume::init(Sd2Card* dev, uint8_t part) {
   blocksPerFat_ = fbs->sectorsPerFat16 ?
                   fbs->sectorsPerFat16 : fbs->sectorsPerFat32;
 
+  totalBlocks = fbs->totalSectors16 ? fbs->totalSectors16 : fbs->totalSectors32;
+  if (!totalBlocks || totalBlocks > physicalBlocks - volumeStartBlock
+      || (partitionBlocks && totalBlocks > partitionBlocks) || !blocksPerFat_ || fatCount_ > 2) return false;
+  volumeEndBlock_ = volumeStartBlock + totalBlocks;
+  const uint32_t roots = ((uint32_t)fbs->rootDirEntryCount * 32UL + 511UL) / 512UL;
+  const uint64_t overhead = (uint64_t)fbs->reservedSectorCount + (uint64_t)fatCount_ * blocksPerFat_ + roots;
+  if (overhead >= totalBlocks) return false;
   fatStartBlock_ = volumeStartBlock + fbs->reservedSectorCount;
 
   // count for FAT16 zero for FAT32
@@ -399,6 +431,11 @@ bool SdVolume::init(Sd2Card* dev, uint8_t part) {
     rootDirStart_ = fbs->fat32RootCluster;
     fatType_ = 32;
   }
+  const uint64_t entries = (uint64_t)clusterCount_ + 2;
+  const uint64_t fatBytes = (uint64_t)blocksPerFat_ * 512UL;
+  if (!clusterCount_ || (fatType_ == 12 && (entries * 3 + 1) / 2 > fatBytes)
+      || (fatType_ == 16 && entries * 2 > fatBytes)
+      || (fatType_ == 32 && (entries * 4 > fatBytes || clusterCount_ >= 0x0FFFFFF5UL || !validCluster(rootDirStart_)))) return false;
   return true;
 }
 

@@ -16,6 +16,7 @@
   #include "../sd/cardreader.h"
   #include "../module/printcounter.h"
   #include "../MarlinCore.h"
+  #include "../core/serial.h"
 #endif
 
 #include <string.h>
@@ -25,12 +26,14 @@ namespace GcodeThumb {
   static uint16_t datos[MINIATURA_LADO_MAX * MINIATURA_LADO_MAX];
   static uint8_t ancho = 0, alto = 0;
   static bool lista = false;
+  static uint32_t tiempo_est = 0;   // segundos, de ";TIME:" en la cabecera (aunque no haya miniatura)
 
   bool ready() { return lista; }
   uint8_t width() { return lista ? ancho : 0; }
   uint8_t height() { return lista ? alto : 0; }
   const uint16_t* pixels() { return lista ? datos : nullptr; }
-  void unload() { lista = false; ancho = alto = 0; }
+  uint32_t estimated_seconds() { return tiempo_est; }
+  void unload() { lista = false; ancho = alto = 0; tiempo_est = 0; }
 
   #if ENABLED(SDSUPPORT)
 
@@ -50,6 +53,7 @@ namespace GcodeThumb {
     uint32_t inicio;    // bytes leidos del archivo cuando se vio ";kn_thumb_begin"
     uint32_t acc;       // acumulador base64
     uint8_t  nbits;     // bits validos en el acumulador
+    uint32_t tiempo;    // segundos de ";TIME:" (0 = no visto)
     bool     relleno;   // ya se vio '=' (fin de los datos)
   };
 
@@ -87,6 +91,12 @@ namespace GcodeThumb {
   // Procesa una linea completa (sin \r ni \n, terminada en 0).
   static void procesar_linea(const char *l, Estado &e) {
     if (e.fase == KN_BUSCANDO) {
+      if (strncmp(l, ";TIME:", 6) == 0 && e.tiempo == 0) {   // tiempo total estimado por Cura
+        uint32_t v = 0;
+        for (const char *q = l + 6; *q >= '0' && *q <= '9' && v < 4000000UL; q++) v = v * 10 + (*q - '0');
+        e.tiempo = v;
+        return;
+      }
       if (strncmp(l, ";kn_thumb_begin", 15) != 0) return;
       const char *p = l + 15;
       e.w = leer_lado(p);
@@ -126,24 +136,24 @@ namespace GcodeThumb {
   bool load(const char *nombre) {
     unload();
 
-    if (!nombre || !nombre[0]) return false;
-    if (!card.isMounted()) return false;
+    if (!nombre || !nombre[0]) { SERIAL_ECHOLNPGM("kn_thumb: sin nombre"); return false; }
+    if (!card.isMounted()) { SERIAL_ECHOLNPGM("kn_thumb: SD no montada"); return false; }
 
     // No interferir con una impresion: ni archivo abierto (imprimiendo, en pausa o guardando),
     // ni temporizador de trabajo, ni impresion activa desde el host.
-    if (card.isFileOpen() || card.isPrinting() || printingIsActive()) return false;
-    if (print_job_timer.isRunning() || print_job_timer.isPaused()) return false;
+    if (card.isFileOpen() || card.isPrinting() || printingIsActive()) { SERIAL_ECHOLNPGM("kn_thumb: ocupado (archivo abierto o imprimiendo)"); return false; }
+    if (print_job_timer.isRunning() || print_job_timer.isPaused()) { SERIAL_ECHOLNPGM("kn_thumb: ocupado (cronometro de trabajo activo)"); return false; }
 
     SdFile *dir = nullptr;
     const char * const fname = card.diveToFile(false, dir, nombre);
-    if (!fname || !dir) return false;
+    if (!fname || !dir) { SERIAL_ECHOLNPGM("kn_thumb: no se encontro el archivo"); return false; }
 
     SdFile f;
-    if (!f.open(dir, fname, O_READ)) return false;
+    if (!f.open(dir, fname, O_READ)) { SERIAL_ECHOLNPGM("kn_thumb: no se pudo abrir"); return false; }
 
     Estado e;
     e.fase = KN_BUSCANDO;
-    e.w = e.h = 0; e.total = e.escritos = e.inicio = e.acc = 0; e.nbits = 0; e.relleno = false;
+    e.w = e.h = 0; e.total = e.escritos = e.inicio = e.acc = 0; e.nbits = 0; e.relleno = false; e.tiempo = 0;
 
     char linea[KN_LINEA_MAX];
     uint8_t ln = 0;
@@ -185,8 +195,18 @@ namespace GcodeThumb {
 
     f.close();
 
-    if (e.fase != KN_TERMINADO) return false;
+    tiempo_est = e.tiempo;   // el tiempo estimado vale aunque no haya miniatura
+    SERIAL_ECHOPGM("kn_thumb: tiempo estimado ");
+    SERIAL_ECHO(tiempo_est);
+    SERIAL_ECHOLNPGM(" s");
+    if (e.fase != KN_TERMINADO) {
+      SERIAL_ECHOPGM("kn_thumb: sin miniatura valida (fase ");
+      SERIAL_ECHO(int(e.fase));
+      SERIAL_ECHOLNPGM(")");
+      return false;
+    }
     ancho = e.w; alto = e.h; lista = true;
+    SERIAL_ECHOLNPGM("kn_thumb: OK");
     return true;
   }
 

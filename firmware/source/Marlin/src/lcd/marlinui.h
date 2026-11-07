@@ -403,6 +403,7 @@ public:
     static void init();
     static void update();
 
+    static uint32_t print_abort_count;
     static void abort_print();
     static void pause_print();
     static void resume_print();
@@ -585,7 +586,7 @@ public:
 
     static screenFunc_t currentScreen;
     static bool screen_changed;
-    static void goto_screen(const screenFunc_t screen, const uint16_t encoder=0, const uint8_t top=0, const uint8_t items=0);
+    static void goto_screen(const screenFunc_t screen, const uint32_t encoder=0, const int32_t top=0, const int32_t items=0);
     static void push_current_screen();
 
     // goto_previous_screen and go_back may also be used as menu item callbacks
@@ -595,7 +596,7 @@ public:
 
     static void return_to_status();
     static inline bool on_status_screen() { return currentScreen == status_screen; }
-    FORCE_INLINE static void run_current_screen() { (*currentScreen)(); }
+    FORCE_INLINE static void run_current_screen() { if (!screen_input_blocked()) (*currentScreen)(); }
 
     #if ENABLED(LIGHTWEIGHT_UI)
       static void lcd_in_status(const bool inStatus);
@@ -641,10 +642,11 @@ public:
 
   #if EITHER(HAS_LCD_MENU, EXTENSIBLE_UI)
     static bool lcd_clicked;
+    static bool screen_input_blocked();
     static inline bool use_click() {
       const bool click = lcd_clicked;
       lcd_clicked = false;
-      return click;
+      return click && !screen_input_blocked();
     }
   #else
     static constexpr bool lcd_clicked = false;

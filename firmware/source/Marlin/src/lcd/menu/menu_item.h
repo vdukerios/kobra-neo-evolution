@@ -82,11 +82,27 @@ class TMenuEditItem : MenuEditItemBase {
     static const char* to_string(const int32_t value) { return NAME::strfunc(unscale(value)); }
     static void load(void *ptr, const int32_t value)  { *((type_t*)ptr) = unscale(value);     }
   public:
-    FORCE_INLINE static void draw(const bool sel, const uint8_t row, PGM_P const pstr, type_t * const data, ...) {
-      MenuEditItemBase::draw(sel, row, pstr, NAME::strfunc(*(data)));
+    static bool bounds(type_t value, type_t low, type_t high, int32_t &minv, int32_t &maxv, int32_t &initial) {
+      const double lo = scale(low), hi = scale(high), current = scale(value);
+      // Compare in double: float(INT32_MAX) rounds up to an invalid integer.
+      if (!isfinite(lo) || !isfinite(hi) || !isfinite(current)
+          || lo < -2147483648.0 || hi > 2147483647.0 || lo > hi
+          || current < lo || current > hi) return false;
+      minv = int32_t(lo); maxv = int32_t(hi); initial = int32_t(current);
+      return int64_t(maxv) - minv <= 2147483647LL;
     }
-    FORCE_INLINE static void draw(const bool sel, const uint8_t row, PGM_P const pstr, type_t (*pget)(), ...) {
-      MenuEditItemBase::draw(sel, row, pstr, NAME::strfunc(pget()));
+    FORCE_INLINE static void draw(const bool sel, const uint8_t row, PGM_P const pstr, type_t * const data,
+                                  const type_t low, const type_t high, ...) {
+      int32_t minv, maxv, initial;
+      MenuEditItemBase::draw(sel, row, pstr, bounds(*data, low, high, minv, maxv, initial)
+        ? NAME::strfunc(*data) : "Fuera de rango");
+    }
+    FORCE_INLINE static void draw(const bool sel, const uint8_t row, PGM_P const pstr, type_t (*pget)(),
+                                  const type_t low, const type_t high, ...) {
+      const type_t value = pget();
+      int32_t minv, maxv, initial;
+      MenuEditItemBase::draw(sel, row, pstr, bounds(value, low, high, minv, maxv, initial)
+        ? NAME::strfunc(value) : "Fuera de rango");
     }
     // Edit screen for this type of item
     static void edit_screen() { MenuEditItemBase::edit_screen(to_string, load); }
@@ -98,13 +114,13 @@ class TMenuEditItem : MenuEditItemBase {
       const screenFunc_t callback=nullptr,  // Value update callback
       const bool live=false                 // Callback during editing
     ) {
-			
-			#define INT32_MIN          (~0x7fffffff)   /* -2147483648 is unsigned */
-			#define INT32_MAX            2147483647
-      // Make sure minv and maxv fit within int32_t
-      const int32_t minv = _MAX(scale(minValue), INT32_MIN),
-                    maxv = _MIN(scale(maxValue), INT32_MAX);
-      goto_edit_screen(pstr, ptr, minv, maxv - minv, scale(*ptr) - minv,
+      int32_t minv, maxv, initial;
+      if (!bounds(*ptr, minValue, maxValue, minv, maxv, initial)) {
+        ui.set_status_P(PSTR("Valor fuera de rango"));
+        ui.return_to_status();
+        return;
+      }
+      goto_edit_screen(pstr, ptr, minv, maxv - minv, uint32_t(int64_t(initial) - minv),
         edit_screen, callback, live);
     }
 };
@@ -143,6 +159,8 @@ DEFINE_MENU_EDIT_ITEM_TYPE(float51     ,float    ,ftostr51rj      ,  10     );  
 DEFINE_MENU_EDIT_ITEM_TYPE(float31sign ,float    ,ftostr31sign    ,  10     );   // +12.3
 DEFINE_MENU_EDIT_ITEM_TYPE(float41sign ,float    ,ftostr41sign    ,  10     );   // +123.4
 DEFINE_MENU_EDIT_ITEM_TYPE(float51sign ,float    ,ftostr51sign    ,  10     );   // +1234.5
+DEFINE_MENU_EDIT_ITEM_TYPE(float61     ,float    ,ftostr61rj      ,  10     );
+DEFINE_MENU_EDIT_ITEM_TYPE(float62     ,float    ,ftostr62rj      , 100     );
 DEFINE_MENU_EDIT_ITEM_TYPE(float52sign ,float    ,ftostr52sign    , 100     );   // +123.45
 DEFINE_MENU_EDIT_ITEM_TYPE(long5       ,uint32_t ,ftostr5rj       ,   0.01f );   // 12345      right-justified
 DEFINE_MENU_EDIT_ITEM_TYPE(long5_25    ,uint32_t ,ftostr5rj       ,   0.04f );   // 12345      right-justified (25 increment)
@@ -212,7 +230,7 @@ class MenuItem_bool : public MenuEditItemBase {
  */
 #define SCREEN_OR_MENU_LOOP(IS_MENU)                    \
   scroll_screen(IS_MENU ? 1 : LCD_HEIGHT, IS_MENU);     \
-  int8_t _menuLineNr = encoderTopLine, _thisItemNr = 0; \
+  int32_t _menuLineNr = encoderTopLine, _thisItemNr = 0; \
   bool _skipStatic = IS_MENU; UNUSED(_thisItemNr);      \
   for (int8_t _lcdLineNr = 0; _lcdLineNr < LCD_HEIGHT; _lcdLineNr++, _menuLineNr++) { \
     _thisItemNr = 0

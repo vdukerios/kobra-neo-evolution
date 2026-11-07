@@ -56,12 +56,12 @@
 ////////////////////////////////////////////
 
 // Menu Navigation
-int8_t encoderTopLine, encoderLine, screen_items;
+int32_t encoderTopLine, encoderLine, screen_items;
 
 typedef struct {
   screenFunc_t menu_function;     // The screen's function
   uint32_t encoder_position;      // The position of the encoder
-  int8_t top_line, items;         // The amount of scroll, and the number of items
+  int32_t top_line, items;         // The amount of scroll, and the number of items
   #if SCREENS_CAN_TIME_OUT
     bool sticky;                  // The screen is sticky
   #endif
@@ -142,6 +142,7 @@ void MenuEditItemBase::edit_screen(strfunc_t strfunc, loadfunc_t loadfunc) {
   if (int32_t(ui.encoderPosition) > maxEditValue) ui.encoderPosition = maxEditValue;
   if (ui.should_draw())
     draw_edit_screen(strfunc(ui.encoderPosition + minEditValue));
+  if (ui.screen_input_blocked()) { ui.lcd_clicked = false; return; }
   if (ui.lcd_clicked || (liveEdit && ui.should_draw())) {
     if (editValue) loadfunc(editValue, ui.encoderPosition + minEditValue);
     if (callbackFunc && (liveEdit || ui.lcd_clicked)) (*callbackFunc)();
@@ -154,7 +155,7 @@ void MenuEditItemBase::goto_edit_screen(
   void * const ev,        // Edit value pointer
   const int32_t minv,     // Encoder minimum
   const int32_t maxv,     // Encoder maximum
-  const uint16_t ep,      // Initial encoder value
+  const uint32_t ep,      // Initial encoder value
   const screenFunc_t cs,  // MenuItem_type::draw_edit_screen => MenuEditItemBase::edit()
   const screenFunc_t cb,  // Callback after edit
   const bool le           // Flag to call cb() during editing
@@ -187,12 +188,12 @@ bool printer_busy() {
  * General function to go directly to a screen
  */
 
-void MarlinUI::goto_screen(screenFunc_t screen, const uint16_t encoder/*=0*/, const uint8_t top/*=0*/, const uint8_t items/*=0*/) {
+void MarlinUI::goto_screen(screenFunc_t screen, const uint32_t encoder/*=0*/, const int32_t top/*=0*/, const int32_t items/*=0*/) {
   if (currentScreen != screen) {
 
     #if BOTH(MODOS_IMPRESION, SDSUPPORT)
       // Salir de "Confirmar impresion" sin iniciar la impresion (archivo no abierto): modo Completo y descargar la miniatura
-      if (currentScreen == menu_confirmar_impresion && !card.isFileOpen()) modos_impresion_fin();
+      if (currentScreen == menu_confirmar_impresion && !card.isFileOpen() && !modos_impresion_iniciando) modos_impresion_fin();
     #endif
 
     TERN_(IS_DWIN_MARLINUI, did_first_redraw = false);
@@ -339,22 +340,29 @@ void scroll_screen(const uint8_t limit, const bool is_menu) {
 
     const bool do_probe = DISABLED(BABYSTEP_HOTEND_Z_OFFSET) || active_extruder == 0;
     if (ui.encoderPosition) {
-      const int16_t babystep_increment = int16_t(ui.encoderPosition) * (BABYSTEP_SIZE_Z);
+      const int64_t requested = int64_t(int32_t(ui.encoderPosition)) * BABYSTEP_SIZE_Z;
       ui.encoderPosition = 0;
-
-       float diff = planner.steps_to_mm[Z_AXIS] * babystep_increment;
+      if (!all_axes_trusted() || !isfinite(planner.steps_to_mm[Z_AXIS])
+          || planner.steps_to_mm[Z_AXIS] <= 0 || requested < INT16_MIN || requested > INT16_MAX
+          || int32_t(babystep.steps[BS_AXIS_IND(Z_AXIS)]) + requested < INT16_MIN
+          || int32_t(babystep.steps[BS_AXIS_IND(Z_AXIS)]) + requested > INT16_MAX
+          || int32_t(babystep.accum) + requested < INT16_MIN
+          || int32_t(babystep.accum) + requested > INT16_MAX) return;
+      #if ENABLED(BABYSTEP_DISPLAY_TOTAL)
+        if (int32_t(babystep.axis_total[BS_TOTAL_IND(Z_AXIS)]) + requested < INT16_MIN
+            || int32_t(babystep.axis_total[BS_TOTAL_IND(Z_AXIS)]) + requested > INT16_MAX) return;
+      #endif
+      const int16_t babystep_increment = int16_t(requested);
+      float diff = planner.steps_to_mm[Z_AXIS] * babystep_increment;
        	float      new_probe_offset = probe.offset.z + diff;
         float  new_offs = TERN(BABYSTEP_HOTEND_Z_OFFSET
                     , do_probe ? new_probe_offset : hotend_offset[active_extruder].z - diff
                     , new_probe_offset
                   );
 		
-	   if(new_offs < Z_PROBE_OFFSET_RANGE_MIN) new_offs = Z_PROBE_OFFSET_RANGE_MIN;
-	   if(new_offs > Z_PROBE_OFFSET_RANGE_MAX) new_offs = Z_PROBE_OFFSET_RANGE_MAX;
 	
-      if (WITHIN(new_offs, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX)) {
-		if(Z_PROBE_OFFSET_RANGE_MIN < new_offs && new_offs < Z_PROBE_OFFSET_RANGE_MAX)
-        	babystep.add_steps(Z_AXIS, babystep_increment);
+      if (isfinite(new_offs) && WITHIN(new_offs, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX)) {
+        if (!babystep.add_steps(Z_AXIS, babystep_increment)) return;
 
         if (do_probe)
           probe.offset.z = new_offs;
@@ -414,7 +422,7 @@ void MenuItem_confirm::select_screen(
   const bool ui_selection = ui.update_selection(), got_click = ui.use_click();
   if (got_click || ui.should_draw()) {
     draw_select_screen(yes, no, ui_selection, pref, string, suff);
-    if (got_click) {
+    if (got_click && !ui.screen_input_blocked()) {
       selectFunc_t callFunc = ui_selection ? yesFunc : noFunc;
       if (callFunc) callFunc(); else ui.goto_previous_screen();
     }
@@ -428,7 +436,7 @@ void LCD_abort_pring()
   const bool ui_selection = ui.update_selection(), got_click = ui.use_click();
   if (got_click || ui.should_draw()) {
     MenuItem_confirm::draw_select_screen(GET_TEXT(MSG_BUTTON_STOP), GET_TEXT(MSG_BACK), ui_selection,  GET_TEXT(MSG_STOP_PRINT), (const char *)nullptr, PSTR("?"));
-    if (got_click) {
+    if (got_click && !ui.screen_input_blocked()) {
       selectFunc_t callFunc = ui_selection ? ui.abort_print :  ui.return_to_status;
       if (callFunc) callFunc(); else ui.goto_previous_screen();
     }
@@ -443,6 +451,7 @@ void LCD_abort_pring()
 #endif
 
 bool filament_Staring = false;
+static bool filament_load_extruded = false;
 uint8_t filament_cmd = FILA_NO_ACT;
 void unload_load_filament(){
 
@@ -469,12 +478,16 @@ void unload_load_filament(){
     }
 		
 	flash_time=millis();
-	if(filament_cmd == FILA_IN){
-		queue.inject_P("M83\nG1 E50 F300\nM82");
-	}
-	else if(filament_cmd == FILA_OUT){
-		queue.inject_P("M83\nG1 E-50 F900\nM82");
-	}
+  // Own one planner move; no injected extrusion batch and no mode change.
+  if (planner.has_blocks_queued() || queue.has_commands_queued()) return;
+  if (filament_cmd == FILA_IN || filament_cmd == FILA_OUT) {
+    xyze_pos_t next = current_position;
+    next.e += filament_cmd == FILA_IN ? 50.0f : -50.0f;
+    if (planner.buffer_line(next, filament_cmd == FILA_IN ? 5.0f : 15.0f, active_extruder)) {
+      current_position = next;
+      if (filament_cmd == FILA_IN) filament_load_extruded = true;
+    }
+  }
      	
 	
 }
@@ -482,10 +495,11 @@ void unload_load_filament(){
  void draw_unload_load_filament(){
 
 	uint8_t *string;
+	if (!filament_Staring) filament_load_extruded = false;
 	filament_Staring = true;
     if (ui.use_click()) 
     {
-      const bool finished_load = filament_cmd == FILA_IN;
+      const bool finished_load = filament_cmd == FILA_IN && filament_load_extruded;
       filament_cmd = FILA_NO_ACT;
       filament_Staring = false;
       planner.quick_stop();

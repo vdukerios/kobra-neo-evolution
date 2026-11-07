@@ -26,6 +26,7 @@
 class HotendIdleProtection {
 public:
   static void check();
+  static bool resume(); // false: canceled/invalid preparation; do not resume the job
 private:
   static constexpr millis_t hp_interval = SEC_TO_MS(HOTEND_IDLE_TIMEOUT_SEC);
   static millis_t next_protect_ms;

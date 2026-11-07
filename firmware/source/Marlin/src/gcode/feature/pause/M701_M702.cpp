@@ -57,6 +57,11 @@
  *  Default values are used for omitted arguments.
  */
 void GcodeSuite::M701() {
+  const float requested_load = parser.seenval('L') ? ABS(parser.value_axis_units(E_AXIS)) : fc_settings[active_extruder].load_length;
+  const xyz_pos_t default_park = NOZZLE_PARK_POINT;
+  const float requested_lift = parser.linearval('Z', default_park.z);
+  if (!isfinite(requested_load) || requested_load > EXTRUDE_MAXLENGTH || !isfinite(requested_lift)
+      || requested_lift < 0 || requested_lift > Z_MAX_POS - Z_MIN_POS) return;
   xyz_pos_t park_point = NOZZLE_PARK_POINT;
 
   // Don't raise Z if the machine isn't homed
@@ -79,7 +84,7 @@ void GcodeSuite::M701() {
   #endif
 
   // Z axis lift
-  if (parser.seenval('Z')) park_point.z = parser.linearval('Z');
+  park_point.z = all_axes_trusted() ? requested_lift : 0;
 
   // Show initial "wait for load" message
   TERN_(HAS_LCD_MENU, lcd_pause_show_message(PAUSE_MESSAGE_LOAD, PAUSE_MODE_LOAD_FILAMENT, target_extruder));
@@ -101,9 +106,8 @@ void GcodeSuite::M701() {
   #else
     constexpr float     purge_length = ADVANCED_PAUSE_PURGE_LENGTH,
                     slow_load_length = FILAMENT_CHANGE_SLOW_LOAD_LENGTH;
-        const float fast_load_length = ABS(parser.seen('L') ? parser.value_axis_units(E_AXIS)
-                                                            : fc_settings[active_extruder].load_length);
-    load_filament(
+        const float fast_load_length = requested_load;
+    const bool loaded = load_filament(
       slow_load_length, fast_load_length, purge_length,
       FILAMENT_CHANGE_ALERT_BEEPS,
       true,                                           // show_lcd
@@ -113,6 +117,7 @@ void GcodeSuite::M701() {
         , target_extruder                             // Dual X target
       #endif
     );
+    if (!loaded || pause_was_cancelled()) return;
   #endif
 
   // Restore Z axis
@@ -143,6 +148,11 @@ void GcodeSuite::M701() {
  *  Default values are used for omitted arguments.
  */
 void GcodeSuite::M702() {
+  const float requested_unload = parser.seenval('U') ? -ABS(parser.value_axis_units(E_AXIS)) : -fc_settings[active_extruder].unload_length;
+  const xyz_pos_t default_park = NOZZLE_PARK_POINT;
+  const float requested_lift = parser.linearval('Z', default_park.z);
+  if (!isfinite(requested_unload) || ABS(requested_unload) > EXTRUDE_MAXLENGTH || !isfinite(requested_lift)
+      || requested_lift < 0 || requested_lift > Z_MAX_POS - Z_MIN_POS) return;
   xyz_pos_t park_point = NOZZLE_PARK_POINT;
 
   // Don't raise Z if the machine isn't homed
@@ -177,7 +187,7 @@ void GcodeSuite::M702() {
   #endif
 
   // Z axis lift
-  if (parser.seenval('Z')) park_point.z = parser.linearval('Z');
+  park_point.z = all_axes_trusted() ? requested_lift : 0;
 
   // Show initial "wait for unload" message
   TERN_(HAS_LCD_MENU, lcd_pause_show_message(PAUSE_MESSAGE_UNLOAD, PAUSE_MODE_UNLOAD_FILAMENT, target_extruder));
@@ -201,21 +211,21 @@ void GcodeSuite::M702() {
       if (!parser.seenval('T')) {
         HOTEND_LOOP() {
           if (e != active_extruder) tool_change(e, false);
-          unload_filament(-fc_settings[e].unload_length, true, PAUSE_MODE_UNLOAD_FILAMENT);
+          if (!unload_filament(-fc_settings[e].unload_length, true, PAUSE_MODE_UNLOAD_FILAMENT)) return;
         }
       }
       else
     #endif
     {
       // Unload length
-      const float unload_length = -ABS(parser.seen('U') ? parser.value_axis_units(E_AXIS)
-                                                        : fc_settings[target_extruder].unload_length);
+      const float unload_length = requested_unload;
 
-      unload_filament(unload_length, true, PAUSE_MODE_UNLOAD_FILAMENT
+      const bool unloaded = unload_filament(unload_length, true, PAUSE_MODE_UNLOAD_FILAMENT
         #if ALL(FILAMENT_UNLOAD_ALL_EXTRUDERS, MIXING_EXTRUDER)
           , mix_multiplier
         #endif
       );
+      if (!unloaded || pause_was_cancelled()) return;
     }
   #endif
 

@@ -107,9 +107,6 @@ void PrintCounter::initStats() {
   };
 
   saveStats();
-  persistentStore.access_start();
-  persistentStore.write_data(address, (uint8_t)0x16);
-  persistentStore.access_finish();
 }
 
 #if HAS_SERVICE_INTERVALS
@@ -127,15 +124,14 @@ void PrintCounter::initStats() {
 void PrintCounter::loadStats() {
   TERN_(DEBUG_PRINTCOUNTER, debug(PSTR("loadStats")));
 
-  // Check if the EEPROM block is initialized
   uint8_t value = 0;
-  persistentStore.access_start();
-  persistentStore.read_data(address, &value, sizeof(uint8_t));
-  if (value != 0x16)
-    initStats();
-  else
-    persistentStore.read_data(address + sizeof(uint8_t), (uint8_t*)&data, sizeof(printStatistics));
-  persistentStore.access_finish();
+  if (!persistentStore.access_start()) return;
+  bool error = persistentStore.read_data(address, &value, sizeof(uint8_t));
+  if (!error && value == 0x16)
+    error = persistentStore.read_data(address + sizeof(uint8_t), (uint8_t*)&data, sizeof(printStatistics));
+  error |= !persistentStore.access_finish();
+  if (error) { SERIAL_ERROR_MSG("Statistics read failed"); return; }
+  if (value != 0x16 || !isfinite(data.filamentUsed)) initStats();
   loaded = true;
 
   #if HAS_SERVICE_INTERVALS
@@ -157,18 +153,15 @@ void PrintCounter::loadStats() {
   #endif // HAS_SERVICE_INTERVALS
 }
 
-void PrintCounter::saveStats() {
-  TERN_(DEBUG_PRINTCOUNTER, debug(PSTR("saveStats")));
-
-  // Refuses to save data if object is not loaded
-  if (!isLoaded()) return;
-
-  // Saves the struct to EEPROM
-  persistentStore.access_start();
-  persistentStore.write_data(address + sizeof(uint8_t), (uint8_t*)&data, sizeof(printStatistics));
-  persistentStore.access_finish();
-
-  TERN_(EXTENSIBLE_UI, ExtUI::onConfigurationStoreWritten(true));
+bool PrintCounter::saveStats() {
+  if (!isLoaded() || !persistentStore.access_start()) return false;
+  // Header and counters are part of one snapshot, including first initialization.
+  bool error = persistentStore.write_data(address, (uint8_t)0x16);
+  error |= persistentStore.write_data(address + sizeof(uint8_t), (uint8_t*)&data, sizeof(printStatistics));
+  error |= !persistentStore.access_finish();
+  TERN_(EXTENSIBLE_UI, ExtUI::onConfigurationStoreWritten(!error));
+  if (error) SERIAL_ERROR_MSG("Statistics storage failed");
+  return !error;
 }
 
 #if HAS_SERVICE_INTERVALS
@@ -287,6 +280,18 @@ bool PrintCounter::stop() {
   else return false;
 }
 
+// Restoring elapsed time establishes a new accounting base. Historical seconds
+// already persisted in printTime/service intervals must not be charged again.
+void PrintCounter::resume(const millis_t with_time) {
+  if (isRunning() || isPaused()) {
+    const millis_t delta = deltaDuration();
+    data.printTime += delta;
+    TERN_(HAS_SERVICE_INTERVALS, updateServiceIntervals(delta));
+  }
+  super::resume(with_time);
+  lastDuration = duration();
+}
+
 // @Override
 void PrintCounter::reset() {
   TERN_(DEBUG_PRINTCOUNTER, debug(PSTR("stop")));
@@ -310,7 +315,7 @@ void PrintCounter::reset() {
     #endif
   }
 
-  void PrintCounter::resetServiceInterval(const int index) {
+  bool PrintCounter::resetServiceInterval(const int index) {
     switch (index) {
       #if SERVICE_INTERVAL_1 > 0
         case 1: data.nextService1 = SERVICE_INTERVAL_SEC_1; break;
@@ -321,8 +326,9 @@ void PrintCounter::reset() {
       #if SERVICE_INTERVAL_3 > 0
         case 3: data.nextService3 = SERVICE_INTERVAL_SEC_3; break;
       #endif
+      default: return false;
     }
-    saveStats();
+    return saveStats();
   }
 
   bool PrintCounter::needsService(const int index) {

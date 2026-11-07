@@ -95,7 +95,7 @@ inline bool IsStopped() { return marlin_state != MF_RUNNING; }
 
 bool printingIsActive();
 bool printingIsPaused();
-void startOrResumeJob();
+bool startOrResumeJob(); // false leaves the job paused after failed reheat
 
 extern bool wait_for_heatup;
 

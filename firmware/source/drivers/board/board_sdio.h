@@ -19,6 +19,7 @@ extern "C" {
 
 extern en_result_t sdio_main(void);
 extern bool steup_sdio(void);
+extern uint32_t SDIO_CardSize(void);
 extern bool SDIO_ReadBlock_DMA(uint32_t blockAddress, uint8_t *data);
 extern bool SDIO_WriteBlockDMA(uint32_t blockAddress, const uint8_t *data);
 

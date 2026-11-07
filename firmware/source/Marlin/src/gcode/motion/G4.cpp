@@ -23,6 +23,12 @@
 #include "../gcode.h"
 #include "../../module/stepper.h"
 #include "../../lcd/marlinui.h"
+#if ENABLED(MODOS_IMPRESION)
+  #include "../../feature/modos_impresion.h"
+#endif
+#if ENABLED(SDSUPPORT)
+  #include "../../sd/cardreader.h"
+#endif
 
 /**
  * G4: Dwell S<seconds> or P<milliseconds>
@@ -32,6 +38,12 @@ void GcodeSuite::G4() {
 
   if (parser.seenval('P')) dwell_ms = parser.value_millis(); // milliseconds to wait
   if (parser.seenval('S')) dwell_ms = parser.value_millis_from_seconds(); // seconds to wait
+
+  // Modo Express desde la SD: las esperas largas (reposo termico de 7 min del inicio de Cura, etc.) se
+  // omiten SIN depender de que el G-code use M1100. Las esperas cortas (< 30 s) se respetan.
+  #if BOTH(MODOS_IMPRESION, SDSUPPORT)
+    if (print_mode == MODO_EXPRESS && IS_SD_PRINTING() && dwell_ms >= 30000UL) return;
+  #endif
 
   planner.synchronize();
   #if ENABLED(NANODLP_Z_SYNC)

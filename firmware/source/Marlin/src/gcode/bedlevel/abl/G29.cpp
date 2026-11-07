@@ -224,14 +224,47 @@ bool g29_restaurar_malla() {
   #endif
 }
 
+#if ENABLED(AUTO_BED_LEVELING_BILINEAR) && DISABLED(PROBE_MANUALLY)
+  // Independent from the normal failure backup, including an initially invalid mesh.
+  class G29DryRunSnapshot {
+    bed_mesh_t mesh;
+    xy_pos_t spacing, start;
+    xy_float_t factor;
+    bool pending, enabled;
+    public:
+      G29DryRunSnapshot(const bool save) : pending(save), enabled(planner.leveling_active) {
+        if (save) {
+          memcpy(mesh, z_values, sizeof(mesh));
+          spacing = bilinear_grid_spacing; start = bilinear_start;
+          factor = bilinear_grid_factor;
+        }
+      }
+      void restore() {
+        if (!pending) return;
+        set_bed_leveling_enabled(false);
+        memcpy(z_values, mesh, sizeof(mesh));
+        bilinear_grid_spacing = spacing; bilinear_start = start;
+        refresh_bed_level();
+        bilinear_grid_factor = factor;
+        set_bed_leveling_enabled(enabled);
+        pending = false;
+      }
+      ~G29DryRunSnapshot() { restore(); }
+  };
+#endif
+
 G29_TYPE GcodeSuite::G29() {
+  #if ENABLED(AUTO_BED_LEVELING_BILINEAR) && DISABLED(PROBE_MANUALLY)
+    G29DryRunSnapshot dry_snapshot(parser.boolval('D') && !parser.seen('W') && !parser.seen('J'));
+  #endif
+
 
   if (!parser.seen('J')) g29_fallo = false;   // una llamada anidada "G29 J" no borra el fallo
   probe.status = 0;
     
   reset_stepper_timeout();
 
-  const bool seenQ = EITHER(DEBUG_LEVELING_FEATURE, PROBE_MANUALLY) && parser.seen('Q');
+  const bool seenQ = parser.seen('Q');
 
   // G29 Q is also available if debugging
   #if ENABLED(DEBUG_LEVELING_FEATURE)
@@ -252,12 +285,12 @@ G29_TYPE GcodeSuite::G29() {
     G29_RETURN(false);
   }
 
-  // Send 'N' to force homing before G29 (internal only)
-  if (parser.seen('N'))
-    gcode.process_subcommands_now_P(TERN(G28_L0_ENSURES_LEVELING_OFF, PSTR("G28L0"), G28_STR));
-
-  // Don't allow auto-leveling without homing first
-  if (homing_needed_error()) G29_RETURN(false);
+  #if DISABLED(PROBE_MANUALLY)
+    if (seenQ) {
+      TERN_(AUTO_BED_LEVELING_BILINEAR, print_bilinear_leveling_grid());
+      G29_RETURN(false);
+    }
+  #endif
 
   // Define local vars 'static' for manual probing, 'auto' otherwise
   #define ABL_VAR TERN_(PROBE_MANUALLY, static)
@@ -353,16 +386,26 @@ G29_TYPE GcodeSuite::G29() {
 
         const float rx = RAW_X_POSITION(parser.linearval('X', NAN)),
                     ry = RAW_Y_POSITION(parser.linearval('Y', NAN));
-        int8_t i = parser.byteval('I', -1), j = parser.byteval('J', -1);
-
-        if (!isnan(rx) && !isnan(ry)) {
-          // Get nearest i / j from rx / ry
-          i = (rx - bilinear_start.x + 0.5f * gridSpacing.x) / gridSpacing.x;
-          j = (ry - bilinear_start.y + 0.5f * gridSpacing.y) / gridSpacing.y;
-          LIMIT(i, 0, GRID_MAX_POINTS_X - 1);
-          LIMIT(j, 0, GRID_MAX_POINTS_Y - 1);
+        float i_input = parser.floatval('I', -1), j_input = parser.floatval('J', -1);
+        const bool has_x = parser.seenval('X'), has_y = parser.seenval('Y');
+        if (has_x || has_y) {
+          if (!has_x || !has_y || !isfinite(rx) || !isfinite(ry)) {
+            SERIAL_ERROR_MSG(STR_ERR_MESH_XY); G29_RETURN(false);
+          }
+          // Clamp in floating point before narrowing, using the existing mesh geometry.
+          i_input = (rx - bilinear_start.x) / bilinear_grid_spacing.x + 0.5f;
+          j_input = (ry - bilinear_start.y) / bilinear_grid_spacing.y + 0.5f;
+          if (!isfinite(i_input) || !isfinite(j_input)) { SERIAL_ERROR_MSG(STR_ERR_MESH_XY); G29_RETURN(false); }
+          i_input = FLOOR(constrain(i_input, 0, GRID_MAX_POINTS_X - 1));
+          j_input = FLOOR(constrain(j_input, 0, GRID_MAX_POINTS_Y - 1));
         }
-        if (WITHIN(i, 0, GRID_MAX_POINTS_X - 1) && WITHIN(j, 0, GRID_MAX_POINTS_Y)) {
+        if (!isfinite(i_input) || !isfinite(j_input)
+          || !WITHIN(i_input, 0, GRID_MAX_POINTS_X - 1) || i_input != FLOOR(i_input)
+          || !WITHIN(j_input, 0, GRID_MAX_POINTS_Y - 1) || j_input != FLOOR(j_input)) {
+          SERIAL_ERROR_MSG(STR_ERR_MESH_XY); G29_RETURN(false);
+        }
+        const uint8_t i = i_input, j = j_input;
+        {
           set_bed_leveling_enabled(false);
           z_values[i][j] = rz;
           TERN_(ABL_BILINEAR_SUBDIVISION, bed_level_virt_interpolate());
@@ -383,6 +426,13 @@ G29_TYPE GcodeSuite::G29() {
     if (!seen_w && parser.seen('J')) {
       reset_bed_level();
       G29_RETURN(false);
+    }
+
+    // Only probing operations require a current physical reference.
+    if (!no_action) {
+      if (parser.seen('N'))
+        gcode.process_subcommands_now_P(TERN(G28_L0_ENSURES_LEVELING_OFF, PSTR("G28L0"), G28_STR));
+      if (!all_axes_trusted()) { SERIAL_ERROR_MSG("Home XYZ first"); g29_fallo = true; G29_RETURN(false); }
     }
 
     verbose_level = parser.intval('V');
@@ -422,18 +472,23 @@ G29_TYPE GcodeSuite::G29() {
     #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
       zoffset = parser.linearval('Z');
+      if (!isfinite(zoffset)) { SERIAL_ERROR_MSG("Bad Z value"); G29_RETURN(false); }
 
     #endif
 
     #if ABL_GRID
 
-      xy_probe_feedrate_mm_s = MMM_TO_MMS(parser.linearval('S', XY_PROBE_SPEED));
+      const float requested_speed = MMM_TO_MMS(parser.linearval('S', XY_PROBE_SPEED));
+      if (!isfinite(requested_speed) || requested_speed <= 0) {
+        SERIAL_ERROR_MSG("Bad probing speed"); G29_RETURN(false);
+      }
 
       const float x_min = probe.min_x(), x_max = probe.max_x(),
                   y_min = probe.min_y(), y_max = probe.max_y();
 
       if (parser.seen('H')) {
-        const int16_t size = (int16_t)parser.value_linear_units();
+        const float size = parser.value_linear_units();
+        if (!isfinite(size) || size <= 0) { SERIAL_ERROR_MSG("Bad probing area"); G29_RETURN(false); }
         probe_position_lf.set(_MAX((X_CENTER) - size / 2, x_min), _MAX((Y_CENTER) - size / 2, y_min));
         probe_position_rb.set(_MIN(probe_position_lf.x + size, x_max), _MIN(probe_position_lf.y + size, y_max));
       }
@@ -442,7 +497,10 @@ G29_TYPE GcodeSuite::G29() {
         probe_position_rb.set(parser.linearval('R', x_max), parser.linearval('B', y_max));
       }
 
-      if (!probe.good_bounds(probe_position_lf, probe_position_rb)) {
+      if (!isfinite(probe_position_lf.x) || !isfinite(probe_position_lf.y)
+        || !isfinite(probe_position_rb.x) || !isfinite(probe_position_rb.y)
+        || probe_position_lf.x >= probe_position_rb.x || probe_position_lf.y >= probe_position_rb.y
+        || !probe.good_bounds(probe_position_lf, probe_position_rb)) {
         if (DEBUGGING(LEVELING)) {
           DEBUG_ECHOLNPAIR("G29 L", probe_position_lf.x, " R", probe_position_rb.x,
                               " F", probe_position_lf.y, " B", probe_position_rb.y);
@@ -455,6 +513,17 @@ G29_TYPE GcodeSuite::G29() {
       gridSpacing.set((probe_position_rb.x - probe_position_lf.x) / (abl_grid_points.x - 1),
                       (probe_position_rb.y - probe_position_lf.y) / (abl_grid_points.y - 1));
 
+      if (!isfinite(gridSpacing.x) || gridSpacing.x <= 0 || !isfinite(gridSpacing.y) || gridSpacing.y <= 0) {
+        SERIAL_ERROR_MSG("Bad probing area"); G29_RETURN(false);
+      }
+      xyze_pos_t corner = current_position;
+      corner.x = probe_position_lf.x - probe.offset_xy.x;
+      corner.y = probe_position_lf.y - probe.offset_xy.y;
+      if (!planner.numeric_move_valid(corner, requested_speed, active_extruder)) { SERIAL_ERROR_MSG("Unrepresentable probing speed"); G29_RETURN(false); }
+      corner.x = probe_position_rb.x - probe.offset_xy.x;
+      corner.y = probe_position_rb.y - probe.offset_xy.y;
+      if (!planner.numeric_move_valid(corner, requested_speed, active_extruder)) { SERIAL_ERROR_MSG("Unrepresentable probing speed"); G29_RETURN(false); }
+      xy_probe_feedrate_mm_s = requested_speed;
     #endif // ABL_GRID
 
     if (verbose_level > 0) {
@@ -674,7 +743,7 @@ G29_TYPE GcodeSuite::G29() {
 
       // Outer loop is X with PROBE_Y_FIRST enabled
       // Outer loop is Y with PROBE_Y_FIRST disabled
-      for (PR_OUTER_VAR = 0; PR_OUTER_VAR < PR_OUTER_END && !isnan(measured_z); PR_OUTER_VAR++) {
+      for (PR_OUTER_VAR = 0; PR_OUTER_VAR < PR_OUTER_END && isfinite(measured_z); PR_OUTER_VAR++) {
 
         int8_t inStart, inStop, inInc;
 
@@ -716,7 +785,7 @@ G29_TYPE GcodeSuite::G29() {
           // Cancelar desde Nivelar y centrar o Parar: no medir mas puntos ni guardar una malla parcial.
           if (g29_cancelado()) { measured_z = NAN; probe.status = -1; }
 
-          if (isnan(measured_z)) {
+          if (!isfinite(measured_z)) {
             set_bed_leveling_enabled(abl_should_enable);
             break; // Breaks out of both loops
           }
@@ -740,6 +809,7 @@ G29_TYPE GcodeSuite::G29() {
           #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
             const float z = measured_z + zoffset;
+            if (!isfinite(z)) { measured_z = NAN; probe.status = -1; break; }
             z_values[meshCount.x][meshCount.y] = z;
             TERN_(EXTENSIBLE_UI, ExtUI::onMeshUpdate(meshCount, z));
 
@@ -762,14 +832,14 @@ G29_TYPE GcodeSuite::G29() {
         // Retain the last probe position
         probePos = points[i];
         measured_z = faux ? 0.001 * random(-100, 101) : probe.probe_at_point(probePos, raise_after, verbose_level);
-        if (isnan(measured_z)) {
+        if (!isfinite(measured_z)) {
           set_bed_leveling_enabled(abl_should_enable);
           break;
         }
         points[i].z = measured_z;
       }
 
-      if (!dryrun && !isnan(measured_z)) {
+      if (!dryrun && isfinite(measured_z)) {
         vector_3 planeNormal = vector_3::cross(points[0] - points[1], points[2] - points[1]).get_normal();
         if (planeNormal.z < 0) planeNormal *= -1;
         planner.bed_level_matrix = matrix_3x3::create_look_at(planeNormal);
@@ -808,13 +878,14 @@ G29_TYPE GcodeSuite::G29() {
   #endif
 
   // Calculate leveling, print reports, correct the position
-  if (!isnan(measured_z)) {
+  if (isfinite(measured_z)) {
     #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
       if (!dryrun) extrapolate_unprobed_bed_level();
       print_bilinear_leveling_grid();
 
       refresh_bed_level();
+      if (!dryrun && !leveling_is_valid()) { measured_z = NAN; probe.status = -1; }
 
       TERN_(ABL_BILINEAR_SUBDIVISION, print_bilinear_leveling_grid_virt());
 
@@ -930,7 +1001,7 @@ G29_TYPE GcodeSuite::G29() {
 
     #elif ENABLED(AUTO_BED_LEVELING_BILINEAR)
 
-      if (!dryrun) {
+      if (!dryrun && isfinite(measured_z)) {
         if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("G29 uncorrected Z:", current_position.z);
 
         // Unapply the offset because it is going to be immediately applied
@@ -944,8 +1015,8 @@ G29_TYPE GcodeSuite::G29() {
     #endif // ABL_PLANAR
 
     // Auto Bed Leveling is complete! Enable if possible.
-    planner.leveling_active = dryrun ? abl_should_enable : true;
-  } // !isnan(measured_z)
+    planner.leveling_active = !dryrun && isfinite(measured_z);
+  } // isfinite(measured_z)
 
   // Restore state after probing
   if (!faux) restore_feedrate_and_scaling();
@@ -961,12 +1032,14 @@ G29_TYPE GcodeSuite::G29() {
     if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("Z Probe End Script: ", Z_PROBE_END_SCRIPT);
     
   planner.synchronize(); // puede atender un clic de Parar: comprobarlo despues, antes de guardar
-  if (probe.status != -1 && !isnan(measured_z) && !g29_cancelado()) {
+  if (probe.status != -1 && isfinite(measured_z) && !g29_cancelado()) {
+    if (!dryrun) {
 	(void)settings.save_estable();   // equivale a M500 pero sin guardar aceleraciones transitorias del G-code (P2)
     process_subcommands_now_P(PSTR(Z_PROBE_END_SCRIPT));
   	LCD_ALERTMESSAGEPGM(MSG_LEVEL_FINSH);
 	ui.preheating_start = ui.preheating_stop = false;
 		ui.is_leveing = false;
+    }
   } else {
     g29_fallo = true;
     thermalManager.setTargetHotend(0, 0);
@@ -979,7 +1052,7 @@ G29_TYPE GcodeSuite::G29() {
 
     planner.clear_block_buffer();
     queue.clear();
-	if (!g29_restaurar_malla()) process_subcommands_now_P("G29 J");   // P7: restaura la malla anterior; solo si no habia, la descarta
+	if (!dryrun && !g29_restaurar_malla()) process_subcommands_now_P("G29 J");   // P7: restaura la malla anterior; solo si no habia, la descarta
 	LCD_ALERTMESSAGEPGM(MSG_LEVEL_FAILD);
 	ui.preheating_start = ui.preheating_stop = false;
 		ui.is_leveing = false;
@@ -993,9 +1066,12 @@ G29_TYPE GcodeSuite::G29() {
 //  #if HAS_LCD_MENU
 ///  	ui.return_to_status();
 //  #endif
+  #if ENABLED(AUTO_BED_LEVELING_BILINEAR) && DISABLED(PROBE_MANUALLY)
+    dry_snapshot.restore();
+  #endif
   report_current_position();
 
-  G29_RETURN(isnan(measured_z));
+  G29_RETURN(!isfinite(measured_z));
 }
 
 #endif // HAS_ABL_NOT_UBL

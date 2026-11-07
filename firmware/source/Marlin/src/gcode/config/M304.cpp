@@ -35,6 +35,18 @@
  *  D<dval> - Set the D value
  */
 void GcodeSuite::M304() {
+  const char checked[] = "PID";
+  for (uint8_t i = 0; checked[i]; ++i) {
+    const char key = checked[i];
+    if (!parser.seen(key)) continue;
+    if (!parser.has_value()) { SERIAL_ERROR_MSG("Invalid PID value"); return; }
+    const float value = parser.value_float();
+    if (!isfinite(value) || value < 0
+        || (key == 'I' && !isfinite(scalePID_i(value)))
+        || (key == 'D' && !isfinite(scalePID_d(value)))
+    ) { SERIAL_ERROR_MSG("Invalid PID value"); return; }
+  }
+
   if (parser.seen('P')) thermalManager.temp_bed.pid.Kp = parser.value_float();
   if (parser.seen('I')) thermalManager.temp_bed.pid.Ki = scalePID_i(parser.value_float());
   if (parser.seen('D')) thermalManager.temp_bed.pid.Kd = scalePID_d(parser.value_float());

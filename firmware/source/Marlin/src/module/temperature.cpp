@@ -339,6 +339,56 @@ const char str_t_thermal_runaway[] PROGMEM = STR_T_THERMAL_RUNAWAY,
 #endif
 
 volatile bool Temperature::raw_temps_ready = false;
+volatile uint32_t Temperature::raw_acquisition_token = 0;
+bool Temperature::pid_autotune_active = false;
+static bool thermal_freshness_armed = false;
+static volatile bool sensor_startup_grace = true;
+static millis_t last_thermal_consumption_ms = 0;
+static uint32_t last_thermal_consumption_token = 0;
+
+// Deadline is below the existing 4s watchdog period. Models do not validate timing.
+bool Temperature::check_temperature_freshness() {
+  if (!thermal_freshness_armed) return true;
+  const millis_t now = millis();
+  if (ELAPSED(now, HAL_ADC_PROGRESS_MS() + 1000UL)
+      || ELAPSED(now, last_thermal_consumption_ms + 1000UL)) {
+    disable_all_heaters();
+    wait_for_heatup = false;
+    kill(PSTR("Temperature data stale"), nullptr, true);
+    return false;
+  }
+  return true;
+}
+
+void Temperature::service_emergency() {
+  #if ENABLED(EMERGENCY_PARSER)
+    // The target's CRITICAL_SECTION macros are NOOP; use real, bounded masking.
+    const uint32_t saved_mask = __get_PRIMASK();
+    __disable_irq();
+    const bool cancel = emergency_parser.canceled_by_M108;
+    const bool quickstop = emergency_parser.quickstop_by_M410;
+    const bool killed = emergency_parser.killed_by_M112;
+    emergency_parser.canceled_by_M108 = false;
+    emergency_parser.quickstop_by_M410 = false;
+    #if ENABLED(HOST_PROMPT_SUPPORT)
+      const bool response = emergency_parser.response_by_M876;
+      const uint8_t reason = emergency_parser.M876_reason;
+      emergency_parser.response_by_M876 = false;
+    #endif
+    if (!saved_mask) __enable_irq();
+    if (killed) {
+      disable_all_heaters();
+      wait_for_heatup = false;
+      kill(M112_KILL_STR, nullptr, true);
+    }
+    if (cancel) wait_for_user = wait_for_heatup = false;
+    if (quickstop) quickstop_stepper();
+    #if ENABLED(HOST_PROMPT_SUPPORT)
+      if (response) host_response_handler(reason);
+    #endif
+  #endif
+}
+
 
 #if ENABLED(PID_EXTRUSION_SCALING)
   int32_t Temperature::last_e_position, Temperature::lpq[LPQ_MAX_LEN];
@@ -406,10 +456,17 @@ volatile bool Temperature::raw_temps_ready = false;
    * Needs sufficient heater power to make some overshoot at target
    * temperature to succeed.
    */
-  void Temperature::PID_autotune(const float &target, const heater_id_t heater_id, const int8_t ncycles, const bool set_result/*=false*/) {
+  bool Temperature::PID_autotune(const float &target, const heater_id_t heater_id, const int8_t ncycles, const bool set_result/*=false*/) {
+    // All returns, including invalid requests, leave power and wait state off.
+    disable_all_heaters();
+    wait_for_heatup = false;
+    bool succeeded = false;
+    if (pid_autotune_active) return false;
+    if (!isfinite(target) || target <= 0 || heater_id < H_BED || heater_id >= HOTENDS || ncycles < 3) return false;
     float current_temp = 0.0;
     int cycles = 0;
-    bool heating = true;
+    bool heating = true, relay_started = false;
+    uint32_t autotune_last_sample_token = last_thermal_consumption_token;
 
     millis_t next_temp_ms = millis(), t1 = next_temp_ms, t2 = next_temp_ms;
     long t_high = 0, t_low = 0;
@@ -459,7 +516,7 @@ volatile bool Temperature::raw_temps_ready = false;
     if (target > GHV(BED_MAX_TARGET, temp_range[heater_id].maxtemp - HOTEND_OVERSHOOT)) {
       SERIAL_ECHOLNPGM(STR_PID_TEMP_TOO_HIGH);
       TERN_(EXTENSIBLE_UI, ExtUI::onPidTuning(ExtUI::result_t::PID_TEMP_TOO_HIGH));
-      return;
+      return false;
     }
 
     SERIAL_ECHOLNPGM(STR_PID_AUTOTUNE_START);
@@ -467,7 +524,7 @@ volatile bool Temperature::raw_temps_ready = false;
     disable_all_heaters();
     TERN_(AUTO_POWER_CONTROL, powerManager.power_on());
 
-    SHV(bias = d = (MAX_BED_POWER) >> 1, bias = d = (PID_MAX) >> 1);
+    bias = d = GHV(MAX_BED_POWER, PID_MAX) >> 1;
 
     #if ENABLED(PRINTER_EVENT_LEDS)
       const float start_temp = GHV(temp_bed.celsius, temp_hotend[heater_id].celsius);
@@ -476,17 +533,42 @@ volatile bool Temperature::raw_temps_ready = false;
 
     TERN_(NO_FAN_SLOWING_IN_PID_TUNING, adaptive_fan_slowing = false);
 
-    // PID Tuning loop
+    #ifndef MAX_OVERSHOOT_PID_AUTOTUNE
+      #define MAX_OVERSHOOT_PID_AUTOTUNE 30
+    #endif
+
+    // PID Tuning loop: normal regulation must not overwrite relay power.
+    pid_autotune_active = true;
     wait_for_heatup = true; // Can be interrupted with M108
     while (wait_for_heatup) {
 
+      service_emergency();
+      if (!wait_for_heatup || !check_temperature_freshness()) break;
       const millis_t ms = millis();
 
       if (raw_temps_ready) { // temp sample ready
+        const uint32_t sample_token = raw_acquisition_token;
         updateTemperaturesFromRawValues();
+        service_emergency();
+        if (!wait_for_heatup || !check_temperature_freshness()) break;
+        // Validate the fresh sample before ANY relay phase, including startup grace.
+        current_temp = GHV(temp_bed.celsius, temp_hotend[heater_id].celsius);
+        if (sample_token == autotune_last_sample_token || !isfinite(current_temp)
+            || current_temp < GHV(BED_MINTEMP, temp_range[heater_id].mintemp)
+            || current_temp > GHV(BED_MAXTEMP, temp_range[heater_id].maxtemp)
+            || current_temp > target + MAX_OVERSHOOT_PID_AUTOTUNE) {
+          SERIAL_ERROR_MSG("Invalid PID sensor sample");
+          disable_all_heaters();
+          wait_for_heatup = false;
+          break;
+        }
+        autotune_last_sample_token = sample_token;
+        if (!relay_started) {
+          SHV(bias, bias);
+          relay_started = true;
+        }
 
         // Get the current temperature and constrain it
-        current_temp = GHV(temp_bed.celsius, temp_hotend[heater_id].celsius);
         NOLESS(maxT, current_temp);
         NOMORE(minT, current_temp);
 
@@ -504,6 +586,7 @@ volatile bool Temperature::raw_temps_ready = false;
         if (heating && current_temp > target) {
           if (ELAPSED(ms, t2 + 5000UL)) {
             heating = false;
+            if (!check_temperature_freshness()) break;
             SHV((bias - d) >> 1, (bias - d) >> 1);
             t1 = ms;
             t_high = t1 - t2;
@@ -558,6 +641,7 @@ volatile bool Temperature::raw_temps_ready = false;
                 */
               }
             }
+            if (!check_temperature_freshness()) break;
             SHV((bias + d) >> 1, (bias + d) >> 1);
             cycles++;
             minT = target;
@@ -566,9 +650,6 @@ volatile bool Temperature::raw_temps_ready = false;
       }
 
       // Did the temperature overshoot very far?
-      #ifndef MAX_OVERSHOOT_PID_AUTOTUNE
-        #define MAX_OVERSHOOT_PID_AUTOTUNE 30
-      #endif
       if (current_temp > target + MAX_OVERSHOOT_PID_AUTOTUNE) {
         SERIAL_ECHOLNPGM(STR_PID_TEMP_TOO_HIGH);
         TERN_(EXTENSIBLE_UI, ExtUI::onPidTuning(ExtUI::result_t::PID_TEMP_TOO_HIGH));
@@ -642,6 +723,12 @@ volatile bool Temperature::raw_temps_ready = false;
           PID_PARAM(Kd, heater_id) = scalePID_d(tune_pid.Kd); \
           updatePID(); }while(0)
 
+        service_emergency();
+        if (!wait_for_heatup || !check_temperature_freshness()) break;
+        if (!isfinite(tune_pid.Kp) || !isfinite(tune_pid.Ki) || !isfinite(tune_pid.Kd)
+            || tune_pid.Kp < 0 || tune_pid.Ki < 0 || tune_pid.Kd < 0
+            || !isfinite(scalePID_i(tune_pid.Ki)) || !isfinite(scalePID_d(tune_pid.Kd))) break;
+
         // Use the result? (As with "M303 U1")
         if (set_result) {
           #if HAS_PID_FOR_BOTH
@@ -653,11 +740,8 @@ volatile bool Temperature::raw_temps_ready = false;
           #endif
         }
 
-        TERN_(PRINTER_EVENT_LEDS, printerEventLEDs.onPidTuningDone(color));
-
-        TERN_(EXTENSIBLE_UI, ExtUI::onPidTuning(ExtUI::result_t::PID_DONE));
-
-        goto EXIT_M303;
+        succeeded = true;
+        break;
       }
 
       // Run HAL idle tasks
@@ -674,9 +758,9 @@ volatile bool Temperature::raw_temps_ready = false;
 
     TERN_(EXTENSIBLE_UI, ExtUI::onPidTuning(ExtUI::result_t::PID_DONE));
 
-    EXIT_M303:
-      TERN_(NO_FAN_SLOWING_IN_PID_TUNING, adaptive_fan_slowing = true);
-      return;
+    pid_autotune_active = false;
+    TERN_(NO_FAN_SLOWING_IN_PID_TUNING, adaptive_fan_slowing = true);
+    return succeeded;
   }
 
 #endif // HAS_PID_HEATING
@@ -859,7 +943,7 @@ void Temperature::max_temp_error(const heater_id_t heater_id) {
     DWIN_Popup_Temperature(1);
   #endif
 
-  if(millis() < 5000) {
+  if(sensor_startup_grace && millis() < 5000) {
     return ;
   }
 
@@ -871,7 +955,7 @@ void Temperature::min_temp_error(const heater_id_t heater_id) {
     DWIN_Popup_Temperature(0);
   #endif
 
-  if(millis() < 5000) {
+  if(sensor_startup_grace && millis() < 5000) {
     return ;
   }
 
@@ -1071,15 +1155,8 @@ void Temperature::manage_heater() {
     // If thermal manager is still not running, make sure to at least reset the watchdog!
     if (!inited) return watchdog_refresh();
   #endif
-  HAL_watchdog_refresh();
-  #if ENABLED(EMERGENCY_PARSER)
-    if (emergency_parser.killed_by_M112) kill(M112_KILL_STR, nullptr, true);
-
-    if (emergency_parser.quickstop_by_M410) {
-      emergency_parser.quickstop_by_M410 = false; // quickstop_stepper may call idle so clear this now!
-      quickstop_stepper();
-    }
-  #endif
+  service_emergency();
+  if (!check_temperature_freshness() || pid_autotune_active) return;
 
   if (!raw_temps_ready) return;
 
@@ -1113,7 +1190,13 @@ void Temperature::manage_heater() {
         tr_state_machine[e].run(temp_hotend[e].celsius, temp_hotend[e].target, (heater_id_t)e, THERMAL_PROTECTION_PERIOD, THERMAL_PROTECTION_HYSTERESIS);
       #endif
 
-      temp_hotend[e].soft_pwm_amount = (temp_hotend[e].celsius > temp_range[e].mintemp || is_preheating(e)) && temp_hotend[e].celsius < temp_range[e].maxtemp ? (int)get_pid_output_hotend(e) >> 1 : 0;
+      const float heater_power = (temp_hotend[e].celsius > temp_range[e].mintemp || is_preheating(e)) && temp_hotend[e].celsius < temp_range[e].maxtemp ? get_pid_output_hotend(e) : 0;
+      if (!isfinite(heater_power)) {
+        disable_all_heaters(); // Never convert an invalid controller result to PWM.
+        _temp_error((heater_id_t)e, PSTR("Invalid PID output"), GET_TEXT(MSG_HEATING_FAILED_LCD));
+        return;
+      }
+      temp_hotend[e].soft_pwm_amount = (int)heater_power >> 1;
 
       #if WATCH_HOTENDS
         // Make sure temperature is increasing
@@ -1205,7 +1288,13 @@ void Temperature::manage_heater() {
       #endif
       {
         #if ENABLED(PIDTEMPBED)
-          temp_bed.soft_pwm_amount = WITHIN(temp_bed.celsius, BED_MINTEMP, BED_MAXTEMP) ? (int)get_pid_output_bed() >> 1 : 0;
+          const float bed_power = WITHIN(temp_bed.celsius, BED_MINTEMP, BED_MAXTEMP) ? get_pid_output_bed() : 0;
+          if (!isfinite(bed_power)) {
+            disable_all_heaters();
+            _temp_error(H_BED, PSTR("Invalid PID output"), GET_TEXT(MSG_HEATING_FAILED_LCD));
+            return;
+          }
+          temp_bed.soft_pwm_amount = (int)bed_power >> 1;
         #else
           // Check if temperature is within the correct band
           if (WITHIN(temp_bed.celsius, BED_MINTEMP, BED_MAXTEMP)) {
@@ -1674,8 +1763,13 @@ void Temperature::updateTemperaturesFromRawValues() {
   TERN_(FILAMENT_WIDTH_SENSOR, filwidth.update_measured_mm());
   TERN_(HAS_POWER_MONITOR, power_monitor.capture_values());
 
-  // Reset the watchdog on good temperature measurement
-  watchdog_refresh();
+  // A copied or repeatedly consumed buffer is not evidence of DMA progress.
+  const uint32_t token = raw_acquisition_token;
+  if (token != last_thermal_consumption_token) {
+    last_thermal_consumption_token = token;
+    last_thermal_consumption_ms = millis();
+    watchdog_refresh();
+  }
 
   raw_temps_ready = false;
 }
@@ -1881,6 +1975,10 @@ void Temperature::init() {
     // HAL_ANALOG_SELECT(POWER_MONITOR_VOLTAGE_PIN);
   #endif
 
+  last_thermal_consumption_ms = millis();
+  adc_dma_progress_ms = last_thermal_consumption_ms; // one startup deadline, no synthetic token
+  last_thermal_consumption_token = HAL_ADC_PROGRESS();
+  thermal_freshness_armed = true;
   HAL_timer_start(TEMP_TIMER_NUM, TEMP_TIMER_FREQUENCY);
   ENABLE_TEMPERATURE_INTERRUPT();
 
@@ -2177,14 +2275,15 @@ void Temperature::disable_all_heaters() {
         || TERN0(HAS_HEATED_CHAMBER, degTargetChamber() > CHAMBER_MINTEMP);
   }
 
-  void Temperature::auto_job_check_timer(const bool can_start, const bool can_stop) {
+  bool Temperature::auto_job_check_timer(const bool can_start, const bool can_stop) {
     if (auto_job_over_threshold()) {
-      if (can_start) startOrResumeJob();
+      if (can_start) return startOrResumeJob();
     }
     else if (can_stop) {
       print_job_timer.stop();
       ui.reset_status();
     }
+    return true;
   }
 
 #endif
@@ -2383,6 +2482,8 @@ void Temperature::update_raw_temperatures() {
   TERN_(HAS_JOY_ADC_Y, joystick.y.update());
   TERN_(HAS_JOY_ADC_Z, joystick.z.update());
 
+  raw_acquisition_token = HAL_ADC_PROGRESS();
+  __DMB();
   raw_temps_ready = true;
 }
 
@@ -2524,6 +2625,7 @@ public:
  *  - Planner clean buffer
  */
 void Temperature::tick() {
+  if (sensor_startup_grace && millis() >= 5000UL) sensor_startup_grace = false;
 
   static int8_t temp_count = -1;
   static ADCSensorState adc_sensor_state = StartupDelay;

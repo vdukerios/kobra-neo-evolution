@@ -40,6 +40,7 @@ int32_t main(void)
 {
 
     scb_init();
+    heater_pin_init(); // first GPIO operation: off before clocks/UART/LCD can block
 
     clock_init();
 
@@ -59,7 +60,6 @@ int32_t main(void)
 
     stepper_pin_init();
 
-    heater_pin_init();
 		
     timerA2_bltouch_init();  
     fan_pwm_init();

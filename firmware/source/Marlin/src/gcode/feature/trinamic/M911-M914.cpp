@@ -211,81 +211,105 @@
 #if ENABLED(HYBRID_THRESHOLD)
   void GcodeSuite::M913() {
     #define TMC_SAY_PWMTHRS(A,Q) tmc_print_pwmthrs(stepper##Q)
-    #define TMC_SET_PWMTHRS(A,Q) stepper##Q.set_pwm_thrs(value)
+    #define TMC_SET_PWMTHRS(A,Q) do { if (!stepper##Q.pwm_thrs_is_valid(value)) { SERIAL_ERROR_MSG("Bad hybrid threshold"); return; } if (apply) stepper##Q.set_pwm_thrs(value); } while (0)
     #define TMC_SAY_PWMTHRS_E(E) tmc_print_pwmthrs(stepperE##E)
-    #define TMC_SET_PWMTHRS_E(E) stepperE##E.set_pwm_thrs(value)
+    #define TMC_SET_PWMTHRS_E(N) do { if (!stepperE##N.pwm_thrs_is_valid(value)) { SERIAL_ERROR_MSG("Bad hybrid threshold"); return; } if (apply) stepperE##N.set_pwm_thrs(value); } while (0)
 
     bool report = true;
-    #if AXIS_IS_TMC(X) || AXIS_IS_TMC(X2) || AXIS_IS_TMC(Y) || AXIS_IS_TMC(Y2) || AXIS_IS_TMC(Z) || AXIS_IS_TMC(Z2) || AXIS_IS_TMC(Z3) || AXIS_IS_TMC(Z4)
-      const uint8_t index = parser.byteval('I');
+    #if E_STEPPERS
+      if (parser.seenval('T')) {
+        const float tool_input = parser.value_float();
+        if (!isfinite(tool_input) || !WITHIN(tool_input, 0, E_STEPPERS - 1) || tool_input != FLOOR(tool_input)) {
+          SERIAL_ERROR_MSG("Bad extruder index"); return;
+        }
+      }
     #endif
-    LOOP_XYZE(i) if (int32_t value = parser.longval(axis_codes[i])) {
-      report = false;
-      switch (i) {
-        case X_AXIS:
-          #if AXIS_HAS_STEALTHCHOP(X)
-            if (index < 2) TMC_SET_PWMTHRS(X,X);
-          #endif
-          #if AXIS_HAS_STEALTHCHOP(X2)
-            if (!(index & 1)) TMC_SET_PWMTHRS(X,X2);
-          #endif
-          break;
-        case Y_AXIS:
-          #if AXIS_HAS_STEALTHCHOP(Y)
-            if (index < 2) TMC_SET_PWMTHRS(Y,Y);
-          #endif
-          #if AXIS_HAS_STEALTHCHOP(Y2)
-            if (!(index & 1)) TMC_SET_PWMTHRS(Y,Y2);
-          #endif
-          break;
-        case Z_AXIS:
-          #if AXIS_HAS_STEALTHCHOP(Z)
-            if (index < 2) TMC_SET_PWMTHRS(Z,Z);
-          #endif
-          #if AXIS_HAS_STEALTHCHOP(Z2)
-            if (index == 0 || index == 2) TMC_SET_PWMTHRS(Z,Z2);
-          #endif
-          #if AXIS_HAS_STEALTHCHOP(Z3)
-            if (index == 0 || index == 3) TMC_SET_PWMTHRS(Z,Z3);
-          #endif
-          #if AXIS_HAS_STEALTHCHOP(Z4)
-            if (index == 0 || index == 4) TMC_SET_PWMTHRS(Z,Z4);
-          #endif
-          break;
-        case E_AXIS: {
-          #if E_STEPPERS
-            const int8_t target_extruder = get_target_extruder_from_command();
-            if (target_extruder < 0) return;
-            switch (target_extruder) {
-              #if AXIS_HAS_STEALTHCHOP(E0)
-                case 0: TMC_SET_PWMTHRS_E(0); break;
-              #endif
-              #if E_STEPPERS > 1 && AXIS_HAS_STEALTHCHOP(E1)
-                case 1: TMC_SET_PWMTHRS_E(1); break;
-              #endif
-              #if E_STEPPERS > 2 && AXIS_HAS_STEALTHCHOP(E2)
-                case 2: TMC_SET_PWMTHRS_E(2); break;
-              #endif
-              #if E_STEPPERS > 3 && AXIS_HAS_STEALTHCHOP(E3)
-                case 3: TMC_SET_PWMTHRS_E(3); break;
-              #endif
-              #if E_STEPPERS > 4 && AXIS_HAS_STEALTHCHOP(E4)
-                case 4: TMC_SET_PWMTHRS_E(4); break;
-              #endif
-              #if E_STEPPERS > 5 && AXIS_HAS_STEALTHCHOP(E5)
-                case 5: TMC_SET_PWMTHRS_E(5); break;
-              #endif
-              #if E_STEPPERS > 6 && AXIS_HAS_STEALTHCHOP(E6)
-                case 6: TMC_SET_PWMTHRS_E(6); break;
-              #endif
-              #if E_STEPPERS > 7 && AXIS_HAS_STEALTHCHOP(E7)
-                case 7: TMC_SET_PWMTHRS_E(7); break;
-              #endif
-            }
-          #endif // E_STEPPERS
-        } break;
+    #if AXIS_IS_TMC(X) || AXIS_IS_TMC(X2) || AXIS_IS_TMC(Y) || AXIS_IS_TMC(Y2) || AXIS_IS_TMC(Z) || AXIS_IS_TMC(Z2) || AXIS_IS_TMC(Z3) || AXIS_IS_TMC(Z4)
+      const float index_input = parser.floatval('I');
+      if (!isfinite(index_input) || !WITHIN(index_input, 0, 4) || index_input != FLOOR(index_input)) {
+        SERIAL_ERROR_MSG("Bad driver index"); return;
+      }
+      const uint8_t index = index_input;
+    #endif
+    // Validate every requested axis before writing any driver. The stored menu range is 0..255.
+    LOOP_XYZE(i) if (parser.seenval(axis_codes[i])) {
+      const float input = parser.value_float();
+      if (!isfinite(input) || !WITHIN(input, 0, 255) || input != FLOOR(input)) {
+        SERIAL_ERROR_MSG("Bad hybrid threshold"); return;
       }
     }
+    for (uint8_t pass = 0; pass < 2; ++pass) {
+      const bool apply = pass != 0;
+      LOOP_XYZE(i) if (parser.seenval(axis_codes[i])) {
+        const uint32_t value = parser.value_float();
+        report = false;
+        switch (i) {
+          case X_AXIS:
+            #if AXIS_HAS_STEALTHCHOP(X)
+              if (index < 2) TMC_SET_PWMTHRS(X,X);
+            #endif
+            #if AXIS_HAS_STEALTHCHOP(X2)
+              if (!(index & 1)) TMC_SET_PWMTHRS(X,X2);
+            #endif
+            break;
+          case Y_AXIS:
+            #if AXIS_HAS_STEALTHCHOP(Y)
+              if (index < 2) TMC_SET_PWMTHRS(Y,Y);
+            #endif
+            #if AXIS_HAS_STEALTHCHOP(Y2)
+              if (!(index & 1)) TMC_SET_PWMTHRS(Y,Y2);
+            #endif
+            break;
+          case Z_AXIS:
+            #if AXIS_HAS_STEALTHCHOP(Z)
+              if (index < 2) TMC_SET_PWMTHRS(Z,Z);
+            #endif
+            #if AXIS_HAS_STEALTHCHOP(Z2)
+              if (index == 0 || index == 2) TMC_SET_PWMTHRS(Z,Z2);
+            #endif
+            #if AXIS_HAS_STEALTHCHOP(Z3)
+              if (index == 0 || index == 3) TMC_SET_PWMTHRS(Z,Z3);
+            #endif
+            #if AXIS_HAS_STEALTHCHOP(Z4)
+              if (index == 0 || index == 4) TMC_SET_PWMTHRS(Z,Z4);
+            #endif
+            break;
+          case E_AXIS: {
+            #if E_STEPPERS
+              const int8_t target_extruder = get_target_extruder_from_command();
+              if (target_extruder < 0) return;
+              switch (target_extruder) {
+                #if AXIS_HAS_STEALTHCHOP(E0)
+                  case 0: TMC_SET_PWMTHRS_E(0); break;
+                #endif
+                #if E_STEPPERS > 1 && AXIS_HAS_STEALTHCHOP(E1)
+                  case 1: TMC_SET_PWMTHRS_E(1); break;
+                #endif
+                #if E_STEPPERS > 2 && AXIS_HAS_STEALTHCHOP(E2)
+                  case 2: TMC_SET_PWMTHRS_E(2); break;
+                #endif
+                #if E_STEPPERS > 3 && AXIS_HAS_STEALTHCHOP(E3)
+                  case 3: TMC_SET_PWMTHRS_E(3); break;
+                #endif
+                #if E_STEPPERS > 4 && AXIS_HAS_STEALTHCHOP(E4)
+                  case 4: TMC_SET_PWMTHRS_E(4); break;
+                #endif
+                #if E_STEPPERS > 5 && AXIS_HAS_STEALTHCHOP(E5)
+                  case 5: TMC_SET_PWMTHRS_E(5); break;
+                #endif
+                #if E_STEPPERS > 6 && AXIS_HAS_STEALTHCHOP(E6)
+                  case 6: TMC_SET_PWMTHRS_E(6); break;
+                #endif
+                #if E_STEPPERS > 7 && AXIS_HAS_STEALTHCHOP(E7)
+                  case 7: TMC_SET_PWMTHRS_E(7); break;
+                #endif
+              }
+            #endif // E_STEPPERS
+          } break;
+        }
+      }
+
+    } // validation / application passes
 
     if (report) {
       #if AXIS_HAS_STEALTHCHOP(X)

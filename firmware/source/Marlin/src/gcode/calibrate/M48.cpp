@@ -55,7 +55,7 @@ extern const char SP_Y_STR[];
 
 void GcodeSuite::M48() {
 
-  if (homing_needed_error()) return;
+  if (!all_axes_trusted()) { SERIAL_ERROR_MSG("Home XYZ first"); return; }
 
   const int8_t verbose_level = parser.byteval('V', 1);
   if (!WITHIN(verbose_level, 0, 4)) {
@@ -261,8 +261,9 @@ void GcodeSuite::M48() {
 
     #if HAS_WIRED_LCD
       // Display M48 results in the status bar
-      char sigma_str[8];
-      ui.status_printf_P(0, PSTR(S_FMT ": %s"), GET_TEXT(MSG_M48_DEVIATION), dtostrf(sigma, 2, 6, sigma_str));
+      char sigma_str[48]; // float32 fixed notation, sign, fraction and terminator
+      snprintf(sigma_str, sizeof(sigma_str), "%.6f", double(sigma));
+      ui.status_printf_P(0, PSTR(S_FMT ": %s"), GET_TEXT(MSG_M48_DEVIATION), sigma_str);
     #endif
   }
 

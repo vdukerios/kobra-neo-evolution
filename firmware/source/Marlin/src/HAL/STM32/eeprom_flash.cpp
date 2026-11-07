@@ -43,67 +43,80 @@
  * on 2 of these pages. Each write, we'd use 2 different pages from a pool of pages until we are done.
  */
 
-static bool eeprom_data_written = false;
+static bool eeprom_data_written = false, eeprom_access_active = false, eeprom_session_written = false, eeprom_session_failed = false, eeprom_buffer_confirmed = false;
 
-size_t PersistentStore::capacity()
-{
-    return MARLIN_EEPROM_SIZE;
-}
+size_t PersistentStore::capacity() { return EEPROM_SIZE; }
 
 bool PersistentStore::access_start() {
-    Intflash::eeprom_buffer_fill();
-    return true;
-}
-
-bool PersistentStore::access_finish() {
-  if (eeprom_data_written) {
-      TERN_(HAS_PAUSE_SERVO_OUTPUT, PAUSE_SERVO_OUTPUT());
-      DISABLE_ISRS();
-      Intflash::eeprom_buffer_flush();
-      ENABLE_ISRS();
-      TERN_(HAS_PAUSE_SERVO_OUTPUT, RESUME_SERVO_OUTPUT());
-      eeprom_data_written = false;
-  }
+  if (eeprom_access_active) return false;
+  // Each session starts from the committed snapshot. Owners retain their RAM
+  // values and must explicitly retry their own save after a failed transaction.
+  eeprom_buffer_confirmed = Intflash::eeprom_buffer_fill();
+  if (!eeprom_buffer_confirmed) return false;
+  eeprom_data_written = false;
+  eeprom_session_written = eeprom_session_failed = false;
+  eeprom_access_active = true;
   return true;
 }
 
+bool PersistentStore::access_finish() {
+  if (!eeprom_access_active) return false;
+  bool ok = !eeprom_session_failed;
+  if (ok && eeprom_data_written && eeprom_session_written) {
+    TERN_(HAS_PAUSE_SERVO_OUTPUT, PAUSE_SERVO_OUTPUT());
+    const uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    ok = Intflash::eeprom_buffer_flush();
+    __set_PRIMASK(primask);
+    TERN_(HAS_PAUSE_SERVO_OUTPUT, RESUME_SERVO_OUTPUT());
+    if (ok) { eeprom_data_written = false; eeprom_buffer_confirmed = true; }
+  }
+  if (!ok) {
+    // Roll back transport RAM; a stats write must never commit failed settings.
+    eeprom_buffer_confirmed = Intflash::eeprom_buffer_fill();
+    eeprom_data_written = false;
+  }
+  eeprom_access_active = false;
+  return ok;
+}
+
+static bool valid_access(const int pos, const size_t size) {
+  return pos >= 0 && (size_t)pos <= EEPROM_SIZE && size <= EEPROM_SIZE - (size_t)pos;
+}
 bool PersistentStore::write_data(int &pos, const uint8_t *value, size_t size, uint16_t *crc) {
+  if (!valid_access(pos, size)) { eeprom_session_failed = true; return true; }
+  if (!size) return false;
+  if (!eeprom_access_active || !value || !crc) { eeprom_session_failed = true; return true; }
+  eeprom_session_written = true;
   while (size--) {
-    uint8_t v = *value;
-      if (v != Intflash::eeprom_buffered_read_byte(pos)) {
-        Intflash::eeprom_buffered_write_byte(pos, v);
-        eeprom_data_written = true;
-      }
-    crc16(crc, &v, 1);
-    pos++;
-    value++;
+    const uint8_t v = *value++;
+    if (v != Intflash::eeprom_buffered_read_byte(pos)) {
+      Intflash::eeprom_buffered_write_byte(pos, v);
+      eeprom_data_written = true;
+      eeprom_buffer_confirmed = false;
+    }
+    crc16(crc, &v, 1); ++pos;
   }
   return false;
 }
-
-bool PersistentStore::read_data(int &pos, uint8_t *value, size_t size, uint16_t *crc, const bool writing/*=true*/) {
-  do {
-    const uint8_t c = TERN(FLASH_EEPROM_LEVELING, ram_eeprom[pos], Intflash::eeprom_buffered_read_byte(pos));
-    if (writing) *value = c;
+bool PersistentStore::read_data(int &pos, uint8_t *value, size_t size, uint16_t *crc, const bool writing) {
+  if (!valid_access(pos, size)) { eeprom_session_failed = true; return true; }
+  if (!size) return false;
+  if ((!eeprom_access_active && !eeprom_buffer_confirmed) || (writing && !value) || !crc) { eeprom_session_failed = true; return true; }
+  while (size--) {
+    const uint8_t c = Intflash::eeprom_buffered_read_byte(pos++);
+    if (writing) *value++ = c;
     crc16(crc, &c, 1);
-    pos++;
-    value++;
-  } while (--size);
+  }
   return false;
 }
-
-uint32_t PersistentStore::FLASH_If_Erase(uint32_t addr_start, uint32_t addr_end) {
-    Intflash::FlashErasePage(addr_start);
-    return(0);
+uint32_t PersistentStore::FLASH_If_Erase(uint32_t start, uint32_t end) {
+  if (end <= start || end - start > FLASH_SECTOR_SIZE) return FLASHIF_ERASEKO;
+  return Intflash::FlashErasePage(start) == Ok ? FLASHIF_OK : FLASHIF_ERASEKO;
 }
-
-uint32_t PersistentStore::FLASH_If_Write(uint32_t destination, const void *p_source, uint32_t length) {
-  return (Intflash::Flash_Updata(destination,p_source,length));
+uint32_t PersistentStore::FLASH_If_Write(uint32_t destination, const void *source, uint32_t length) {
+  return Intflash::Flash_Updata(destination, source, length) == Ok ? FLASHIF_OK : FLASHIF_WRITING_ERROR;
 }
-
-
-
-
 
 #endif // FLASH_EEPROM_EMULATION
 #endif // ARDUINO_ARCH_STM32 && !STM32GENERIC

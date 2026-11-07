@@ -42,6 +42,7 @@
 #endif
 
 #include "bltouch.h"
+bool PrintJobRecovery::outage_monitor_enabled = false;
 bool PrintJobRecovery::enabled; // Initialized by settings.load()
 
 SdFile PrintJobRecovery::file;
@@ -64,6 +65,12 @@ uint32_t PrintJobRecovery::cmd_sdpos, // = 0
 #include "../module/printcounter.h"
 #include "../module/temperature.h"
 #include "../core/serial.h"
+#include "../MarlinCore.h"
+#include "../libs/crc16.h"
+#include <stddef.h>
+#if ENABLED(ADVANCED_PAUSE_FEATURE)
+  #include "pause.h"
+#endif
 
 #if ENABLED(FWRETRACT)
   #include "fwretract.h"
@@ -74,6 +81,59 @@ uint32_t PrintJobRecovery::cmd_sdpos, // = 0
 #endif
 #define DEBUG_OUT ENABLED(DEBUG_POWER_LOSS_RECOVERY)
 #include "../core/debug_out.h"
+
+static const uint32_t RECOVERY_MAGIC = 0x4B4E4532UL;
+static const uint16_t RECOVERY_VERSION = 1;
+static uint16_t recovery_checksum(const job_recovery_info_t &saved) {
+  uint16_t crc = 0;
+  const uint8_t *bytes = reinterpret_cast<const uint8_t *>(&saved);
+  const size_t offset = offsetof(job_recovery_info_t, checksum);
+  crc16(&crc, bytes, offset);
+  crc16(&crc, bytes + offset + sizeof(saved.checksum), sizeof(saved) - offset - sizeof(saved.checksum));
+  return crc;
+}
+
+bool job_recovery_info_t::valid() const {
+  if (!PrintJobRecovery::supported) return false;
+  if (!valid_head || valid_head == 0xFF || valid_head != valid_foot
+      || format_magic != RECOVERY_MAGIC || format_version != RECOVERY_VERSION
+      || format_size != sizeof(*this) || checksum != recovery_checksum(*this)) return false;
+  if (!memchr(sd_filename, 0, sizeof(sd_filename)) || !sd_filename[0]
+      || !memchr(display_filename, 0, sizeof(display_filename))) return false;
+  LOOP_XYZE(i) if (!isfinite(current_position[i]) || ABS(current_position[i]) > 1000000.0f) return false;
+  if (!WITHIN(current_position.x, X_MIN_POS, X_MAX_POS)
+      || !WITHIN(current_position.y, Y_MIN_POS, Y_MAX_POS)
+      || !WITHIN(current_position.z, Z_MIN_POS, Z_MAX_POS)
+      || !isfinite(zraise) || zraise < 0 || zraise > Z_MAX_POS - Z_MIN_POS
+      || !feedrate || print_progress > 100 || axis_relative >= 64) return false;
+  #if HAS_HOTEND
+    HOTEND_LOOP() if (target_temperature[e] < 0 || target_temperature[e] > thermalManager.hotend_max_target(e)) return false;
+  #endif
+  #if HAS_HEATED_BED
+    if (target_temperature_bed < 0 || target_temperature_bed > BED_MAX_TARGET) return false;
+  #endif
+  #if HAS_LEVELING
+    if (!isfinite(fade) || fade < 0 || fade > Z_MAX_POS) return false;
+  #endif
+  #if HAS_MULTI_EXTRUDER
+    if (active_extruder >= EXTRUDERS) return false;
+  #endif
+  #if DISABLED(NO_VOLUMETRICS)
+    if (volumetric_enabled) LOOP_L_N(e, EXTRUDERS)
+      if (!isfinite(filament_size[e]) || filament_size[e] <= 0 || filament_size[e] > 1000) return false;
+  #endif
+  #if HAS_HOME_OFFSET
+    LOOP_XYZ(i) if (!isfinite(home_offset[i]) || ABS(home_offset[i]) > 1000000.0f) return false;
+  #endif
+  #if HAS_POSITION_SHIFT
+    LOOP_XYZ(i) if (!isfinite(position_shift[i]) || ABS(position_shift[i]) > 1000000.0f) return false;
+  #endif
+  #if ENABLED(FWRETRACT)
+    LOOP_L_N(e, EXTRUDERS) if (!isfinite(retract[e]) || ABS(retract[e]) > 1000000.0f) return false;
+    if (!isfinite(retract_hop) || ABS(retract_hop) > 1000000.0f) return false;
+  #endif
+  return true;
+}
 
 PrintJobRecovery recovery;
 
@@ -94,12 +154,24 @@ PrintJobRecovery recovery;
 /**
  * Clear the recovery info
  */
-void PrintJobRecovery::init() { memset(&info, 0, sizeof(info)); }
+void PrintJobRecovery::init() { enabled = supported && enabled; memset(&info, 0, sizeof(info)); }
+
+void PrintJobRecovery::report_unavailable() {
+  SERIAL_ECHO_MSG("Recovery unavailable: executed position not verified");
+  #if HAS_DISPLAY
+    ui.set_status_P(TERN0(HAS_MULTI_LANGUAGE, ui.language > 0)
+      ? PSTR("Recovery unavailable") : PSTR("Recuperacion no disponible"));
+  #endif
+}
 
 /**
  * Enable or disable then call changed()
  */
 void PrintJobRecovery::enable(const bool onoff) {
+  if (!supported) {
+    if (!onoff) outage_monitor_enabled = false; // Explicit disarm remains available.
+    init(); report_unavailable(); return;
+  }
   enabled = onoff;
   changed();
 }
@@ -110,6 +182,7 @@ void PrintJobRecovery::enable(const bool onoff) {
  *  - Disabled: Write the job recovery file
  */
 void PrintJobRecovery::changed() {
+  if (!supported) { init(); return; }
   if (!enabled)
     purge();
   else if (IS_SD_PRINTING())
@@ -122,6 +195,7 @@ void PrintJobRecovery::changed() {
  * If a saved state exists send 'M1000 S' to initiate job recovery.
  */
 void PrintJobRecovery::check() {
+  if (!supported) { init(); report_unavailable(); return; }
   //if (!card.isMounted()) card.mount();
   if(card.isMounted()) {
     load();
@@ -146,8 +220,8 @@ void PrintJobRecovery::purge() {
 #endif
 	
 	  if(info.valid_head != 0xFF || info.valid_foot != 0xFF) {
-		if(persistentStore.FLASH_If_Erase(FLASH_OUTAGE_DATA_ADDR, FLASH_OUTAGE_DATA_ADDR+0x400) != FLASHIF_OK) {
-		}
+        if (persistentStore.FLASH_If_Erase(FLASH_OUTAGE_DATA_ADDR, FLASH_OUTAGE_DATA_ADDR+0x400) != FLASHIF_OK)
+          SERIAL_ERROR_MSG("Recovery erase failed");
 	  }
 	
 	  memset(&info, 0, sizeof(info));	// init();
@@ -158,21 +232,25 @@ void PrintJobRecovery::purge() {
  * Load the recovery data, if it exists
  */
 void PrintJobRecovery::load() {
+  if (!supported) { init(); return; }
      memcpy(&info, (uint8_t *)(FLASH_OUTAGE_DATA_ADDR), sizeof(info));
+     if (!info.valid()) init();
 }
 
 /**
  * Set info fields that won't change
  */
 void PrintJobRecovery::prepare() {
+  if (!supported) { init(); return; }
   card.getAbsFilename(info.sd_filename);  // SD filename
-  cmd_sdpos = 0;
+  cmd_sdpos = card.getIndex();
 }
 
 /**
  * Save the current machine state to the power-loss recovery file
  */
-void PrintJobRecovery::save(const bool force/*=false*/, const float zraise/*=0*/) {
+bool PrintJobRecovery::save(const bool force/*=false*/, const float zraise/*=0*/) {
+  if (!supported) { init(); return false; }
 
   #if SAVE_INFO_INTERVAL_MS > 0
     static millis_t next_save_ms; // = 0
@@ -199,14 +277,18 @@ void PrintJobRecovery::save(const bool force/*=false*/, const float zraise/*=0*/
     #endif
 
     // Set Head and Foot to matching non-zero values
-    if (!++info.valid_head) ++info.valid_head; // non-zero in sequence
+    if (!++info.valid_head || info.valid_head == 0xFF) info.valid_head = 1; // non-zero in sequence
     //if (!IS_SD_PRINTING()) info.valid_head = 0;
     info.valid_foot = info.valid_head;
 //	SERIAL_ECHOLNPAIR("head=", info.valid_head,"foot=", info.valid_foot);
 
     // Machine state
     info.current_position = current_position;
-    info.feedrate = uint16_t(MMS_TO_MMM(feedrate_mm_s));
+    const float saved_feedrate = MMS_TO_MMM(feedrate_mm_s);
+    if (!isfinite(saved_feedrate) || saved_feedrate < 1 || saved_feedrate > UINT16_MAX) {
+      SERIAL_ERROR_MSG("Recovery feedrate out of range"); return false;
+    }
+    info.feedrate = uint16_t(saved_feedrate);
     info.zraise = zraise;
 
     TERN_(GCODE_REPEAT_MARKERS, info.stored_repeat = repeat);
@@ -260,9 +342,10 @@ void PrintJobRecovery::save(const bool force/*=false*/, const float zraise/*=0*/
     info.flag.dryrun = !!(marlin_debug_flags & MARLIN_DEBUG_DRYRUN);
     info.flag.allow_cold_extrusion = TERN0(PREVENT_COLD_EXTRUSION, thermalManager.allow_cold_extrude);
 
-    write();
+    if (!write()) { info.valid_head = info.valid_foot = 0; return false; }
 
   }
+  return true;
 }
 
 #if PIN_EXISTS(POWER_LOSS)
@@ -271,7 +354,7 @@ void PrintJobRecovery::save(const bool force/*=false*/, const float zraise/*=0*/
       static uint8_t cnt = 0;
       static uint32_t adc_raw_last = 0;
 
-      if(!enabled) {
+      if (!(supported ? enabled : outage_monitor_enabled)) {
         return ;
       }
 
@@ -364,7 +447,7 @@ void PrintJobRecovery::save(const bool force/*=false*/, const float zraise/*=0*/
     WRITE(Z_ENABLE_PIN, 1);
   
     // Save, including the limited Z raise
-    if (IS_SD_PRINTING()) save(true, zraise);
+    if (supported && IS_SD_PRINTING()) save(true, zraise);
   
     // Disable all heaters to reduce power loss
     thermalManager.disable_all_heaters();
@@ -373,7 +456,7 @@ void PrintJobRecovery::save(const bool force/*=false*/, const float zraise/*=0*/
       // Do a hard-stop of the steppers (with possibly a loud thud)
       quickstop_stepper();
       // With backup power a retract and raise can be done now
-      retract_and_lift(zraise);
+      if (supported) retract_and_lift(zraise);
     #endif
   
     //kill(GET_TEXT(MSG_OUTAGE_RECOVERY));
@@ -386,30 +469,52 @@ void PrintJobRecovery::save(const bool force/*=false*/, const float zraise/*=0*/
 /**
  * Save the recovery info the recovery file
  */
-void PrintJobRecovery::write() {
-
-
-  #if 0
-  open(false);
-  file.seekSet(0);
-  const int16_t ret = file.write(&info, sizeof(info));
-  if (ret == -1) DEBUG_ECHOLNPGM("Power-loss file write failed.");
-  if (!file.close()) DEBUG_ECHOLNPGM("Power-loss file close failed.");
-#endif
-/*
-  if(persistentStore.FLASH_If_Erase(FLASH_OUTAGE_DATA_ADDR, FLASH_OUTAGE_DATA_ADDR+0x400) != FLASHIF_OK) {
-    return;
+bool PrintJobRecovery::write() {
+  if (!supported) return false;
+  info.format_magic = RECOVERY_MAGIC;
+  info.format_version = RECOVERY_VERSION;
+  info.format_size = sizeof(info);
+  job_recovery_info_t snapshot;
+  memcpy(&snapshot, &info, sizeof(snapshot));
+  // Only sdpos is updated by the stepper interrupt; capture its aligned word once.
+  snapshot.sdpos = info.sdpos;
+  snapshot.checksum = recovery_checksum(snapshot);
+  info.checksum = snapshot.checksum;
+  if (!snapshot.valid()) { SERIAL_ERROR_MSG("Invalid recovery state"); return false; }
+  // FLASH_If_Write owns erase and readback verification.
+  if (persistentStore.FLASH_If_Write(FLASH_OUTAGE_DATA_ADDR, &snapshot, sizeof(snapshot)) != FLASHIF_OK) {
+    SERIAL_ERROR_MSG("Recovery write failed"); return false;
   }
-*/
-  if(persistentStore.FLASH_If_Write(FLASH_OUTAGE_DATA_ADDR, &info, sizeof(info)) != FLASHIF_OK) {
-  	SERIAL_ECHOLNPGM("write error");
-  }
+  return true;
 }
 
 /**
  * Resume the saved print job
  */
 void PrintJobRecovery::resume() {
+  if (!supported) { init(); report_unavailable(); return; }
+  if (!valid() || card.flag.abort_sd_printing || marlin_state == MF_KILLED) return;
+  const uint32_t abort_epoch = TERN0(HAS_DISPLAY, ui.print_abort_count);
+  bool resume_cancelled = false;
+  auto stop_recovery = [&]() {
+    resume_cancelled = true;
+    wait_for_heatup = wait_for_user = false;
+    thermalManager.disable_all_heaters();
+    TERN_(ADVANCED_PAUSE_FEATURE, cancel_pause());
+    card.abortFilePrintSoon();
+    purge();
+  };
+  auto cancelled = [&]() -> bool {
+    if (resume_cancelled || card.flag.abort_sd_printing || !card.isMounted()
+        || marlin_state == MF_KILLED || TERN0(HAS_DISPLAY, ui.print_abort_count != abort_epoch)) {
+      stop_recovery(); return true;
+    }
+    return false;
+  };
+  // Open before applying any heat or position from the saved job.
+  card.openFileRead(info.sd_filename);
+  if (!card.isFileOpen() || info.sdpos > card.getFileSize() || cancelled()) { stop_recovery(); return; }
+
 
  char cmd[MAX_CMD_SIZE+16], str_1[16], str_2[16];
 
@@ -423,7 +528,9 @@ void PrintJobRecovery::resume() {
 
   #if HAS_LEVELING
     // Make sure leveling is off before any G92 and G28
+    if (cancelled()) return;
     gcode.process_subcommands_now_P(PSTR("M420 S0 Z0"));
+    if (cancelled()) return;
   #endif
 
   // Restore the bed temperature,no waiting
@@ -431,7 +538,9 @@ void PrintJobRecovery::resume() {
     int16_t bt = info.target_temperature_bed;
     if (bt) {
       sprintf_P(cmd, PSTR("M140 S%i"), bt);
+      if (cancelled()) return;
       gcode.process_subcommands_now(cmd);
+      if (cancelled()) return;
     }
   #endif
 
@@ -443,10 +552,14 @@ void PrintJobRecovery::resume() {
       if (et) {
     #if HAS_MULTI_HOTEND
           sprintf_P(cmd, PSTR("T%i S"), e);
+          if (cancelled()) return;
           gcode.process_subcommands_now(cmd);
+          if (cancelled()) return;
     #endif
         sprintf_P(cmd, PSTR("M104 S%i"), et);
+        if (cancelled()) return;
         gcode.process_subcommands_now(cmd);
+        if (cancelled()) return;
       }
     }
   #endif
@@ -455,8 +568,7 @@ void PrintJobRecovery::resume() {
     bt = info.target_temperature_bed;
     if (bt) {
       // Restore the bed temperature
-      sprintf_P(cmd, PSTR("M190 S%i"), bt);
-      gcode.process_subcommands_now(cmd);
+      if (cancelled() || !thermalManager.wait_for_bed()) { stop_recovery(); return; }
     }
   #endif
 
@@ -465,12 +577,8 @@ void PrintJobRecovery::resume() {
     HOTEND_LOOP() {
       et = info.target_temperature[e];
       if (et) {
-        #if HAS_MULTI_HOTEND
-          sprintf_P(cmd, PSTR("T%i S"), e);
-          gcode.process_subcommands_now(cmd);
-        #endif
-        sprintf_P(cmd, PSTR("M109 S%i"), et);
-        gcode.process_subcommands_now(cmd);
+
+        if (cancelled() || !thermalManager.wait_for_hotend(e)) { stop_recovery(); return; }
       }
     }
   #endif
@@ -479,24 +587,30 @@ void PrintJobRecovery::resume() {
   #if Z_HOME_DIR > 0
 
     // If Z homing goes to max, just reset E and home all
+    if (cancelled()) return;
     gcode.process_subcommands_now_P(PSTR(
       "G92.9 E0\n"
       "G28R0"
     ));
+    if (cancelled()) return;
 
   #else // "G92.9 E0 ..."
 
     // If a Z raise occurred at outage restore Z, otherwise raise Z now
     sprintf_P(cmd, PSTR("G92.9 E0 " TERN(BACKUP_POWER_SUPPLY, "Z%s", "Z0\nG1Z%s")), dtostrf(info.zraise, 1, 3, str_1));
+    if (cancelled()) return;
     gcode.process_subcommands_now(cmd);
+    if (cancelled()) return;
 
     // Home safely with no Z raise
+    if (cancelled()) return;
     gcode.process_subcommands_now_P(PSTR(
       "G28R0"                               // No raise during G28
       #if IS_CARTESIAN && DISABLED(POWER_LOSS_RECOVER_ZHOME)
         "XY"                                // Don't home Z on Cartesian unless overridden
       #endif
     ));
+    if (cancelled()) return;
 
   #endif
 
@@ -506,7 +620,9 @@ void PrintJobRecovery::resume() {
   #if ENABLED(POWER_LOSS_RECOVER_ZHOME)
     // Z has been homed so restore Z to ZsavedPos + POWER_LOSS_ZRAISE
     sprintf_P(cmd, PSTR("G1 F500 Z%s"), dtostrf(info.current_position.z + POWER_LOSS_ZRAISE, 1, 3, str_1));
+    if (cancelled()) return;
     gcode.process_subcommands_now(cmd);
+    if (cancelled()) return;
   #endif
 
   // Recover volumetric extrusion state
@@ -514,16 +630,22 @@ void PrintJobRecovery::resume() {
     #if HAS_MULTI_EXTRUDER
       for (int8_t e = 0; e < EXTRUDERS; e++) {
         sprintf_P(cmd, PSTR("M200 T%i D%s"), e, dtostrf(info.filament_size[e], 1, 3, str_1));
+        if (cancelled()) return;
         gcode.process_subcommands_now(cmd);
+        if (cancelled()) return;
       }
       if (!info.volumetric_enabled) {
         sprintf_P(cmd, PSTR("M200 T%i D0"), info.active_extruder);
+        if (cancelled()) return;
         gcode.process_subcommands_now(cmd);
+        if (cancelled()) return;
       }
     #else
       if (info.volumetric_enabled) {
         sprintf_P(cmd, PSTR("M200 D%s"), dtostrf(info.filament_size[0], 1, 3, str_1));
+        if (cancelled()) return;
         gcode.process_subcommands_now(cmd);
+        if (cancelled()) return;
       }
     #endif
   #endif
@@ -531,7 +653,9 @@ void PrintJobRecovery::resume() {
   // Select the previously active tool (with no_move)
   #if HAS_MULTI_EXTRUDER
     sprintf_P(cmd, PSTR("T%i S"), info.active_extruder);
+    if (cancelled()) return;
     gcode.process_subcommands_now(cmd);
+    if (cancelled()) return;
   #endif
 
   // Restore print cooling fan speeds
@@ -540,7 +664,9 @@ void PrintJobRecovery::resume() {
       const int f = info.fan_speed[i];
       if (f) {
         sprintf_P(cmd, PSTR("M106 P%i S%i"), i, f);
+        if (cancelled()) return;
         gcode.process_subcommands_now(cmd);
+        if (cancelled()) return;
       }
     }
   #endif
@@ -561,7 +687,9 @@ void PrintJobRecovery::resume() {
     // the Z stepper count corresponds to the native Z.
     if (info.fade || info.flag.leveling) {
       sprintf_P(cmd, PSTR("M420 S%i Z%s"), int(info.flag.leveling), dtostrf(info.fade, 1, 1, str_1));
+      if (cancelled()) return;
       gcode.process_subcommands_now(cmd);
+      if (cancelled()) return;
     }
   #endif
 
@@ -571,17 +699,23 @@ void PrintJobRecovery::resume() {
 
   // Un-retract if there was a retract at outage
   #if POWER_LOSS_RETRACT_LEN
+    if (cancelled()) return;
     gcode.process_subcommands_now_P(PSTR("G1 E" STRINGIFY(POWER_LOSS_RETRACT_LEN) " F3000"));
+    if (cancelled()) return;
   #endif
 
   // Additional purge if configured
   #if POWER_LOSS_PURGE_LEN
     sprintf_P(cmd, PSTR("G1 E%d F200"), (POWER_LOSS_PURGE_LEN) + (POWER_LOSS_RETRACT_LEN));
+    if (cancelled()) return;
     gcode.process_subcommands_now(cmd);
+    if (cancelled()) return;
   #endif
 
   #if ENABLED(NOZZLE_CLEAN_FEATURE)
+    if (cancelled()) return;
     gcode.process_subcommands_now_P(PSTR("G12"));
+    if (cancelled()) return;
   #endif
 
   // Move back to the saved XY
@@ -589,25 +723,35 @@ void PrintJobRecovery::resume() {
     dtostrf(info.current_position.x, 1, 3, str_1),
     dtostrf(info.current_position.y, 1, 3, str_2)
   );
+  if (cancelled()) return;
   gcode.process_subcommands_now(cmd);
+  if (cancelled()) return;
 
   // Move back to the saved Z
   dtostrf(info.current_position.z, 1, 3, str_1);
   #if Z_HOME_DIR > 0 || ENABLED(POWER_LOSS_RECOVER_ZHOME)
     sprintf_P(cmd, PSTR("G1 Z%s F200"), str_1);
   #else
+    if (cancelled()) return;
     gcode.process_subcommands_now_P(PSTR("G1 Z0 F200"));
+    if (cancelled()) return;
     sprintf_P(cmd, PSTR("G92.9 Z%s"), str_1);
   #endif
+  if (cancelled()) return;
   gcode.process_subcommands_now(cmd);
+  if (cancelled()) return;
 
   // Restore the feedrate
   sprintf_P(cmd, PSTR("G1 F%d"), info.feedrate);
+  if (cancelled()) return;
   gcode.process_subcommands_now(cmd);
+  if (cancelled()) return;
 
   // Restore E position with G92.9
   sprintf_P(cmd, PSTR("G92.9 E%s"), dtostrf(info.current_position.e, 1, 3, str_1));
+  if (cancelled()) return;
   gcode.process_subcommands_now(cmd);
+  if (cancelled()) return;
 
   TERN_(GCODE_REPEAT_MARKERS, repeat = info.stored_repeat);
   TERN_(HAS_HOME_OFFSET, home_offset = info.home_offset);
@@ -628,12 +772,11 @@ void PrintJobRecovery::resume() {
   enable(true);
 
   // Resume the SD file from the last position
-  char *fn = info.sd_filename;
-  extern const char M23_STR[];
-  sprintf_P(cmd, M23_STR, fn);
-  gcode.process_subcommands_now(cmd);
+  if (cancelled() || !card.isFileOpen()) { stop_recovery(); return; }
   sprintf_P(cmd, PSTR("M24 S%ld T%ld"), resume_sdpos, info.print_job_elapsed);
+  if (cancelled()) return;
   gcode.process_subcommands_now(cmd);
+  if (cancelled() || !IS_SD_PRINTING()) { stop_recovery(); return; }
 
   TERN_(DEBUG_POWER_LOSS_RECOVERY, marlin_debug_flags = old_flags);
 }
@@ -643,7 +786,7 @@ void PrintJobRecovery::resume() {
   void PrintJobRecovery::debug(PGM_P const prefix) {
     DEBUG_PRINT_P(prefix);
     DEBUG_ECHOLNPAIR(" Job Recovery Info...\nvalid_head:", int(info.valid_head), " valid_foot:", int(info.valid_foot));
-    if (info.valid_head) {
+    if (info.valid()) {
       if (info.valid_head == info.valid_foot) {
         DEBUG_ECHOPGM("current_position: ");
         LOOP_XYZE(i) {

@@ -36,24 +36,43 @@
  *   F<fan speed>
  */
 void GcodeSuite::M145() {
-  const uint8_t material = (uint8_t)parser.intval('S');
-  if (material >= PREHEAT_COUNT)
-    SERIAL_ERROR_MSG(STR_ERR_MATERIAL_INDEX);
-  else {
-    preheat_t &mat = ui.material_preset[material];
-    #if HAS_HOTEND
-      if (parser.seenval('H'))
-        mat.hotend_temp = constrain(parser.value_int(), EXTRUDE_MINTEMP, (HEATER_0_MAXTEMP) - (HOTEND_OVERSHOOT));
-    #endif
-    #if HAS_HEATED_BED
-      if (parser.seenval('B'))
-        mat.bed_temp = constrain(parser.value_int(), BED_MINTEMP, BED_MAX_TARGET);
-    #endif
-    #if HAS_FAN
-      if (parser.seenval('F'))
-        mat.fan_speed = constrain(parser.value_int(), 0, 255);
-    #endif
+  uint32_t material = 0;
+  if (parser.seen('S') && (!parser.has_value() || !parser.value_ulong_checked(material))) {
+    SERIAL_ERROR_MSG(STR_ERR_MATERIAL_INDEX); return;
   }
+  if (material >= PREHEAT_COUNT) { SERIAL_ERROR_MSG(STR_ERR_MATERIAL_INDEX); return; }
+  preheat_t next = ui.material_preset[material];
+  #if HAS_HOTEND
+    if (parser.seen('H')) {
+      uint32_t requested;
+      if (!parser.has_value() || !parser.value_ulong_checked(requested)
+          || requested < EXTRUDE_MINTEMP || requested > (HEATER_0_MAXTEMP) - (HOTEND_OVERSHOOT)) {
+        SERIAL_ERROR_MSG("Invalid material hotend temperature"); return;
+      }
+      next.hotend_temp = int16_t(requested);
+    }
+  #endif
+  #if HAS_HEATED_BED
+    if (parser.seen('B')) {
+      uint32_t requested;
+      if (!parser.has_value() || !parser.value_ulong_checked(requested)
+          || requested < BED_MINTEMP || requested > BED_MAX_TARGET) {
+        SERIAL_ERROR_MSG("Invalid material bed temperature"); return;
+      }
+      next.bed_temp = int16_t(requested);
+    }
+  #endif
+  #if HAS_FAN
+    if (parser.seen('F')) {
+      uint32_t requested;
+      if (!parser.has_value() || !parser.value_ulong_checked(requested) || requested > 255) {
+        SERIAL_ERROR_MSG("Invalid material fan speed"); return;
+      }
+      next.fan_speed = uint8_t(requested);
+    }
+  #endif
+  ui.material_preset[material] = next; // Commit only after every supplied field is valid.
+
 }
 
 #endif // PREHEAT_COUNT

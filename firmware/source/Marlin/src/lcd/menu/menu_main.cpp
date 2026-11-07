@@ -458,7 +458,7 @@ void boton_nivelar_tick() {
         bnc_fin(true);
         break;
       }
-      queue.enqueue_now_P(PSTR("G1 Z" BNC_Z_INTERMEDIA " F" BNC_F_Z_BAJAR "\nG1 Z" BNC_Z_TRABAJO " F" BNC_F_Z_FINAL));
+      queue.enqueue_now_P(PSTR("M109 S" BNC_TEMP_AJUSTE "\nG1 Z" BNC_Z_INTERMEDIA " F" BNC_F_Z_BAJAR "\nG1 Z" BNC_Z_TRABAJO " F" BNC_F_Z_FINAL));
       bnc_fase = BNC_BAJAR;
       break;
 
@@ -502,8 +502,9 @@ bool ac_touch_flag = false;
 // Submenu "Mantenimiento": recordatorios de servicio (reiniciar el contador tras hacerlo)
 void menu_mantenimiento() {
   static auto _service_reset = [](const int index) {
-    print_job_timer.resetServiceInterval(index);
-    ui.completion_feedback();
+    const bool saved = print_job_timer.resetServiceInterval(index);
+    ui.completion_feedback(saved);
+    if (!saved) { ui.set_status_P(PSTR("Error al guardar / Save failed")); return; }
     ui.reset_status();
     ui.return_to_status();
   };

@@ -49,9 +49,11 @@ void GcodeSuite::M17() {
  * M18, M84: Disable stepper motors
  */
 void GcodeSuite::M18_M84() {
-  if (parser.seenval('S')) {
+  if (parser.seen('S')) {
+    millis_t requested;
+    if (!parser.value_duration_checked(requested, true)) { SERIAL_ERROR_MSG("Invalid motor idle duration"); return; }
     reset_stepper_timeout();
-    stepper_inactive_time = parser.value_millis_from_seconds();
+    stepper_inactive_time = requested;
   }
   else {
     if (parser.seen("XYZE")) {

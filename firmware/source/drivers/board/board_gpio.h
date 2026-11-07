@@ -166,33 +166,33 @@ extern HardwareSerial Serial4;
 
 
 extern inline en_result_t PORT_SetFuncMapp(uint8_t PinNum,en_functional_state_t enSubFunc){
-	if(PinNum>BOARD_NR_GPIO_PINS)return(Error);
+	if(PinNum>=BOARD_NR_GPIO_PINS)return(Error);
 	return (PORT_SetFunc(PIN_MAP[PinNum].gpio_port, PIN_MAP[PinNum].gpio_pin, PIN_MAP[PinNum].FuncSel, enSubFunc));
 }
 
 extern inline en_result_t PORT_InitMapp(uint8_t PinNum,const stc_port_init_t *pstcPortInit){
-	if(PinNum>BOARD_NR_GPIO_PINS)return(Error);
+	if(PinNum>=BOARD_NR_GPIO_PINS)return(Error);
 	return (PORT_Init(PIN_MAP[PinNum].gpio_port, PIN_MAP[PinNum].gpio_pin,pstcPortInit));
 }
 
 extern inline en_result_t PORT_ToggleMapp(uint8_t PinNum){
-	if(PinNum>BOARD_NR_GPIO_PINS)return(Error);
+	if(PinNum>=BOARD_NR_GPIO_PINS)return(Error);
 	return (PORT_Toggle(PIN_MAP[PinNum].gpio_port, PIN_MAP[PinNum].gpio_pin));
 }
 
 extern inline en_result_t PORT_SetBitsMapp(uint8_t PinNum){
-	if(PinNum>BOARD_NR_GPIO_PINS)return(Error);
+	if(PinNum>=BOARD_NR_GPIO_PINS)return(Error);
 	return (PORT_SetBits(PIN_MAP[PinNum].gpio_port, PIN_MAP[PinNum].gpio_pin));
 }
 
 extern inline en_result_t PORT_ResetBitsMapp(uint8_t PinNum){
-	if(PinNum>BOARD_NR_GPIO_PINS)return(Error);
+	if(PinNum>=BOARD_NR_GPIO_PINS)return(Error);
 	return (PORT_ResetBits(PIN_MAP[PinNum].gpio_port, PIN_MAP[PinNum].gpio_pin));
 }
 
 extern inline uint8_t PORT_GetBitMapp(uint8_t PinNum){
 	en_flag_status_t getbit = Reset;
-	if(PinNum>BOARD_NR_GPIO_PINS)return(false);
+	if(PinNum>=BOARD_NR_GPIO_PINS)return(false);
 	getbit  = PORT_GetBit(PIN_MAP[PinNum].gpio_port, PIN_MAP[PinNum].gpio_pin);
 	return (getbit==Reset?false:true);
 }

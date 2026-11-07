@@ -30,7 +30,7 @@
  * M75: Start print timer
  */
 void GcodeSuite::M75() {
-  startOrResumeJob();
+  if (!startOrResumeJob()) return;
 }
 
 /**
@@ -61,7 +61,9 @@ void GcodeSuite::M78() {
 
   #if HAS_SERVICE_INTERVALS
     if (parser.seenval('R')) {
-      print_job_timer.resetServiceInterval(parser.value_int());
+      if (!print_job_timer.resetServiceInterval(parser.value_int())) {
+        ui.completion_feedback(false); return;
+      }
       ui.reset_status();
       return;
     }

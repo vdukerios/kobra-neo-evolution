@@ -26,6 +26,7 @@
  */
 
 #include "gcode.h"
+#include "../module/planner.h"
 GcodeSuite gcode;
 
 #if ENABLED(WIFI_CUSTOM_COMMAND)
@@ -62,6 +63,9 @@ GcodeSuite gcode;
 #endif
 
 #include "../MarlinCore.h" // for idle()
+#if ENABLED(SDSUPPORT)
+  #include "../sd/cardreader.h"   // card.flag.abort_sd_printing (dwell)
+#endif
 
 // Inactivity shutdown
 millis_t GcodeSuite::previous_move_ms = 0,
@@ -165,6 +169,11 @@ void GcodeSuite::get_destination_from_command() {
   else
     destination.e = current_position.e;
 
+  const float requested_feedrate = parser.linearval('F') > 0 ? parser.value_feedrate() : feedrate_mm_s;
+  if (!planner.numeric_move_valid(destination, MMS_SCALED(requested_feedrate), active_extruder)) {
+    SERIAL_ERROR_MSG("Unrepresentable move"); destination = current_position; return;
+  }
+
   #if ENABLED(POWER_LOSS_RECOVERY) && !PIN_EXISTS(POWER_LOSS)
     // Only update power loss recovery on moves with E
     if (recovery.enabled && IS_SD_PRINTING() && seen.e && (seen.x || seen.y))
@@ -202,7 +211,14 @@ void GcodeSuite::get_destination_from_command() {
  */
 void GcodeSuite::dwell(millis_t time) {
   time += millis();
-  while (PENDING(millis(), time)) idle();
+  while (PENDING(millis(), time)) {
+    idle();
+    // Cancelar una impresion de SD durante una espera larga (p. ej. G4 S420) debe tener efecto ya:
+    // abortSDPrinting() solo se atiende en loop(), al que una espera no vuelve hasta terminar.
+    #if ENABLED(SDSUPPORT)
+      if (card.flag.abort_sd_printing) break;
+    #endif
+  }
 }
 
 /**

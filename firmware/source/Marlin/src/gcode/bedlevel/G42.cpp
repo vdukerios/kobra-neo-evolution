@@ -36,15 +36,19 @@
 void GcodeSuite::G42() {
   if (MOTION_CONDITIONS) {
     const bool hasI = parser.seenval('I');
-    const int8_t ix = hasI ? parser.value_int() : 0;
+    const float ix_input = hasI ? parser.value_float() : 0;
     const bool hasJ = parser.seenval('J');
-    const int8_t iy = hasJ ? parser.value_int() : 0;
+    const float iy_input = hasJ ? parser.value_float() : 0;
 
-    if ((hasI && !WITHIN(ix, 0, GRID_MAX_POINTS_X - 1)) || (hasJ && !WITHIN(iy, 0, GRID_MAX_POINTS_Y - 1))) {
+    if (!all_axes_trusted() || !leveling_is_valid()
+      || !isfinite(ix_input) || !isfinite(iy_input)
+      || !WITHIN(ix_input, 0, GRID_MAX_POINTS_X - 1) || ix_input != FLOOR(ix_input)
+      || !WITHIN(iy_input, 0, GRID_MAX_POINTS_Y - 1) || iy_input != FLOOR(iy_input)) {
       SERIAL_ECHOLNPGM(STR_ERR_MESH_XY);
       return;
     }
 
+    const uint8_t ix = ix_input, iy = iy_input;
     // Move to current_position, as modified by I, J, P parameters
     destination = current_position;
 

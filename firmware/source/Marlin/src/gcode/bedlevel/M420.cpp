@@ -27,6 +27,7 @@
 #include "../gcode.h"
 #include "../../feature/bedlevel/bedlevel.h"
 #include "../../module/planner.h"
+#include "../../module/motion_numeric.h"
 #include "../../module/probe.h"
 
 #if ENABLED(EEPROM_SETTINGS)
@@ -59,6 +60,48 @@
  *   S2        Create a simple random mesh and enable
  */
 void GcodeSuite::M420() {
+  #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
+    const bool seen_Z = parser.seen('Z');
+    const float fade_height = seen_Z ? parser.value_linear_units() : 0;
+    if (!kne_numeric::fade_valid(fade_height)
+      || (fade_height && current_position.z < fade_height && !isfinite(1 - current_position.z / fade_height))) {
+      SERIAL_ERROR_MSG("Bad fade height"); return;
+    }
+  #endif
+  #if HAS_MESH
+    const bool seen_C = parser.seen('C');
+    const float cval = seen_C ? parser.value_float() : 0;
+    if (!isfinite(cval)) { SERIAL_ERROR_MSG("Bad mesh centering"); return; }
+    #if DISABLED(AUTO_BED_LEVELING_UBL)
+      float mesh_shift = 0;
+      if (seen_C && leveling_is_valid()) {
+        #if ENABLED(M420_C_USE_MEAN)
+          float mesh_sum = 0;
+          GRID_LOOP(x, y) mesh_sum += Z_VALUES(x, y);
+          mesh_shift = mesh_sum / float(GRID_MAX_POINTS) + cval;
+        #else
+          float lo_val = Z_VALUES(0, 0), hi_val = lo_val;
+          GRID_LOOP(x, y) {
+            NOMORE(lo_val, Z_VALUES(x, y));
+            NOLESS(hi_val, Z_VALUES(x, y));
+          }
+          mesh_shift = lo_val * 0.5f + hi_val * 0.5f + cval;
+        #endif
+        if (!isfinite(mesh_shift)) { SERIAL_ERROR_MSG("Bad mesh centering"); return; }
+        GRID_LOOP(x, y) if (!isfinite(Z_VALUES(x, y) - mesh_shift)) {
+          SERIAL_ERROR_MSG("Bad mesh centering"); return;
+        }
+        #if ENABLED(AUTO_BED_LEVELING_BILINEAR)
+          bed_mesh_t candidate;
+          GRID_LOOP(x, y) candidate[x][y] = z_values[x][y] - mesh_shift;
+          if (!bilinear_mesh_valid(candidate, bilinear_grid_spacing, bilinear_start, planner.settings.axis_steps_per_mm[Z_AXIS])) {
+            SERIAL_ERROR_MSG("Unrepresentable mesh"); return;
+          }
+        #endif
+      }
+    #endif
+  #endif
+
   const bool seen_S = parser.seen('S'),
              to_enable = seen_S ? parser.value_bool() : planner.leveling_active;
 
@@ -140,8 +183,7 @@ void GcodeSuite::M420() {
     if (leveling_is_valid()) {
 
       // Subtract the given value or the mean from all mesh values
-      if (parser.seen('C')) {
-        const float cval = parser.value_float();
+      if (seen_C) {
         #if ENABLED(AUTO_BED_LEVELING_UBL)
 
           set_bed_leveling_enabled(false);
@@ -149,26 +191,7 @@ void GcodeSuite::M420() {
 
         #else
 
-          #if ENABLED(M420_C_USE_MEAN)
-
-            // Get the sum and average of all mesh values
-            float mesh_sum = 0;
-            GRID_LOOP(x, y) mesh_sum += Z_VALUES(x, y);
-            const float zmean = mesh_sum / float(GRID_MAX_POINTS);
-
-          #else
-
-            // Find the low and high mesh values
-            float lo_val = 100, hi_val = -100;
-            GRID_LOOP(x, y) {
-              const float z = Z_VALUES(x, y);
-              NOMORE(lo_val, z);
-              NOLESS(hi_val, z);
-            }
-            // Take the mean of the lowest and highest
-            const float zmean = (lo_val + hi_val) / 2.0f + cval;
-
-          #endif
+          const float zmean = mesh_shift;
 
           // If not very close to 0, adjust the mesh
           if (!NEAR_ZERO(zmean)) {
@@ -210,7 +233,7 @@ void GcodeSuite::M420() {
   }
 
   #if ENABLED(ENABLE_LEVELING_FADE_HEIGHT)
-    if (parser.seen('Z')) set_z_fade_height(parser.value_linear_units(), false);
+    if (seen_Z) set_z_fade_height(fade_height, false);
   #endif
 
   // Enable leveling if specified, or if previously active

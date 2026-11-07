@@ -23,6 +23,8 @@
 #include "../gcode.h"
 #include "../../module/motion.h"
 #include "../../module/stepper.h"
+#include "../../module/planner.h"
+#include "../../module/motion_numeric.h"
 
 #if ENABLED(I2C_POSITION_ENCODERS)
   #include "../../feature/encoder_i2c.h"
@@ -41,6 +43,32 @@ void GcodeSuite::G92() {
     constexpr uint8_t subcode_G92 = 0;
   #endif
 
+  xyze_pos_t candidate_position = current_position;
+  LOOP_XYZE(i) if (parser.seenval(axis_codes[i]) && (i == E_AXIS || subcode_G92 == 9 || !HAS_POSITION_SHIFT))
+    candidate_position[i] = parser.value_axis_units((AxisEnum)i);
+  xyze_pos_t candidate_machine = candidate_position;
+  TERN_(HAS_POSITION_MODIFIERS, planner.apply_modifiers(candidate_machine, true));
+  if (!kne_numeric::position_valid(candidate_machine, planner.settings, active_extruder)) {
+    SERIAL_ERROR_MSG("Unrepresentable position"); return;
+  }
+  // Validate all requested positions and workspace sums before changing any axis.
+  LOOP_XYZE(i) if (parser.seenval(axis_codes[i])) {
+    const float value = parser.value_axis_units((AxisEnum)i),
+                native = (i == E_AXIS || subcode_G92 == 9) ? value : LOGICAL_TO_NATIVE(value, i);
+    if (!kne_numeric::axis_value_valid(native, planner.settings.axis_steps_per_mm[i == E_AXIS ? E_AXIS_N(active_extruder) : i])) {
+      SERIAL_ERROR_MSG("Unrepresentable position"); return;
+    }
+    #if HAS_POSITION_SHIFT
+      if (i != E_AXIS && subcode_G92 == 0) {
+        const double shift = double(position_shift[i]) + double(native) - current_position[i],
+                     workspace = double(home_offset[i]) + shift;
+        if (!isfinite(shift) || fabs(shift) > FLT_MAX || !isfinite(workspace) || fabs(workspace) > FLT_MAX
+          || !kne_numeric::axis_value_valid(float(workspace), planner.settings.axis_steps_per_mm[i])) {
+          SERIAL_ERROR_MSG("Unrepresentable workspace"); return;
+        }
+      }
+    #endif
+  }
   switch (subcode_G92) {
     default: break;
     #if ENABLED(CNC_COORDINATE_SYSTEMS)

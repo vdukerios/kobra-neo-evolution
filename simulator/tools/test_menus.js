@@ -1,7 +1,6 @@
 'use strict';
 // Walk actual menu clicks, including dynamic destinations. No browser or printer.
-const fs=require('fs'),vm=require('vm'),assert=require('assert');
-const path=require('path');
+const fs=require('fs'),vm=require('vm'),assert=require('assert');const path=require('path');
 const html=fs.readFileSync(path.join(__dirname,'../simulator.html'),'utf8'),ctx={};vm.createContext(ctx);
 for(const id of ['menu-data','model','render','ui'])vm.runInContext(html.match(new RegExp('<script id="'+id+'">([\\s\\S]*?)</script>'))[1],ctx);
 const M=ctx.Model,covered=new Set(),scenarios=[];

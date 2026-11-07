@@ -10,7 +10,7 @@ Not affiliated with, endorsed by or sponsored by Anycubic.
 
 ## Project status
 
-**Version 1.0.0 is a source release.** An earlier build of this source **booted and ran on the author's Kobra Neo** (November 2026). The latest source in this repository (the audited menus, shared visual design, Home shortcuts, filament workflows and maintenance fixes) has **not been compiled or tested on hardware yet**, so **no firmware binary is attached yet**. The first binary will be published on the Releases page after that build is validated. Each feature still needs validation by more users; see [`testing/TEST_PLAN.md`](testing/TEST_PLAN.md). **Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`.**
+**Version 1.0.0 is a source release.** On 7 November 2026 the audited source was **built with Keil and run on the author's Kobra Neo for the first time**: it boots, the menus, thumbnail and remaining time work, and the bugs found in those first tests are fixed in this source (see the [7 November changes](docs/CHANGES_2026-11-07.md)). It has been tried on **one printer only** and a full print has not been completed with it yet, so **no firmware binary is attached yet**. The first binary will be published on the Releases page after a complete print validates it. Each feature still needs validation by more users; see [`testing/TEST_PLAN.md`](testing/TEST_PLAN.md). **Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`.**
 
 What is confirmed so far (one printer, the author's, November 2026): an earlier build starts, its menus work, and the interface works in English and Spanish. Everything else is **implemented but not yet validated one feature at a time**.
 
@@ -65,7 +65,7 @@ Known disabled items: mesh validation pattern (G26) and bilinear subdivision are
 3. **Get the firmware file.** No binary is attached yet (see *Project status*). Until it is published, build it yourself with Keil MDK and Arm Compiler 5 ([`docs/BUILD.md`](docs/BUILD.md)); the build writes `firmware/workspace/firmware.bin`.
 4. **Install it from an SD card**: copy `firmware.bin` to the root of a FAT32 card, insert the card with the printer off, switch the printer on and wait for the home screen. Then switch the printer off, take the card out and delete `firmware.bin` from it. The first boot restores factory settings (see [`docs/INSTALL.md`](docs/INSTALL.md)).
 5. **Re-check your settings** (`M503`) and re-measure the bed mesh; set the Z offset with [Level and center](docs/LEVELING_AND_Z_OFFSET.md). Run your own PID tune.
-6. **Set up your slicer** ([`docs/CURA_SETUP.md`](docs/CURA_SETUP.md)), print a small test model and report what you see, following [`testing/TEST_PLAN.md`](testing/TEST_PLAN.md).
+6. **Set up your slicer.** For Cura, close it and run `python cura/install_cura.py` (on Windows, double-click `cura/install_cura.bat`); it enables the thumbnail and remaining-time scripts and writes the start G-code, with a backup and an undo option ([`docs/CURA_SETUP.md`](docs/CURA_SETUP.md)). Then print a small test model and report what you see, following [`testing/TEST_PLAN.md`](testing/TEST_PLAN.md).
 
 To build the firmware yourself (Keil MDK with Arm Compiler 5), see [`docs/BUILD.md`](docs/BUILD.md).
 

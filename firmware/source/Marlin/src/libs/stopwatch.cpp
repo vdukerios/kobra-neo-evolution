@@ -42,8 +42,8 @@ bool Stopwatch::stop() {
 
   if (isRunning() || isPaused()) {
     TERN_(EXTENSIBLE_UI, ExtUI::onPrintTimerStopped());
+    if (isRunning()) stopTimestamp = millis();
     state = STOPPED;
-    stopTimestamp = millis();
     #if HAS_MODO_NOCHE
       ui.noche_evento(); // Fin de impresion: despierta la pantalla
     #endif
@@ -87,7 +87,10 @@ void Stopwatch::resume(const millis_t with_time) {
   Stopwatch::debug(PSTR("resume"));
 
   reset();
-  if ((accumulator = with_time)>0) state = RUNNING;
+  if ((accumulator = with_time) > 0) {
+    startTimestamp = millis();
+    state = RUNNING;
+  }
 }
 
 void Stopwatch::reset() {

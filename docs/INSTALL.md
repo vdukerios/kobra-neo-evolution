@@ -2,7 +2,7 @@
 
 > **Note:** no firmware binary is attached to the repository yet; it will appear on the GitHub Releases page after the current source is built and validated. Until then build it yourself ([`BUILD.md`](BUILD.md)). The file you install must be named `firmware.bin`.
 
-> **The current 1.0.0 source candidate is uncompiled and untested on hardware; an earlier Keil build booted on the author's Kobra Neo.** Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md). Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. If you are not comfortable with the risk, do not flash.
+> **The current source was built with Keil and has run on one printer (the author's Kobra Neo): it boots and the first bugs found are fixed ([`CHANGES_2026-11-07.md`](CHANGES_2026-11-07.md)); a full print has not been completed with it yet.** **Eject the SD card from your computer before removing it** (a card removed while writing got a corrupted file table), and a bad copy of `firmware.bin` shows as a black screen that keeps restarting. Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md). Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. If you are not comfortable with the risk, do not flash.
 
 Time needed: about 30 minutes for the first install, plus the calibration afterwards.
 

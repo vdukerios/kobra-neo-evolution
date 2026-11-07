@@ -59,6 +59,10 @@ inline void plr_error(PGM_P const prefix) {
   
   uint8_t SOS_flag;
 void GcodeSuite::M1000() {
+  if (!recovery.supported) {
+    if (parser.seen('C')) recovery.cancel();
+    recovery.report_unavailable(); return;
+  }
 
   if (recovery.valid()) {
     if (parser.seen('S')) {

@@ -194,11 +194,12 @@ bool CardReader::is_dir_or_gcode(const dir_t &p) {
 //
 // Get the number of (compliant) items in the folder
 //
-int CardReader::countItems(SdFile dir) {
+uint16_t CardReader::countItems(SdFile dir) {
   dir_t p;
-  int c = 0;
-  while (dir.readDir(&p, longFilename) > 0)
-    c += is_dir_or_gcode(p);
+  uint16_t c = 0;
+  while (dir.readDir(&p, longFilename) > 0) {
+    if (is_dir_or_gcode(p) && c != UINT16_MAX) ++c;
+  }
 
   #if ALL(SDCARD_SORT_ALPHA, SDSORT_USES_RAM, SDSORT_CACHE_NAMES)
     nrFiles = c;
@@ -210,9 +211,11 @@ int CardReader::countItems(SdFile dir) {
 //
 // Get file/folder info for an item by index
 //
-void CardReader::selectByIndex(SdFile dir, const uint8_t index) {
+void CardReader::selectByIndex(SdFile dir, const uint16_t index) {
   dir_t p;
-  for (uint8_t cnt = 0; dir.readDir(&p, longFilename) > 0;) {
+  filename[0] = longFilename[0] = '\0';
+  if (index == UINT16_MAX) return;
+  for (uint32_t cnt = 0; dir.readDir(&p, longFilename) > 0;) {
     if (is_dir_or_gcode(p)) {
       if (cnt == index) {
         createFilename(filename, p);
@@ -228,7 +231,7 @@ void CardReader::selectByIndex(SdFile dir, const uint8_t index) {
 //
 void CardReader::selectByName(SdFile dir, const char * const match) {
   dir_t p;
-  for (uint8_t cnt = 0; dir.readDir(&p, longFilename) > 0; cnt++) {
+  while (dir.readDir(&p, longFilename) > 0) {
     if (is_dir_or_gcode(p)) {
       createFilename(filename, p);
       if (strcasecmp(match, filename) == 0) return;
@@ -409,6 +412,7 @@ void CardReader::printFilename() {
 }
 
 void CardReader::mount() {
+  if (write_session_active()) write_failed = true;
   flag.mounted = false;
   if (root.isOpen()) root.close();
 
@@ -498,6 +502,7 @@ void CardReader::manage_media() {
  * Used by M22, "Release Media", manage_media.
  */
 void CardReader::release() {
+  if (write_session_active()) write_failed = true;
   // Card removed while printing? Abort!
   if (IS_SD_PRINTING())
     card.flag.abort_sd_printing = true;
@@ -541,17 +546,21 @@ void CardReader::startFileprint() {
 // Run tasks upon finishing or aborting a file print.
 //
 void CardReader::endFilePrint(TERN_(SD_RESORT, const bool re_sort/*=false*/)) {
+  if (write_session_active()) write_failed = true;
   TERN_(ADVANCED_PAUSE_FEATURE, did_pause_print = 0);
   TERN_(DWIN_CREALITY_LCD, HMI_flag.print_finish = flag.sdprinting);
   flag.sdprinting = flag.abort_sd_printing = false;
   //if (isFileOpen()) file.close();
-  file.close()
+  file.close();
   TERN_(SD_RESORT, if (re_sort) presort());
 }
 
 void CardReader::openLogFile(char * const path) {
-  flag.logging = DISABLED(SDCARD_READONLY);
-  IF_DISABLED(SDCARD_READONLY, openFileWrite(path));
+  if (upload_session) { write_failed = true; return; }
+  openFileWrite(path);
+  upload_session = false;
+  logging_session = true; // Logging commands remain commands even if the log fails.
+  flag.logging = flag.saving && !write_failed;
 }
 
 //
@@ -599,6 +608,7 @@ void announceOpen(const uint8_t doing, const char * const path) {
 //   - 2 : Resuming from a sub-procedure
 //
 void CardReader::openFileRead(char * const path, const uint8_t subcall_type/*=0*/) {
+  if (write_session_active()) write_failed = true;
   if (!isMounted()) return;
 
   switch (subcall_type) {
@@ -666,12 +676,15 @@ inline void echo_write_to_file(const char * const fname) {
 // Open a file by DOS path for write
 //
 void CardReader::openFileWrite(char * const path) {
-  if (!isMounted()) return;
+  if (upload_session) { write_failed = true; return; }
+  endFilePrint();
+  upload_session = true;
+  logging_session = false;
+  write_failed = true; // Opening failure also quarantines the following upload.
+  if (!isMounted() || !path || !*path) { SERIAL_ERROR_MSG(STR_SD_ERR_WRITE_TO_FILE); return; }
 
   announceOpen(2, path);
   TERN_(HAS_MEDIA_SUBCALLS, file_subcall_ctr = 0);
-
-  endFilePrint();
 
   SdFile *diveDir;
   const char * const fname = diveToFile(false, diveDir, path);
@@ -681,6 +694,8 @@ void CardReader::openFileWrite(char * const path) {
     openFailed(fname);
   #else
     if (file.open(diveDir, fname, O_CREAT | O_APPEND | O_WRITE | O_TRUNC)) {
+      write_failed = false;
+      flag.logging = false;
       flag.saving = true;
       selectFileByName(fname);
       TERN_(EMERGENCY_PARSER, emergency_parser.disable());
@@ -753,22 +768,91 @@ void CardReader::report_status() {
     SERIAL_ECHOLNPGM(STR_SD_NOT_PRINTING);
 }
 
-void CardReader::write_command(char * const buf) {
-  char* begin = buf;
-  char* npos = nullptr;
-  char* end = buf + strlen(buf) - 1;
-
-  file.writeError = false;
-  if ((npos = strchr(buf, 'N'))) {
-    begin = strchr(npos, ' ') + 1;
-    end = strchr(npos, '*') - 1;
+static bool write_command_bounds(const char * const buf, const char *&begin, const char *&end) {
+  // The queue may have received this before M28. Never change its fixed slot.
+  begin = end = buf;
+  if (!buf) return false;
+  size_t size = 0;
+  while (size < MAX_CMD_SIZE && buf[size]) ++size;
+  bool valid = size > 0 && size < MAX_CMD_SIZE;
+  end = buf + size;
+  if (valid && *begin == 'N') {
+    const char *p = begin + 1;
+    const bool negative = *p == '-';
+    if (negative) ++p;
+    const char *digits = p;
+    uint32_t number = 0;
+    while (*p >= '0' && *p <= '9') {
+      const uint32_t limit = negative ? 2147483648UL : 2147483647UL;
+      if (number > (limit - (*p - '0')) / 10UL) valid = false;
+      else number = number * 10UL + (*p - '0');
+      ++p;
+    }
+    if (p == digits || *p != ' ') valid = false;
+    else {
+      begin = p + 1;
+      const char *star = (const char*)memchr(begin, '*', end - begin);
+      if (!star || star == begin) valid = false;
+      else {
+        uint8_t checksum = 0;
+        for (const char *q = buf; q < star; ++q) checksum ^= (uint8_t)*q;
+        uint16_t expected = 0; const char *q = star + 1;
+        if (q == end) valid = false;
+        for (; q < end; ++q) {
+          if (*q < '0' || *q > '9' || expected > 25 || (expected == 25 && *q > '5')) { valid = false; break; }
+          expected = expected * 10 + (*q - '0');
+        }
+        if (expected != checksum) valid = false;
+        end = star;
+      }
+    }
   }
-  end[1] = '\r';
-  end[2] = '\n';
-  end[3] = '\0';
-  file.write(begin);
+  return valid;
+}
 
-  if (file.writeError) SERIAL_ERROR_MSG(STR_SD_ERR_WRITE_TO_FILE);
+bool CardReader::is_write_end_command(const char * const buf) {
+  const char *begin, *end;
+  if (!write_command_bounds(buf, begin, end)) return false;
+  while (begin < end && (*begin == ' ' || *begin == '\t')) ++begin;
+  if (end - begin < 3 || memcmp(begin, "M29", 3)) return false;
+  begin += 3;
+  while (begin < end && (*begin == ' ' || *begin == '\t')) ++begin;
+  return begin == end;
+}
+
+bool CardReader::write_failed = false;
+bool CardReader::upload_session = false;
+bool CardReader::logging_session = false;
+bool CardReader::write_session_finishing = false;
+
+bool CardReader::finish_write_session() {
+  const bool existed = write_session_active();
+  write_session_finishing = true;
+  closefile();
+  write_session_finishing = false;
+  upload_session = logging_session = false;
+  return existed && !write_failed;
+}
+
+void CardReader::write_command(char * const buf) {
+  // A failed upload stays quarantined until the queue consumes its M29.
+  if (write_failed || !write_session_active()) return;
+  const char *begin, *end;
+  if (!write_command_bounds(buf, begin, end)) {
+    write_failed = true;
+    SERIAL_ERROR_MSG(STR_SD_ERR_WRITE_TO_FILE);
+    closefile();
+    return;
+  }
+  file.writeError = false;
+  const uint16_t count = (uint16_t)(end - begin);
+  const bool ok = file.write(begin, count) == count
+             && file.write("\r\n", 2) == 2 && !file.writeError && file.sync();
+  if (!ok) {
+    SERIAL_ERROR_MSG(STR_SD_ERR_WRITE_TO_FILE);
+    write_failed = true;
+    closefile(); // Session remains latched even though saving/mounted may clear.
+  }
 }
 
 #if DISABLED(NO_SD_AUTOSTART)
@@ -815,8 +899,10 @@ void CardReader::write_command(char * const buf) {
 #endif
 
 void CardReader::closefile(const bool store_location/*=false*/) {
-  file.sync();
-  file.close();
+  if (write_session_active() && !write_session_finishing) write_failed = true;
+  const bool synced = file.sync();
+  const bool closed = file.close();
+  if (!synced || !closed) { write_failed = true; SERIAL_ERROR_MSG(STR_SD_ERR_WRITE_TO_FILE); }
   flag.saving = flag.logging = false;
   sdpos = 0;
   TERN_(EMERGENCY_PARSER, emergency_parser.enable());

@@ -23,6 +23,7 @@
 #include "../gcode.h"
 #include "../../MarlinCore.h"
 #include "../../module/planner.h"
+#include "../../module/motion_numeric.h"
 
 #if DISABLED(NO_VOLUMETRICS)
 
@@ -86,6 +87,17 @@ void GcodeSuite::M201() {
     if (parser.seenval('G')) planner.xy_freq_min_speed_factor = constrain(parser.value_float(), 1, 100) / 100;
   #endif
 
+  planner_settings_t candidate = planner.settings;
+  LOOP_XYZE(i) if (parser.seen(axis_codes[i])) {
+    const uint8_t axis = i == E_AXIS ? E_AXIS_N(target_extruder) : i;
+    const float raw = parser.value_axis_units((AxisEnum)axis);
+    if (!isfinite(raw) || raw <= 0 || raw < 1 || raw != FLOOR(raw)) { SERIAL_ERROR_MSG("Invalid motion setting"); return; }
+    const float bounded = planner.bounded_acceleration(axis, raw);
+    if (!kne_numeric::acceleration_valid(bounded, candidate.axis_steps_per_mm[axis])) { SERIAL_ERROR_MSG("Invalid motion setting"); return; }
+    candidate.max_acceleration_mm_per_s2[axis] = bounded;
+  }
+  if (!kne_numeric::settings_valid(candidate)) { SERIAL_ERROR_MSG("Invalid motion settings"); return; }
+
   LOOP_XYZE(i) {
     if (parser.seen(axis_codes[i])) {
       const uint8_t a = (i == E_AXIS ? uint8_t(E_AXIS_N(target_extruder)) : i);
@@ -111,6 +123,17 @@ void GcodeSuite::M203() {
   const int8_t target_extruder = get_target_extruder_from_command();
   if (target_extruder < 0) return;
 
+  planner_settings_t candidate = planner.settings;
+  LOOP_XYZE(i) if (parser.seen(axis_codes[i])) {
+    const uint8_t axis = i == E_AXIS ? E_AXIS_N(target_extruder) : i;
+    const float raw = parser.value_axis_units((AxisEnum)axis);
+    if (!isfinite(raw) || raw <= 0) { SERIAL_ERROR_MSG("Invalid motion setting"); return; }
+    const float bounded = planner.bounded_feedrate(axis, raw);
+    if (!kne_numeric::feedrate_valid(bounded)) { SERIAL_ERROR_MSG("Invalid motion setting"); return; }
+    candidate.max_feedrate_mm_s[axis] = bounded;
+  }
+  if (!kne_numeric::settings_valid(candidate)) { SERIAL_ERROR_MSG("Invalid motion settings"); return; }
+
   LOOP_XYZE(i)
     if (parser.seen(axis_codes[i])) {
       const uint8_t a = (i == E_AXIS ? uint8_t(E_AXIS_N(target_extruder)) : i);
@@ -134,6 +157,12 @@ void GcodeSuite::M203() {
  *    T = Travel (non printing) moves
  */
 void GcodeSuite::M204() {
+  planner_settings_t candidate = planner.settings;
+  if (parser.seenval('S')) candidate.travel_acceleration = candidate.acceleration = parser.value_linear_units();
+  if (parser.seenval('P')) candidate.acceleration = parser.value_linear_units();
+  if (parser.seenval('R')) candidate.retract_acceleration = parser.value_linear_units();
+  if (parser.seenval('T')) candidate.travel_acceleration = parser.value_linear_units();
+  if (!kne_numeric::settings_valid(candidate)) { SERIAL_ERROR_MSG("Invalid acceleration"); return; }
   if (!parser.seen("PRST")) {
     SERIAL_ECHOPAIR("Acceleration: P", planner.settings.acceleration);
     SERIAL_ECHOPAIR(" R", planner.settings.retract_acceleration);
@@ -173,6 +202,27 @@ void GcodeSuite::M205() {
     #define XYZE_PARAM
   #endif
   //if (!parser.seen("BST" J_PARAM XYZE_PARAM)) return;
+
+  planner_settings_t candidate = planner.settings;
+  if (parser.seen('B')) {
+    const float value = parser.value_float();
+    if (!isfinite(value) || !WITHIN(double(value), 0.0, 2147483647.0) || value != FLOOR(value)) {
+      SERIAL_ERROR_MSG("Invalid segment time"); return;
+    }
+    candidate.min_segment_time_us = value;
+  }
+  if (parser.seen('S')) candidate.min_feedrate_mm_s = parser.value_linear_units();
+  if (parser.seen('T')) candidate.min_travel_feedrate_mm_s = parser.value_linear_units();
+  if (!kne_numeric::settings_valid(candidate)) { SERIAL_ERROR_MSG("Invalid motion settings"); return; }
+  LOOP_XYZE(i) if (parser.seen(axis_codes[i])) {
+    const float value = parser.value_linear_units();
+    if (!isfinite(value) || value < 0 || !isfinite(value * value)) { SERIAL_ERROR_MSG("Invalid jerk"); return; }
+  }
+  #if HAS_JUNCTION_DEVIATION
+    if (parser.seen('J') && !WITHIN(parser.value_linear_units(), 0.01f, 0.3f)) {
+      SERIAL_ERROR_MSG("Invalid junction deviation"); return;
+    }
+  #endif
 
   //planner.synchronize();
   if (parser.seen('B')) planner.settings.min_segment_time_us = parser.value_ulong();

@@ -2,3 +2,4 @@
 *.bin binary
 *.exe binary
 *.FLM binary
+*.bat text eol=crlf

@@ -30,18 +30,22 @@
 extern bool g29_fallo;   // definida en G29.cpp: la ultima medicion de la malla fallo
 
 uint8_t print_mode = MODO_COMPLETO;
+bool modos_impresion_iniciando = false;
 
+static uint32_t m1100_abort_epoch = 0;
 static bool m1100_en_curso = false;   // true durante la preparacion
 bool m1100_activo() { return m1100_en_curso; }
 
 void modos_impresion_fin() {
+  modos_impresion_iniciando = false;
   print_mode = MODO_COMPLETO;
   GcodeThumb::unload();
 }
 
 // Hay que parar: parada normal pedida por el usuario, o la impresora esta detenida por error.
 static bool mp_parar() {
-  return card.flag.abort_sd_printing || marlin_state == MF_KILLED;
+  return card.flag.abort_sd_printing || marlin_state == MF_KILLED
+      || TERN0(HAS_DISPLAY, m1100_abort_epoch != ui.print_abort_count);
 }
 
 // Ejecuta un G-code fijo si no hay parada. Devuelve false si hay que parar (antes o despues).
@@ -89,13 +93,15 @@ static void mp_cancelar() {
 
 void GcodeSuite::M1100() {
   // Leer parametros ANTES de ejecutar subcomandos (el analizador se reutiliza)
-  int16_t cama   = (int16_t)parser.floatval('S', 0);
-  int16_t boq    = (int16_t)parser.floatval('T', 0);
-  float   espera = parser.floatval('W', 0);
-  if (cama < 0) cama = 0;
-  if (boq < 0) boq = 0;
-  if (espera < 0) espera = 0;
-  if (espera > 60) espera = 60;
+  const float cama_value = parser.floatval('S', 0), boq_value = parser.floatval('T', 0);
+  const float espera = parser.floatval('W', 0);
+  if (!isfinite(cama_value) || !isfinite(boq_value) || !isfinite(espera)
+      || cama_value < 0 || cama_value > BED_MAX_TARGET
+      || boq_value < 0 || boq_value > thermalManager.hotend_max_target(0)
+      || espera < 0 || espera > 60) {
+    SERIAL_ERROR_MSG("Invalid preparation parameters"); return;
+  }
+  const int16_t cama = int16_t(cama_value), boq = int16_t(boq_value);
 
   // Sin archivo de la SD abierto (M1100 lanzado por host/USB, o sin pasar por la pantalla de confirmacion)
   // el modo es siempre Completo: se limpia un Express o una miniatura que hubieran quedado pegados.
@@ -105,6 +111,7 @@ void GcodeSuite::M1100() {
   // Express solo si hay una malla valida guardada; si no, se hace la medicion completa (Completo)
   const bool express = con_archivo && (print_mode == MODO_EXPRESS) && leveling_is_valid();
   bool ok = true;
+  m1100_abort_epoch = TERN0(HAS_DISPLAY, ui.print_abort_count);
   m1100_en_curso = true;
 
   if (express) {
@@ -114,22 +121,22 @@ void GcodeSuite::M1100() {
     if (ok) ok = mp_cmd_num_P(PSTR("M104 S"), boq);
     if (ok) ok = mp_cmd_P(PSTR("M420 S1"));            // malla ya guardada
     if (ok && !planner.leveling_active) ok = false;   // no imprimir si no se pudo activar
-    if (ok && cama) ok = mp_cmd_num_P(PSTR("M190 R"), cama);
-    if (ok && boq)  ok = mp_cmd_num_P(PSTR("M109 R"), boq);
+    if (ok && cama) ok = !mp_parar() && thermalManager.wait_for_bed(false) && !mp_parar();
+    if (ok && boq) ok = !mp_parar() && thermalManager.wait_for_hotend(0, false) && !mp_parar();
   }
   else {
     ui.set_status_P(GET_TEXT(MSG_KNE_STATUS_FULL));
     ok = mp_cmd_P(PSTR("G28"));
     if (ok) ok = mp_cmd_num_P(PSTR("M140 S"), cama);
-    if (ok && cama) ok = mp_cmd_num_P(PSTR("M190 R"), cama);
+    if (ok && cama) ok = !mp_parar() && thermalManager.wait_for_bed(false) && !mp_parar();
     if (ok) ok = mp_esperar(espera);
     if (ok) ok = mp_cmd_P(PSTR("G29"));                // malla en caliente
     if (ok && (g29_fallo || !leveling_is_valid() || !planner.leveling_active)) ok = false;
     // G29 termina dejando la cama en otra temperatura: volver a la pedida
     if (ok) ok = mp_cmd_num_P(PSTR("M140 S"), cama);
-    if (ok && cama) ok = mp_cmd_num_P(PSTR("M190 R"), cama);
+    if (ok && cama) ok = !mp_parar() && thermalManager.wait_for_bed(false) && !mp_parar();
     if (ok) ok = mp_cmd_num_P(PSTR("M104 S"), boq);
-    if (ok && boq) ok = mp_cmd_num_P(PSTR("M109 R"), boq);
+    if (ok && boq) ok = !mp_parar() && thermalManager.wait_for_hotend(0, false) && !mp_parar();
   }
 
   m1100_en_curso = false;

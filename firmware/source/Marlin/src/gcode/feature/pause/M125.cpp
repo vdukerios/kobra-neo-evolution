@@ -100,8 +100,8 @@ void GcodeSuite::M125() {
 
     TERN_(POWER_LOSS_RECOVERY, if (recovery.enabled) recovery.save(true,park_point.z));
     if (ENABLED(EXTENSIBLE_UI) || !sd_printing || show_lcd) {
-      wait_for_confirmation(is_runout, 0);
-      resume_print(0, 0, -retract, 0);
+      if (wait_for_confirmation(is_runout, 0))
+        resume_print(0, 0, -retract, 0);
 
     }
   }

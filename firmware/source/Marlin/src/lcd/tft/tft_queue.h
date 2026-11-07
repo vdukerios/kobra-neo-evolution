@@ -157,12 +157,18 @@ class TFT_Queue {
     static void finish_sketch();
     static void fill(queueTask_t *task);
     static void canvas(queueTask_t *task);
-    static void handle_queue_overflow(uint16_t sizeNeeded);
+    static bool failed, failure_pending;
+    static void clear_storage();
+    static void reject();
+    static void show_failure();
+    static bool reserve(size_t sizeNeeded);
+    static bool reserve_canvas(size_t sizeNeeded);
 
   public:
     static void reset();
+    static bool has_failed() { return failed; }
     static void async();
-    static void sync() { while (current_task != nullptr) async(); }
+    static void sync() { while (current_task != nullptr || failure_pending) async(); }
 
     static void fill(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);
     static void canvas(uint16_t x, uint16_t y, uint16_t width, uint16_t height);

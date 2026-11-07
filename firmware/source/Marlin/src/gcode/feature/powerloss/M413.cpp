@@ -37,6 +37,11 @@
  *             If omitted, report current state.
  */
 void GcodeSuite::M413() {
+  if (!recovery.supported) {
+    if (parser.seenval('S') && parser.value_float() == 0) recovery.enable(false);
+    else recovery.report_unavailable();
+    return; // Debug flags cannot bypass the conservative block.
+  }
 
   if (parser.seen('S'))
     recovery.enable(parser.value_bool());

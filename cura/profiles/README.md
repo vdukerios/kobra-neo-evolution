@@ -9,6 +9,9 @@ These are the author's Cura 5.12 settings for the **Anycubic Kobra Neo**, shared
 | `printer/Anycubic+Kobra+Neo_settings.inst.cfg` | Machine settings of the printer "Anycubic Kobra Neo" (a *Custom FFF printer*): 220 x 220 x 250 mm, heated bed, maximum feedrates/accelerations/jerk, and start/end G-code. **Note:** the start G-code in this file calls the KNE command `M1100` (home, heat, mesh, with a 7 minute soak in Full mode) and the end G-code turns off heaters, fan and motors; the comments are in English. It needs the KNE firmware: with another firmware `M1100` does nothing useful, so paste your own start G-code instead. The same blocks, explained, are in [`../start_end_gcode.md`](../start_end_gcode.md). |
 | `quality/custom_pla.inst.cfg`, `custom_petg.inst.cfg`, `custom_tpu.inst.cfg` | Global part of the PLA / PETG / TPU profiles: 0.2 mm layers, skirt, no supports, bed temperatures (PLA 60, PETG 70/75, TPU 50). |
 | `quality/custom_extruder_1_%232_pla.inst.cfg` (and `_petg`, `_tpu`) | Extruder part of each profile: nozzle temperatures, speeds, retraction, fan, flow, walls/infill. |
+| `quality/custom_pla_rapido.inst.cfg`, `custom_extruder_1_%232_pla_rapido.inst.cfg` | **PLA Rapido** (fast PLA): 0.28 mm layers, 2 walls, 10 % gyroid, nozzle 220 C, speeds 80 mm/s (outer wall 45, infill 90, travel 200), acceleration control 800 mm/s2 print / 1000 travel (the firmware maximum is 1000), junction deviation instead of jerk. Chosen from the firmware limits; the hotend's real maximum flow was **not measured** (about 9 mm3/s at these speeds). If you see gaps or weak layers, lower the speeds or raise the temperature. |
+
+You can install all of these automatically with `python ../install_cura.py --profiles` (see [`../../docs/CURA_SETUP.md`](../../docs/CURA_SETUP.md)).
 
 The material itself is Cura's stock *Generic PLA 1.75* (or your own); no material file is shipped.
 

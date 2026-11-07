@@ -18,6 +18,11 @@
 
 extern uint8_t print_mode;          // 0 = Completo, 1 = Express
 
+// true desde que se pulsa "Imprimir" hasta que acaba o se aborta el trabajo. openAndPrintFile() solo ENCOLA
+// M23/M24: al salir de "Confirmar impresion" el archivo aun no esta abierto, y sin esta marca el firmware
+// creeria que se cancelo (descargaria la miniatura y el tiempo estimado y volveria a modo Completo).
+extern bool modos_impresion_iniciando;
+
 // Fin o aborto de la impresion (o cancelacion de la pantalla): vuelve a Completo y
 // descarta la miniatura cargada.
 void modos_impresion_fin();

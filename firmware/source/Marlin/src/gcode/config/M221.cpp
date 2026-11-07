@@ -30,11 +30,19 @@
  */
 void GcodeSuite::M221() {
 
-  const int8_t target_extruder = get_target_extruder_from_command();
-  if (target_extruder < 0) return;
-
-  if (parser.seenval('S'))
-    planner.set_flow(target_extruder, parser.value_int());
+  uint32_t target = active_extruder;
+  if (parser.seen('T') && (!parser.has_value() || !parser.value_ulong_checked(target) || target >= EXTRUDERS)) {
+    SERIAL_ERROR_MSG("Invalid extruder"); return;
+  }
+  const bool has_flow = parser.seen('S');
+  uint32_t flow = 0;
+  if (has_flow && (!parser.has_value() || !parser.value_ulong_checked(flow) || flow > 999)) {
+    SERIAL_ERROR_MSG("Invalid flow percentage (0..999)"); return;
+  }
+  const int8_t target_extruder = int8_t(target);
+  // S0 is deliberate: printing continues with zero extrusion flow.
+  if (has_flow)
+    planner.set_flow(target_extruder, int16_t(flow));
   else {
     SERIAL_ECHO_START();
     SERIAL_CHAR('E', '0' + target_extruder);

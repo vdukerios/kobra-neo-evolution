@@ -31,6 +31,7 @@ float bilinear_z_offset(const xy_pos_t &raw);
 void extrapolate_unprobed_bed_level();
 void print_bilinear_leveling_grid();
 void refresh_bed_level();
+bool bilinear_mesh_valid(const bed_mesh_t &mesh, const xy_pos_t &spacing, const xy_pos_t &start, const float z_steps);
 #if ENABLED(ABL_BILINEAR_SUBDIVISION)
   void print_bilinear_leveling_grid_virt();
   void bed_level_virt_interpolate();

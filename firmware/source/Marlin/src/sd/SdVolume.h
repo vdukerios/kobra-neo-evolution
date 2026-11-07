@@ -154,6 +154,7 @@ class SdVolume {
   uint32_t blocksPerFat_;       // FAT size in blocks
   uint32_t clusterCount_;       // clusters in one FAT
   uint8_t clusterSizeShift_;    // shift to convert cluster count to block count
+  uint32_t volumeEndBlock_;    // exclusive, checked against physical capacity
   uint32_t dataStartBlock_;     // first data block number
   uint8_t fatCount_;            // number of FATs on volume
   uint32_t fatStartBlock_;      // start block for first FAT
@@ -163,8 +164,14 @@ class SdVolume {
 
   bool allocContiguous(uint32_t count, uint32_t* curCluster);
   uint8_t blockOfCluster(uint32_t position) const { return (position >> 9) & (blocksPerCluster_ - 1); }
-  uint32_t clusterStartBlock(uint32_t cluster) const { return dataStartBlock_ + ((cluster - 2) << clusterSizeShift_); }
-  uint32_t blockNumber(uint32_t cluster, uint32_t position) const { return clusterStartBlock(cluster) + blockOfCluster(position); }
+  bool validCluster(uint32_t cluster) const { return cluster >= 2 && cluster - 2 < clusterCount_
+      && cluster < (fatType_ == 12 ? 0xFF0UL : fatType_ == 16 ? 0xFFF0UL : 0x0FFFFFF0UL); }
+  uint32_t clusterStartBlock(uint32_t cluster) const {
+    if (!validCluster(cluster)) return UINT32_MAX;
+    const uint32_t offset = (cluster - 2) << clusterSizeShift_;
+    return offset < volumeEndBlock_ - dataStartBlock_ ? dataStartBlock_ + offset : UINT32_MAX;
+  }
+  uint32_t blockNumber(uint32_t cluster, uint32_t position) const { return validCluster(cluster) ? clusterStartBlock(cluster) + blockOfCluster(position) : UINT32_MAX; }
 
   cache_t* cache() { return &cacheBuffer_; }
   uint32_t cacheBlockNumber() const { return cacheBlockNumber_; }
@@ -193,6 +200,6 @@ class SdVolume {
     if (fatType_ == 16) return cluster >= FAT16EOC_MIN;
     return  cluster >= FAT32EOC_MIN;
   }
-  bool readBlock(uint32_t block, uint8_t* dst) { return sdCard_->readBlock(block, dst); }
-  bool writeBlock(uint32_t block, const uint8_t* dst) { return sdCard_->writeBlock(block, dst); }
+  bool readBlock(uint32_t block, uint8_t* dst) { return block < volumeEndBlock_ && sdCard_->readBlock(block, dst); }
+  bool writeBlock(uint32_t block, const uint8_t* dst) { return block < volumeEndBlock_ && sdCard_->writeBlock(block, dst); }
 };

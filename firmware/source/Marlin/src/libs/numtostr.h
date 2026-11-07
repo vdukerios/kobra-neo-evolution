@@ -130,3 +130,7 @@ FORCE_INLINE const char* ftostr3(const float &x) { return i16tostr3rj(int16_t(x 
   // Convert float to rj string with 1234, _123, -123, __12, _-12, ___1, or __-1 format
   FORCE_INLINE const char* ftostr4sign(const float &x) { return i16tostr4signrj(int16_t(x + (x < 0 ? -0.5f : 0.5f))); }
 #endif
+
+// Temperature coefficients through 9990, without units.
+const char* ftostr61rj(const float &x);
+const char* ftostr62rj(const float &x);

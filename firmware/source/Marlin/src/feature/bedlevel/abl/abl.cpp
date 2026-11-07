@@ -28,6 +28,8 @@
 #include "../bedlevel.h"
 
 #include "../../../module/motion.h"
+#include "../../../module/planner.h"
+#include "../../../module/motion_numeric.h"
 
 #define DEBUG_OUT ENABLED(DEBUG_LEVELING_FEATURE)
 #include "../../../core/debug_out.h"
@@ -39,6 +41,19 @@
 xy_pos_t bilinear_grid_spacing, bilinear_start;
 xy_float_t bilinear_grid_factor;
 bed_mesh_t z_values;
+
+bool bilinear_mesh_valid(const bed_mesh_t &mesh, const xy_pos_t &spacing, const xy_pos_t &start, const float z_steps) {
+  if (!kne_numeric::positive(spacing.x) || !kne_numeric::positive(spacing.y)
+    || !isfinite(start.x) || !isfinite(start.y)
+    || !isfinite(start.x + spacing.x * (GRID_MAX_POINTS_X - 1))
+    || !isfinite(start.y + spacing.y * (GRID_MAX_POINTS_Y - 1))) return false;
+  float lo = mesh[0][0], hi = lo;
+  GRID_LOOP(x, y) {
+    if (!kne_numeric::axis_value_valid(mesh[x][y], z_steps)) return false;
+    NOMORE(lo, mesh[x][y]); NOLESS(hi, mesh[x][y]);
+  }
+  return isfinite(hi - lo);
+}
 
 /**
  * Extrapolate a single point from its neighbors
@@ -269,91 +284,26 @@ void refresh_bed_level() {
 
 // Get the Z adjustment for non-linear bed leveling
 float bilinear_z_offset(const xy_pos_t &raw) {
-
-  static float z1, d2, z3, d4, L, D;
-
-  static xy_pos_t prev={ -999.999, -999.999 }, ratio;
-
-  // Whole units for the grid line indices. Constrained within bounds.
-  static xy_int8_t thisg={ -99, -99 }, nextg={ -99, -99 }, lastg={ -99, -99 };
-
-  // XY relative to the probed area
-  xy_pos_t rel = raw - bilinear_start;
-
-  #if ENABLED(EXTRAPOLATE_BEYOND_GRID)
-    #define FAR_EDGE_OR_BOX 2   // Keep using the last grid box
-  #else
-    #define FAR_EDGE_OR_BOX 1   // Just use the grid far edge
+  if (!isfinite(raw.x) || !isfinite(raw.y) || !kne_numeric::positive(ABL_BG_SPACING(x))
+    || !kne_numeric::positive(ABL_BG_SPACING(y))) return NAN;
+  double gx = (double(raw.x) - bilinear_start.x) / ABL_BG_SPACING(x),
+         gy = (double(raw.y) - bilinear_start.y) / ABL_BG_SPACING(y);
+  #if DISABLED(EXTRAPOLATE_BEYOND_GRID)
+    gx = constrain(gx, 0.0, double(ABL_BG_POINTS_X - 1));
+    gy = constrain(gy, 0.0, double(ABL_BG_POINTS_Y - 1));
   #endif
-
-  if (prev.x != rel.x) {
-    prev.x = rel.x;
-    ratio.x = rel.x * ABL_BG_FACTOR(x);
-    const float gx = constrain(FLOOR(ratio.x), 0, ABL_BG_POINTS_X - (FAR_EDGE_OR_BOX));
-    ratio.x -= gx;      // Subtract whole to get the ratio within the grid box
-
-    #if DISABLED(EXTRAPOLATE_BEYOND_GRID)
-      // Beyond the grid maintain height at grid edges
-      NOLESS(ratio.x, 0); // Never <0 (>1 is ok when nextg.x==thisg.x)
-    #endif
-
-    thisg.x = gx;
-    nextg.x = _MIN(thisg.x + 1, ABL_BG_POINTS_X - 1);
-  }
-
-  if (prev.y != rel.y || lastg.x != thisg.x) {
-
-    if (prev.y != rel.y) {
-      prev.y = rel.y;
-      ratio.y = rel.y * ABL_BG_FACTOR(y);
-      const float gy = constrain(FLOOR(ratio.y), 0, ABL_BG_POINTS_Y - (FAR_EDGE_OR_BOX));
-      ratio.y -= gy;
-
-      #if DISABLED(EXTRAPOLATE_BEYOND_GRID)
-        // Beyond the grid maintain height at grid edges
-        NOLESS(ratio.y, 0); // Never < 0.0. (> 1.0 is ok when nextg.y==thisg.y.)
-      #endif
-
-      thisg.y = gy;
-      nextg.y = _MIN(thisg.y + 1, ABL_BG_POINTS_Y - 1);
-    }
-
-    if (lastg != thisg) {
-      lastg = thisg;
-      // Z at the box corners
-      z1 = ABL_BG_GRID(thisg.x, thisg.y);       // left-front
-      d2 = ABL_BG_GRID(thisg.x, nextg.y) - z1;  // left-back (delta)
-      z3 = ABL_BG_GRID(nextg.x, thisg.y);       // right-front
-      d4 = ABL_BG_GRID(nextg.x, nextg.y) - z3;  // right-back (delta)
-    }
-
-    // Bilinear interpolate. Needed since rel.y or thisg.x has changed.
-                L = z1 + d2 * ratio.y;   // Linear interp. LF -> LB
-    const float R = z3 + d4 * ratio.y;   // Linear interp. RF -> RB
-
-    D = R - L;
-  }
-
-  const float offset = L + ratio.x * D;   // the offset almost always changes
-
-  /*
-  static float last_offset = 0;
-  if (ABS(last_offset - offset) > 0.2) {
-    SERIAL_ECHOLNPAIR("Sudden Shift at x=", rel.x, " / ", bilinear_grid_spacing.x, " -> thisg.x=", thisg.x);
-    SERIAL_ECHOLNPAIR(" y=", rel.y, " / ", bilinear_grid_spacing.y, " -> thisg.y=", thisg.y);
-    SERIAL_ECHOLNPAIR(" ratio.x=", ratio.x, " ratio.y=", ratio.y);
-    SERIAL_ECHOLNPAIR(" z1=", z1, " z2=", z2, " z3=", z3, " z4=", z4);
-    SERIAL_ECHOLNPAIR(" L=", L, " R=", R, " offset=", offset);
-  }
-  last_offset = offset;
-  */
-
-  return offset;
+  const uint8_t x = constrain(floor(gx), 0.0, double(ABL_BG_POINTS_X - 2)),
+                y = constrain(floor(gy), 0.0, double(ABL_BG_POINTS_Y - 2));
+  gx -= x; gy -= y;
+  const double left = double(ABL_BG_GRID(x, y)) * (1 - gy) + double(ABL_BG_GRID(x, y + 1)) * gy,
+               right = double(ABL_BG_GRID(x + 1, y)) * (1 - gy) + double(ABL_BG_GRID(x + 1, y + 1)) * gy,
+               result = left * (1 - gx) + right * gx;
+  return isfinite(result) && fabs(result) <= FLT_MAX ? float(result) : NAN;
 }
 
 #if IS_CARTESIAN && DISABLED(SEGMENT_LEVELED_MOVES)
 
-  #define CELL_INDEX(A,V) ((V - bilinear_start.A) * ABL_BG_FACTOR(A))
+  #define CELL_INDEX(A,V) int16_t(constrain((double(V) - bilinear_start.A) / ABL_BG_SPACING(A), 0.0, double(ABL_BG_POINTS_X > ABL_BG_POINTS_Y ? ABL_BG_POINTS_X : ABL_BG_POINTS_Y)))
 
   /**
    * Prepare a bilinear-leveled linear move on Cartesian,
@@ -370,6 +320,7 @@ float bilinear_z_offset(const xy_pos_t &raw) {
 
     // Start and end in the same cell? No split needed.
     if (c1 == c2) {
+      if (!planner.numeric_move_valid(destination, scaled_fr_mm_s, active_extruder)) return;
       current_position = destination;
       line_to_current_position(scaled_fr_mm_s);
       return;
@@ -403,6 +354,7 @@ float bilinear_z_offset(const xy_pos_t &raw) {
     else {
       // Must already have been split on these border(s)
       // This should be a rare case.
+      if (!planner.numeric_move_valid(destination, scaled_fr_mm_s, active_extruder)) return;
       current_position = destination;
       line_to_current_position(scaled_fr_mm_s);
       return;

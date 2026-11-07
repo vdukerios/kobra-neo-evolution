@@ -488,7 +488,7 @@ enum StealthIndex : uint8_t { STEALTH_AXIS_XY, STEALTH_AXIS_Z, STEALTH_AXIS_E };
   void tmc_init(TMCMarlin<TMC2208Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate) {
 
 #ifdef TMC6609
-			st.OTP_PROG(0xbd05);  //fuse wire
+			// Never program permanent OTP from application startup.
 			delay(50);
 			
 			TMC2208_n::CHOPCONF_t  chopconf = {0};

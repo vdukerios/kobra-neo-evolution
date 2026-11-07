@@ -648,7 +648,7 @@ static void menu_kne_service() {
     SUBMENU(MSG_CONTROLLER_FAN, menu_controller_fan);
   #endif
   #if ENABLED(POWER_LOSS_RECOVERY)
-    EDIT_ITEM(bool, MSG_OUTAGE_RECOVERY, &recovery.enabled, recovery.changed);
+    STATIC_ITEM_P(TERN0(HAS_MULTI_LANGUAGE, ui.language > 0) ? PSTR("Recovery unavailable") : PSTR("Recuperacion no disponible"));
   #endif
   #if HAS_FILAMENT_SENSOR
     STATIC_ITEM(MSG_KNE_INSTALLATION_REQUIRED);

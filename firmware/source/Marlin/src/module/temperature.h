@@ -300,6 +300,10 @@ class Temperature {
 
   public:
 
+    static bool valid_target_temperature(const float value, const float maximum) {
+      return isfinite(value) && value >= 0 && value <= maximum && value <= 32767.0f;
+    }
+
     #if HAS_HOTEND
       #define HOTEND_TEMPS (HOTENDS + ENABLED(TEMP_SENSOR_1_AS_REDUNDANT))
       static hotend_info_t temp_hotend[HOTEND_TEMPS];
@@ -388,6 +392,10 @@ class Temperature {
     #endif
 
     static volatile bool raw_temps_ready;
+    static volatile uint32_t raw_acquisition_token;
+    static bool pid_autotune_active;
+    static bool check_temperature_freshness();
+    static void service_emergency();
 
 #if WATCH_HOTENDS
       static hotend_watch_t watch_hotend[HOTENDS];   // If temperature controller is running
@@ -767,14 +775,14 @@ class Temperature {
        * Methods to check if heaters are enabled, indicating an active job
        */
       static bool auto_job_over_threshold();
-      static void auto_job_check_timer(const bool can_start, const bool can_stop);
+      static bool auto_job_check_timer(const bool can_start, const bool can_stop);
     #endif
 
     /**
      * Perform auto-tuning for hotend or bed in response to M303
      */
     #if HAS_PID_HEATING
-      static void PID_autotune(const float &target, const heater_id_t heater_id, const int8_t ncycles, const bool set_result=false);
+      static bool PID_autotune(const float &target, const heater_id_t heater_id, const int8_t ncycles, const bool set_result=false);
 
       #if ENABLED(NO_FAN_SLOWING_IN_PID_TUNING)
         static bool adaptive_fan_slowing;

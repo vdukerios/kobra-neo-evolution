@@ -123,6 +123,13 @@ class TFilamentMonitor : public FilamentMonitorBase {
         && (printingIsActive() || TERN0(ADVANCED_PAUSE_FEATURE, did_pause_print))
       ) {
 
+        #if FIL_SENSOR_OPTIONAL
+          // Optional sensor arms on observed presence, without changing polarity.
+          if (!sensor.state_original) {
+            if (sensor.poll_runout_states()) { response.reset(); return; }
+            sensor.state_original = 1;
+          }
+        #endif
         TERN_(HAS_FILAMENT_RUNOUT_DISTANCE, cli()); // Prevent RunoutResponseDelayed::block_completed from accumulating here
         response.run();
         sensor.run();
@@ -131,15 +138,14 @@ class TFilamentMonitor : public FilamentMonitorBase {
         TERN_(HAS_FILAMENT_RUNOUT_DISTANCE, sei());
         if (ran_out) {
        
-          if(!sensor.state_original) {
-            filament_ran_out = true;
-            event_filament_runout();
-            planner.synchronize();
-          }
-          sensor.state_original = 0;
+          filament_ran_out = true;
+          event_filament_runout();
+          planner.synchronize();
         }
       }
     }
+
+    static inline bool filament_is_present() { return sensor.poll_runout_states() == 0; }
 
     static inline uint8_t get_state_original() {
       return sensor.state_original;
@@ -167,7 +173,7 @@ class FilamentSensorBase {
       #if NUM_RUNOUT_SENSORS >= 1
         INIT_RUNOUT_PIN(1);
         #if FIL_SENSOR_OPTIONAL
-          state_original = READ(FIL_RUNOUT1_PIN);
+          state_original = READ(FIL_RUNOUT1_PIN) != FIL_RUNOUT1_STATE;
         #endif
       #endif
       #if NUM_RUNOUT_SENSORS >= 2
@@ -207,9 +213,6 @@ class FilamentSensorBase {
       return poll_runout_pins() ^ uint8_t(0
         #if NUM_RUNOUT_SENSORS >= 1
           | (FIL_RUNOUT1_STATE ? 0 : _BV(1 - 1))
-          #if FIL_SENSOR_OPTIONAL
-             & ~(state_original ? 0 : _BV(1 - 1))
-          #endif
         #endif
         #if NUM_RUNOUT_SENSORS >= 2
           | (FIL_RUNOUT2_STATE ? 0 : _BV(2 - 1))

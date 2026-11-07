@@ -118,10 +118,16 @@ int lcd_put_u8str_max_P(PGM_P utf8_str_P, pixel_len_t max_length) {
   if (max_length < 1) return 0;
   tft_string.set(utf8_str_P);
   tft_string.trim();
-  tft_string.truncate(max_length);
-  tft.add_text(MENU_TEXT_X_OFFSET, MENU_TEXT_Y_OFFSET, COLOR_MENU_TEXT, tft_string);
-  lcd_gotopixel((cursor.x + 1) * (TFT_COL_WIDTH) + tft_string.width(), cursor.y * MENU_LINE_HEIGHT);
-  return tft_string.width();
+  // The limit is in pixels, including PIXEL_LEN_NOLIMIT (65535), not characters.
+  uint16_t drawn_width = 0;
+  for (uint8_t *ch = tft_string.string(); *ch; ++ch) {
+    const glyph_t *glyph = tft_string.glyph(ch);
+    if (uint32_t(drawn_width) + glyph->BBXWidth > max_length) break;
+    drawn_width += glyph->DWidth;
+  }
+  tft.add_text(MENU_TEXT_X_OFFSET, MENU_TEXT_Y_OFFSET, COLOR_MENU_TEXT, tft_string, max_length);
+  lcd_gotopixel((cursor.x + 1) * (TFT_COL_WIDTH) + drawn_width, cursor.y * MENU_LINE_HEIGHT);
+  return drawn_width;
 }
 
 int lcd_put_u8str_max(const char * utf8_str, pixel_len_t max_length) {

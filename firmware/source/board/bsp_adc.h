@@ -35,7 +35,10 @@ extern uint32_t  AdcCH0Value;
 extern uint32_t  AdcCH1Value;
 extern uint32_t  AdcCH2Value;
 
-extern uint16_t g_adc_value[3];
+extern volatile uint16_t g_adc_value[3];
+extern volatile uint32_t adc_dma_progress;
+extern volatile uint32_t adc_dma_progress_ms;
+bool adc_dma_sample_ready(void);
 extern uint8_t g_adc_idx;
 
 void adc_init(void);

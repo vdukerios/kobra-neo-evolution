@@ -39,9 +39,15 @@ using namespace Anycubic;
 #include "menu_item.h"
 #include "probe.h"
 #include "runout.h"
+#if ENABLED(ADVANCED_PAUSE_FEATURE)
+  #include "../feature/pause.h"
+#endif
 #include "endstops.h"
 // All displays share the MarlinUI class
 #include "marlinui.h"
+#if HAS_GRAPHICAL_TFT
+  #include "tft/tft.h"
+#endif
 MarlinUI ui;
  bool MarlinUI::AC_bar_control; 
  char MarlinUI::start_flag;
@@ -749,21 +755,21 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
           if (use_click()) { goto_screen(menu_main); ui.refresh(); return; }
         #endif
         if (int16_t(encoderPosition) >= ENCODER_item_Move) {
-          pantalla_pagina = (pantalla_pagina + 1) % 3; encoderPosition = 0; ui.refresh();
+          pantalla_pagina = (pantalla_pagina + 1) % 3; encoderPosition = 0; ui.refresh(LCDVIEW_REDRAW_NOW);
         }
         else if (int16_t(encoderPosition) <= -(ENCODER_item_Move)) {
-          pantalla_pagina = (pantalla_pagina + 2) % 3; encoderPosition = 0; ui.refresh();
+          pantalla_pagina = (pantalla_pagina + 2) % 3; encoderPosition = 0; ui.refresh(LCDVIEW_REDRAW_NOW);
         }
       }
       else {
         pantalla_pagina = 0;
         if (int16_t(encoderPosition) >= ENCODER_item_Move) {
           pantalla_inicio_foco = (pantalla_inicio_foco + 1) % 6;
-          encoderPosition = 0; ui.refresh();
+          encoderPosition = 0; ui.refresh(LCDVIEW_REDRAW_NOW);
         }
         else if (int16_t(encoderPosition) <= -(ENCODER_item_Move)) {
           pantalla_inicio_foco = (pantalla_inicio_foco + 5) % 6;
-          encoderPosition = 0; ui.refresh();
+          encoderPosition = 0; ui.refresh(LCDVIEW_REDRAW_NOW);
         }
         #if HAS_LCD_MENU
           if (use_click()) { kne_inicio_activar(); ui.refresh(); return; }
@@ -1352,6 +1358,15 @@ void check_endstops()
 
 
 }
+#if EITHER(HAS_LCD_MENU, EXTENSIBLE_UI)
+bool MarlinUI::screen_input_blocked() {
+  #if HAS_GRAPHICAL_TFT
+    return tft.queue.has_failed();
+  #else
+    return false;
+  #endif
+}
+#endif
 extern  uint8_t SOS_flag;
   void MarlinUI::update() {
   	
@@ -1368,6 +1383,44 @@ extern  uint8_t SOS_flag;
     #endif
 
     #if HAS_LCD_MENU
+      static bool wait_for_unclick;
+      #if BOTH(GUIA_AYUDA, GUIA_AYUDA_LARGA)
+        static uint8_t guia_estado;   // 0 libre, 1 contando la pulsacion, 2 sin ayuda: solo esperar al soltar
+        static millis_t guia_t0;
+        static screenFunc_t guia_pantalla0;   // pantalla en la que empezo la pulsacion (N-20)
+      #endif
+      #if HAS_GRAPHICAL_TFT
+        static bool queue_modal, queue_release;
+        if (screen_input_blocked()) {
+          // Accepted movement keeps running; hidden menu actions get no input.
+          manual_move.task();
+          update_buttons();
+          const bool pressed = button_pressed();
+          if (!queue_modal) { queue_modal = true; queue_release = pressed; }
+          lcd_clicked = false;
+          encoderPosition = 0;
+          TERN_(HAS_ENCODER_ACTION, encoderDiff = 0);
+          wait_for_unclick = true;
+          #if BOTH(GUIA_AYUDA, GUIA_AYUDA_LARGA)
+            guia_estado = 0;
+          #endif
+          if (!pressed) queue_release = false;
+          if (IsRunning() && ((pressed && !queue_release) || LCD_BACK_CLICKED())) {
+            queue_release = true;
+            #if HAS_MODO_NOCHE
+              if (!noche_entrada())
+            #endif
+            {
+              if (on_status_screen()) clear_lcd();
+              else return_to_status();
+              refresh(LCDVIEW_CALL_REDRAW_NEXT);
+            }
+          }
+          tft_idle(); // Nonblocking: accepted tasks and diagnostic still drain.
+          return;
+        }
+        queue_modal = false;
+      #endif
 		//check_endstops();
 	  //check filament status
 	  unload_load_filament();
@@ -1382,16 +1435,16 @@ extern  uint8_t SOS_flag;
       update_buttons();
 
       // If the action button is pressed...
-      static bool wait_for_unclick; // = false
 
       auto do_click = [&]{
+        if (screen_input_blocked()) { lcd_clicked = false; wait_for_unclick = true; return; }
         #if HAS_MODO_NOCHE
           if (noche_entrada()) { wait_for_unclick = true; return; } // Pantalla en negro: solo despierta
         #endif
         wait_for_unclick = true;                        //  - Set debounce flag to ignore continuous clicks
         lcd_clicked = !wait_for_user;                   //  - Keep the click if not waiting for a user-click
 				if(runout.filament_ran_out){
-					if(READ(FIL_RUNOUT_PIN) == runout.get_state_original())
+					if(runout.filament_is_present() || FIL_SENSOR_OPTIONAL)
 					{
 							goto_screen(status_screen);
 							wait_for_user = false;
@@ -1427,11 +1480,6 @@ extern  uint8_t SOS_flag;
         // keep wait_for_unclick value
       #endif
 
-      #if BOTH(GUIA_AYUDA, GUIA_AYUDA_LARGA)
-        static uint8_t guia_estado;   // 0 libre, 1 contando la pulsacion, 2 sin ayuda: solo esperar al soltar
-        static millis_t guia_t0;
-        static screenFunc_t guia_pantalla0;   // pantalla en la que empezo la pulsacion (N-20)
-      #endif
 
       if (!touch_buttons) {
         // Integrated LCD click handling via button_pressed
@@ -2096,7 +2144,11 @@ extern  uint8_t SOS_flag;
     extern bool wait_for_user, wait_for_heatup;
   #endif
 
+  uint32_t MarlinUI::print_abort_count = 0;
+
   void MarlinUI::abort_print() {
+    ++print_abort_count;
+    TERN_(ADVANCED_PAUSE_FEATURE, cancel_pause());
     thermalManager.disable_all_heaters(); // apagar al confirmar Parar, incluso durante G29
     #if ENABLED(SDSUPPORT)
       wait_for_heatup = wait_for_user = false;
@@ -2105,7 +2157,7 @@ extern  uint8_t SOS_flag;
     #ifdef ACTION_ON_CANCEL
       host_action_cancel();
     #endif
-    IF_DISABLED(SDSUPPORT, print_job_timer.stop());
+    if (!TERN0(SDSUPPORT, IS_SD_PRINTING() || IS_SD_PAUSED())) print_job_timer.stop();   // impresion por USB: detener el trabajo para volver a reposo
     TERN_(HOST_PROMPT_SUPPORT, host_prompt_open(PROMPT_INFO, PSTR("UI Aborted"), DISMISS_STR));
     #if ENABLED(FILAMENT_RUNOUT_SENSOR)
       runout.filament_ran_out = false;   // N-06: al abortar no debe quedar la marca de fin de filamento bloqueando el clic
@@ -2153,13 +2205,23 @@ extern  uint8_t SOS_flag;
   }
 
   void MarlinUI::resume_print() {
-    reset_status();    
-    TERN_(PARK_HEAD_ON_PAUSE, wait_for_heatup = wait_for_user = false);
-    TERN_(SDSUPPORT, if (IS_SD_PAUSED()) queue.inject_P(M24_STR));
+    #if ENABLED(SDSUPPORT)
+      if (IS_SD_PAUSED()) { queue.inject_P(M24_STR); return; }
+    #endif
+    // Host work uses the preparation result, with no premature timer / notice.
+    #if ENABLED(PARK_HEAD_ON_PAUSE)
+      if (did_pause_print) {
+        if (!::resume_print()) return;
+        reset_status();
+        LCD_MESSAGEPGM(MSG_RESUME_PRINT);
+        return; // resume_print already informed the host after success.
+      }
+    #endif
+    if (!startOrResumeJob()) return;
+    reset_status();
     #ifdef ACTION_ON_RESUME
       host_action_resume();
     #endif
-    print_job_timer.start(); // Also called by M24
     LCD_MESSAGEPGM(MSG_RESUME_PRINT);
   }
 
