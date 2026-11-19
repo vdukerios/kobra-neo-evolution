@@ -1,6 +1,6 @@
 # Installing KNE on the Kobra Neo
 
-> **Note:** no firmware binary is attached to the repository yet; it will appear on the GitHub Releases page after the current source is built and validated. Until then build it yourself ([`BUILD.md`](BUILD.md)). The file you install must be named `firmware.bin`.
+> **Note:** a pre-release binary (`KNE-1.0.1.bin`, with SHA-256) is on the [GitHub Releases page](https://github.com/vdukerios/kobra-neo-evolution/releases/tag/v1.0.1); it has run on one printer only. You can also build it yourself ([`BUILD.md`](BUILD.md)). The file you install must be named `firmware.bin`.
 
 > **The current source was built with Keil and has run on one printer (the author's Kobra Neo): it boots and the first bugs found are fixed ([`CHANGES_2026-11-07.md`](CHANGES_2026-11-07.md)); a full print has not been completed with it yet.** **Eject the SD card from your computer before removing it** (a card removed while writing got a corrupted file table), and a bad copy of `firmware.bin` shows as a black screen that keeps restarting. Each feature still needs validation by more users; see [`../testing/TEST_PLAN.md`](../testing/TEST_PLAN.md). Use at your own risk; keep a backup firmware and an SD card with a known-good `firmware.bin`. If you are not comfortable with the risk, do not flash.
 
@@ -12,7 +12,7 @@ Time needed: about 30 minutes for the first install, plus the calibration afterw
 - A microSD card formatted as **FAT32** (a card of 32 GB or less is the safest choice) and a card reader.
 - A USB cable and a terminal program (for example the serial monitor of your slicer or any serial terminal, 115200 baud) to send G-code such as `M503`. Optional but strongly recommended.
 - A backup of the firmware you run today (see below).
-- A validated Keil/Arm Compiler 5 binary. **None is published yet**; the release notes are in [`../releases/v1.0.0/`](../releases/v1.0.0/).
+- A validated Keil/Arm Compiler 5 binary. A pre-release (v1.0.1) is on the Releases page; the notes are in [`../releases/v1.0.1/`](../releases/v1.0.1/).
 
 Only the file built with Keil and Arm Compiler 5 is a supported release. Do **not** flash binaries produced by the experimental GCC scripts in `build/`: they do not boot ([`BUILD.md`](BUILD.md)).
 
@@ -22,7 +22,7 @@ Only the file built with Keil and Arm Compiler 5 is a supported release. Do **no
 2. **Get a copy of the firmware you run today** and keep it on a separate SD card or in a folder. This project does not include them because they are not ours:
    - NuclearPhoenixx firmware: <https://github.com/NuclearPhoenixx/Kobra_Neo>
    - Anycubic's original firmware (for example 1.3.3): see the repositories listed in `firmware/README_NUCLEAR.md`.
-3. Once a binary is published, verify it against its accompanying SHA-256 checksum. There is no published binary/checksum pair yet.
+3. Once a binary is published, verify it against its accompanying SHA-256 checksum. The v1.0.1 pre-release lists its SHA-256.
 
 ## 3. Install procedure (SD card)
 
