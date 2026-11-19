@@ -1,6 +1,10 @@
 # Kobra Neo Evolution (KNE)
 
-Community firmware for the **original Anycubic Kobra Neo** 3D printer. Current version: **1.0.0**.
+Community firmware for the **original Anycubic Kobra Neo** 3D printer. Current version: **1.0.1 (pre-release)**.
+
+## Download
+
+**[`KNE-1.0.1.bin`](KNE-1.0.1.bin)** (404 940 bytes, SHA-256 in [`KNE-1.0.1.bin.sha256`](KNE-1.0.1.bin.sha256): `939d3336ba3152586bff4ce1c7a42c6db333da767e42e0785c34eedd8f9d6e1d`). The same file is on the [Releases page](https://github.com/vdukerios/kobra-neo-evolution/releases/tag/v1.0.1). It has run on **one printer only**; read the [project status](#project-status) and [`docs/INSTALL.md`](docs/INSTALL.md) first. Install it by copying it to a FAT32 SD card **renamed to `firmware.bin`**.
 
 Repository: <https://github.com/vdukerios/kobra-neo-evolution>
 
