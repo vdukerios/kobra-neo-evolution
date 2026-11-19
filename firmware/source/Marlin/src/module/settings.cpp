@@ -53,6 +53,9 @@
 #include "temperature.h"
 
 #include "../lcd/marlinui.h"
+#if ENABLED(PANTALLA_NUEVA)
+  extern bool kne_tema_claro;   // marlinui.cpp: tema claro (bit 7 del byte de idioma en la EEPROM)
+#endif
 #include "../libs/vector_3.h"   // for matrix_3x3
 #include "../gcode/gcode.h"
 #include "../MarlinCore.h"
@@ -1442,7 +1445,15 @@ void MarlinSettings::postprocess() {
     // Extensible UI User Data
     //
     #if HAS_MULTI_LANGUAGE
-      EEPROM_WRITE(ui.language);
+      {
+        // Bit 7 = tema claro; los bits 0..6 son el idioma (formato anterior compatible: bit 7 = 0 = tema oscuro)
+        #if ENABLED(PANTALLA_NUEVA)
+          uint8_t idioma_tema = uint8_t(ui.language | (kne_tema_claro ? 0x80 : 0));
+        #else
+          uint8_t idioma_tema = ui.language;
+        #endif
+        EEPROM_WRITE(idioma_tema);
+      }
     #endif
     #if ENABLED(EXTENSIBLE_UI)
       {
@@ -2337,8 +2348,17 @@ void MarlinSettings::postprocess() {
       {
         uint8_t Language_ui;
         EEPROM_READ_ALWAYS(Language_ui);
+        const bool tema_claro_guardado = (Language_ui & 0x80) != 0;
+        Language_ui &= 0x7F;
         if (Language_ui >= NUM_LANGUAGES) Language_ui = 0;
-        if (!validating) ui.set_language(Language_ui);
+        if (!validating) {
+          ui.set_language(Language_ui);
+          #if ENABLED(PANTALLA_NUEVA)
+            kne_tema_claro = tema_claro_guardado;
+          #else
+            UNUSED(tema_claro_guardado);
+          #endif
+        }
       }
       #endif
 

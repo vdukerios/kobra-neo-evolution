@@ -683,6 +683,11 @@ constexpr uint8_t epps = ENCODER_PULSES_PER_STEP;
 //************************2表示热床，3风扇，4打印速度，5速比，6暂无***************
 #if ENABLED(PANTALLA_NUEVA)
   uint8_t pantalla_inicio_foco = 0;
+  bool kne_tema_claro = false;   // tema claro (se guarda en el bit 7 del byte del idioma de la EEPROM)
+  void kne_tema_aplicar() {
+    ui.refresh();   // repinta TODO con la nueva paleta (borra la pantalla)
+    if (!printingIsActive() && !printingIsPaused()) (void)settings.save_estable();   // no escribir la EEPROM imprimiendo
+  }
   void kne_inicio_activar();
   uint8_t pantalla_pagina = 0;   // pagina de la pantalla de impresion (0..2), la cambia la rueda
 #endif

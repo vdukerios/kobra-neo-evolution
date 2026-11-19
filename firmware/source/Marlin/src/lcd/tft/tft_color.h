@@ -73,16 +73,19 @@
 // KNE: one palette for Home, wheel menus, value editors and confirmations.
 // Only the original 320x240 display with the new interface uses this theme.
 #if HAS_UI_320x240 && ENABLED(PANTALLA_NUEVA)
-  #define KNE_UI_BG       COLOR(0x080C18)
-  #define KNE_UI_CARD     COLOR(0x151F31)
-  #define KNE_UI_TRACK    COLOR(0x243147)
-  #define KNE_UI_SELECT   COLOR(0x233C50)
-  #define KNE_UI_ACC      COLOR(0x59E4BF)
-  #define KNE_UI_DIM      COLOR(0x98A9C2)
-  #define KNE_UI_TEXT     COLOR(0xEDF3FF)
-  #define KNE_UI_WARN     COLOR(0xFFBF69)
-  #define KNE_UI_HOT      COLOR(0xFF8B77)
-  #define KNE_UI_COLD     COLOR(0x68BAFF)
+  // Tema oscuro (por defecto) o claro, elegible en caliente (Modo noche / Tema claro en el menu principal).
+  extern bool kne_tema_claro;
+  #define KNE_TEMA(OSCURO, CLARO) (kne_tema_claro ? COLOR(CLARO) : COLOR(OSCURO))
+  #define KNE_UI_BG       KNE_TEMA(0x080C18, 0xE9EEF5)
+  #define KNE_UI_CARD     KNE_TEMA(0x151F31, 0xFFFFFF)
+  #define KNE_UI_TRACK    KNE_TEMA(0x243147, 0xCBD5E3)
+  #define KNE_UI_SELECT   KNE_TEMA(0x233C50, 0xC9E6EC)
+  #define KNE_UI_ACC      KNE_TEMA(0x59E4BF, 0x0B8F78)
+  #define KNE_UI_DIM      KNE_TEMA(0x98A9C2, 0x56667E)
+  #define KNE_UI_TEXT     KNE_TEMA(0xEDF3FF, 0x12203A)
+  #define KNE_UI_WARN     KNE_TEMA(0xFFBF69, 0xB86A00)
+  #define KNE_UI_HOT      KNE_TEMA(0xFF8B77, 0xC8402A)
+  #define KNE_UI_COLD     KNE_TEMA(0x68BAFF, 0x1C6AC4)
   #ifndef COLOR_BACKGROUND
     #define COLOR_BACKGROUND KNE_UI_BG
   #endif

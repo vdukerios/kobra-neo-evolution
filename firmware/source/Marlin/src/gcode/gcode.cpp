@@ -63,6 +63,9 @@ GcodeSuite gcode;
 #endif
 
 #include "../MarlinCore.h" // for idle()
+#if ENABLED(MODOS_IMPRESION)
+  #include "../feature/modos_impresion.h"
+#endif
 #if ENABLED(SDSUPPORT)
   #include "../sd/cardreader.h"   // card.flag.abort_sd_printing (dwell)
 #endif
@@ -329,7 +332,7 @@ void GcodeSuite::process_parsed_command(const bool no_ok/*=false*/) {
         case 27: G27(); break;                                    // G27: Nozzle Park
       #endif
 
-      case 28: G28(); break;                                      // G28: Home one or more axes
+      case 28: G28(); TERN_(MODOS_IMPRESION, modos_completo_tras_g28()); break;   // G28: Home one or more axes (+ malla del modo Completo)
 
       #if HAS_LEVELING
         case 29:                                                  // G29: Bed leveling calibration

@@ -135,6 +135,7 @@ void menu_confirmar_impresion() {   // no static: menu.cpp la usa para detectar 
 static void abrir_confirmar_impresion() {
   print_mode = MODO_COMPLETO;
   modos_impresion_iniciando = false;
+  modos_malla_hecha = false;
   GcodeThumb::unload();
   GcodeThumb::load(card.filename);   // si falla, la pantalla de impresion usa el marcador de posicion
   ui.push_current_screen();   // N-07: Cancelar vuelve a la lista de archivos (antes caia en el menu principal)

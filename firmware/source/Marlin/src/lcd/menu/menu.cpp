@@ -342,7 +342,9 @@ void scroll_screen(const uint8_t limit, const bool is_menu) {
     if (ui.encoderPosition) {
       const int64_t requested = int64_t(int32_t(ui.encoderPosition)) * BABYSTEP_SIZE_Z;
       ui.encoderPosition = 0;
-      if (!all_axes_trusted() || !isfinite(planner.steps_to_mm[Z_AXIS])
+      // Sin ejes referenciados (recien encendida) se puede cambiar igualmente el valor: no hay nada que mover; se
+      // aplica en el siguiente G28. Con ejes referenciados se sigue ajustando en vivo (babystep).
+      if (!isfinite(planner.steps_to_mm[Z_AXIS])
           || planner.steps_to_mm[Z_AXIS] <= 0 || requested < INT16_MIN || requested > INT16_MAX
           || int32_t(babystep.steps[BS_AXIS_IND(Z_AXIS)]) + requested < INT16_MIN
           || int32_t(babystep.steps[BS_AXIS_IND(Z_AXIS)]) + requested > INT16_MAX
@@ -362,7 +364,7 @@ void scroll_screen(const uint8_t limit, const bool is_menu) {
 		
 	
       if (isfinite(new_offs) && WITHIN(new_offs, Z_PROBE_OFFSET_RANGE_MIN, Z_PROBE_OFFSET_RANGE_MAX)) {
-        if (!babystep.add_steps(Z_AXIS, babystep_increment)) return;
+        if (all_axes_trusted() && !babystep.add_steps(Z_AXIS, babystep_increment)) return;
 
         if (do_probe)
           probe.offset.z = new_offs;

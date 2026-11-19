@@ -245,25 +245,25 @@ void version_message(){
 			tft.set_background(COLOR_BACKGROUND);
 			tft_string.set(DEVICE_NAME);
 			tft_string.trim();
-			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_WHITE,tft_string);
+			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_MENU_TEXT,tft_string);
 
 			tft.canvas(0, 80, TFT_WIDTH, 30);
 			tft.set_background(COLOR_BACKGROUND);
 			tft_string.set(FIRMWARE_VER);
 			tft_string.trim();
-			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_WHITE,tft_string);
+			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_MENU_TEXT,tft_string);
 			
 			tft.canvas(0, 120, TFT_WIDTH, 30);
 			tft.set_background(COLOR_BACKGROUND);
 			tft_string.set(BUILD_VOLUME);
 			tft_string.trim();
-			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_WHITE,tft_string);
+			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_MENU_TEXT,tft_string);
 
 			tft.canvas(0, 160, TFT_WIDTH, 30);
 			tft.set_background(COLOR_BACKGROUND);
 			tft_string.set(TECH_SUPPORT);
 			tft_string.trim();
-			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_WHITE,tft_string);
+			tft.add_text(tft_string.center(TFT_WIDTH),5,COLOR_MENU_TEXT,tft_string);
 			//ui.refresh(LCDVIEW_CALL_REDRAW_NEXT);
 	}
 	if(ui.use_click()) {ui.goto_previous_screen();}   // N-13: volver al menu principal, no a estado
@@ -283,6 +283,11 @@ void version_message(){
 //
 #include "../../module/motion.h"
 #include "../../module/probe.h"
+
+#if ENABLED(PANTALLA_NUEVA)
+  extern bool kne_tema_claro;   // marlinui.cpp
+  void kne_tema_aplicar();
+#endif
 
 #if DISABLED(BABYSTEP_ZPROBE_OFFSET)
   #error "BOTON_NIVELAR_CENTRAR requiere BABYSTEP_ZPROBE_OFFSET (pantalla de ajuste de Z offset)."
@@ -361,7 +366,7 @@ static void bnc_linea(const uint16_t y, const char * const texto) {
   tft.set_background(COLOR_BACKGROUND);
   tft_string.set(texto);
   tft_string.trim();
-  tft.add_text(tft_string.center(TFT_WIDTH), 5, COLOR_WHITE, tft_string);
+  tft.add_text(tft_string.center(TFT_WIDTH), 5, COLOR_MENU_TEXT, tft_string);
 }
 
 // Pantalla de estado: cualquier pulsacion cancela
@@ -564,6 +569,9 @@ void menu_main() {
     #if HAS_MODO_NOCHE
       EDIT_ITEM(bool, MSG_KNE_NIGHT_MODE, &ui.noche_activo, []{ ui.noche_aplicar(); });
     #endif
+    #if ENABLED(PANTALLA_NUEVA)
+      EDIT_ITEM(bool, MSG_KNE_LIGHT_THEME, &kne_tema_claro, []{ kne_tema_aplicar(); });
+    #endif
     #if ENABLED(GUIA_AYUDA)
       SUBMENU(MSG_KNE_GUIDE_HELP, menu_guia);
     #endif
@@ -608,6 +616,9 @@ void menu_main() {
     #endif
     #if HAS_MODO_NOCHE
       EDIT_ITEM(bool, MSG_KNE_NIGHT_MODE, &ui.noche_activo, []{ ui.noche_aplicar(); });
+    #endif
+    #if ENABLED(PANTALLA_NUEVA)
+      EDIT_ITEM(bool, MSG_KNE_LIGHT_THEME, &kne_tema_claro, []{ kne_tema_aplicar(); });
     #endif
     #if ENABLED(GUIA_AYUDA)
       SUBMENU(MSG_KNE_GUIDE_HELP, menu_guia);

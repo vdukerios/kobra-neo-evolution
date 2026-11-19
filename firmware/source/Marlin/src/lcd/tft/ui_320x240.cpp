@@ -40,6 +40,9 @@ using namespace Anycubic;
 #include "../../module/temperature.h"
 #include "../../module/printcounter.h"
 #include "../../module/planner.h"
+#if ENABLED(MODOS_IMPRESION)
+  #include "../../feature/modos_impresion.h"
+#endif
 #include "../../module/motion.h"
 
 #if DISABLED(LCD_PROGRESS_BAR) && BOTH(FILAMENT_LCD_DISPLAY, SDSUPPORT)
@@ -386,11 +389,63 @@ static void pn_bar(uint16_t x, uint16_t y, uint16_t w, uint8_t h, float f, uint1
   }
 }
 
-static uint32_t pn_restante(uint8_t pct) {
-  // 1) El G-code trae M73 R (script AgregarM73 de Cura): es la mejor estimacion; get_remaining_time() ya aplica
-  //    el factor aprendido.
+// ---- Tiempo restante y avance GLOBALES (preparacion incluida) ----
+// El reloj del trabajo (print_job_timer) cuenta desde que empieza a calentar. Mientras se prepara (calentar,
+// esperar, nivelar) el avance del archivo esta en 0 %: antes el restante se quedaba quieto y el reloj corria,
+// y al empezar a imprimir todo parecia descuadrado. Ahora, durante la preparacion, el restante incluye lo que
+// falta de preparacion mas el tiempo de la pieza, y el avance mostrado es transcurrido / (transcurrido + restante).
+// Duracion tipica de la preparacion (s), solo una estimacion inicial: Express no mide ni espera; Completo
+// calienta, espera y mide la malla.
+#ifndef KNE_PREP_EXPRESS_S
+  #define KNE_PREP_EXPRESS_S    180
+#endif
+#ifndef KNE_PREP_COMPLETO_S
+  #define KNE_PREP_COMPLETO_S   600
+#endif
+
+static uint8_t  pn_pct_arch = 0;        // avance real del archivo (0..100), lo fija pn_dibujar
+static bool     pn_tiene_estimacion = false;
+static uint32_t pn_el_prev = 0;
+static bool     pn_inicio_real = false;  // el archivo ya paso del G-code de inicio (empezo la pieza)
+static bool     pn_en_prep = true;       // true hasta que el archivo empieza a avanzar (>= 1 %)
+
+static void pn_seguir_preparacion(const uint32_t el) {
+  if (el < pn_el_prev || el == 0) pn_en_prep = true;   // trabajo nuevo: el reloj volvio a empezar
+  pn_el_prev = el;
+  if (pn_en_prep && pn_inicio_real) {
+    pn_en_prep = false;   // la preparacion termino: el archivo ya avanza
+    #ifdef REGISTRO_APRENDIZAJE_ACTIVO
+      // Aprendizaje de tiempos independiente de M1100: descontar la preparacion (Express o Completo) y,
+      // si el G-code no trae M73, usar el ";TIME:" de la cabecera como estimado de la pieza.
+      registro_prep_fin();
+      #if ENABLED(MINIATURA_GCODE)
+        if (GcodeThumb::estimated_seconds()) registro_estimado_m73((GcodeThumb::estimated_seconds() + 30) / 60);
+      #endif
+    #endif
+  }
+}
+
+// Segundos de preparacion que se estima que faltan (0 si ya termino).
+static uint32_t pn_prep_resto(const uint32_t el) {
+  if (!pn_en_prep) return 0;
+  #if ENABLED(MODOS_IMPRESION)
+    const uint32_t esperada = print_mode == MODO_EXPRESS ? KNE_PREP_EXPRESS_S : KNE_PREP_COMPLETO_S;
+  #else
+    const uint32_t esperada = KNE_PREP_COMPLETO_S;
+  #endif
+  return el < esperada ? esperada - el : 60;           // si tarda mas de lo esperado, "un minuto mas"
+}
+
+static uint32_t pn_restante(uint8_t /*pct visual: se ignora, se usa el avance del archivo*/) {
+  const duration_t eld = print_job_timer.duration();
+  const uint32_t el = eld.value;
+  pn_seguir_preparacion(el);
+  const uint8_t pct = pn_pct_arch;
+  pn_tiene_estimacion = true;
+  // 1) El G-code trae M73 R (script AgregarM73 de Cura): es la mejor estimacion del tiempo de la pieza;
+  //    get_remaining_time() ya aplica el factor aprendido.
   #if BOTH(HAS_PRINT_PROGRESS, LCD_SET_PROGRESS_MANUALLY) && ENABLED(SHOW_REMAINING_TIME) && ENABLED(USE_M73_REMAINING_TIME)
-    if (ui.remaining_time) return ui.get_remaining_time();
+    if (ui.remaining_time) return ui.get_remaining_time() + pn_prep_resto(el);
   #endif
   // 2) Sin M73: el tiempo ";TIME:" de la cabecera de Cura, corregido por el factor aprendido, repartido segun
   //    el avance del archivo. NO se usa la extrapolacion "lo que llevo x lo que falta / lo que llevo": cuenta el
@@ -401,13 +456,14 @@ static uint32_t pn_restante(uint8_t pct) {
       #ifdef APRENDIZAJE_TIEMPOS
         est = uint32_t(float(est) * tiempo_factor() + 0.5f);
       #endif
-      const uint32_t r = uint32_t((uint64_t)est * (100 - (pct > 100 ? 100 : pct)) / 100);
-      return r ? r : 1;
+      uint32_t r = uint32_t((uint64_t)est * (100 - (pct > 100 ? 100 : pct)) / 100);
+      if (!r) r = 1;
+      return r + pn_prep_resto(el);
     }
   #endif
   // 3) Sin ninguna estimacion del archivo: extrapolar con lo transcurrido (solo con avance).
-  const duration_t el = print_job_timer.duration();
-  return pct ? uint32_t(el.value * (100 - pct) / pct) : 0;
+  pn_tiene_estimacion = false;
+  return pct ? uint32_t(el * (100 - pct) / pct) : 0;
 }
 
 static void pn_card_temp(uint16_t x, const char *label, float cur, int16_t tgt, float maxv, uint16_t accent) {
@@ -428,20 +484,20 @@ static void pn_inicio_button(uint16_t x, uint8_t foco, const char *label, uint16
   tft.add_round(x, 3, 70, 48, 5, selected ? PN_TXT : PN_TRACK);
   tft.add_round(x + 2, 5, 66, 44, 4, color);
   if (!foco) {
-    for (uint8_t j = 0; j < 3; j++) tft.add_bar(x + 27, 10 + j * 4, 16, 2, PN_TXT);
+    for (uint8_t j = 0; j < 3; j++) tft.add_bar(x + 27, 10 + j * 4, 16, 2, COLOR_WHITE);
   }
   else if (foco == 1) {
-    tft.add_bar(x + 26, 12, 3, 10, PN_TXT);
-    tft.add_bar(x + 33, 8, 3, 14, PN_TXT);
-    tft.add_bar(x + 40, 12, 3, 10, PN_TXT);
+    tft.add_bar(x + 26, 12, 3, 10, COLOR_WHITE);
+    tft.add_bar(x + 33, 8, 3, 14, COLOR_WHITE);
+    tft.add_bar(x + 40, 12, 3, 10, COLOR_WHITE);
   }
   else {
-    tft.add_bar(x + 34, 8, 2, 13, PN_TXT);
+    tft.add_bar(x + 34, 8, 2, 13, COLOR_WHITE);
     const uint16_t y = foco == 2 ? 18 : 8;
-    tft.add_bar(x + 29, y, 12, 2, PN_TXT);
-    tft.add_bar(x + 31, foco == 2 ? 20 : 6, 8, 2, PN_TXT);
+    tft.add_bar(x + 29, y, 12, 2, COLOR_WHITE);
+    tft.add_bar(x + 31, foco == 2 ? 20 : 6, 8, 2, COLOR_WHITE);
   }
-  pn_txt_c(x + 35, 26, PN_TXT, pn_fit(label, 66));
+  pn_txt_c(x + 35, 26, COLOR_WHITE, pn_fit(label, 66));
 }
 
 // ------------------------------- INICIO ------------------------------------
@@ -487,7 +543,7 @@ static void pn_inicio(const char *msg) {
   pn_band(196, 32);
   tft.add_round(8, 3, 304, 26, 5, pantalla_inicio_foco == 4 ? PN_TXT : PN_TRACK);
   tft.add_round(10, 5, 300, 22, 4, 0x2352);
-  pn_txt_c(160, 5, PN_TXT, GET_TEXT(MSG_KNE_QUICK_LEVEL));
+  pn_txt_c(160, 5, COLOR_WHITE, GET_TEXT(MSG_KNE_QUICK_LEVEL));
 
   // The existing font is 20 px high: the 12 px footer uses focus dots, not clipped text.
   pn_band(228, 12);
@@ -616,7 +672,36 @@ static void pn_pag2(uint8_t pct, bool pausa) {      // estadisticas
 static void pn_dibujar(const char *msg, bool busy, bool paused) {
   TERN_(TOUCH_SCREEN, touch.clear());
   if (!busy && !paused) { pn_inicio(msg); return; }
-  const uint8_t pct = ui.get_progress_percent() > 100 ? 100 : ui.get_progress_percent();
+  pn_pct_arch = ui.get_progress_percent() > 100 ? 100 : ui.get_progress_percent();
+  #if BOTH(SDSUPPORT, MINIATURA_GCODE)
+    // Impresion desde SD: el avance por bytes NO cuenta la cabecera ni la miniatura (17 KB al inicio), que se
+    // leen de golpe al empezar y dispararian el avance (en un archivo pequeno, hasta un 25 %).
+    if (card.isFileOpen() && card.getFileSize()) {
+      const uint32_t off = GcodeThumb::data_offset(), tam = card.getFileSize(), idx = card.getIndex();
+      if (off && off < tam) {
+        const uint32_t util = tam - off, hecho = idx > off ? idx - off : 0;
+        const uint32_t v = (uint32_t)((uint64_t)hecho * 100 / util);
+        pn_pct_arch = v > 100 ? 100 : uint8_t(v);
+        pn_inicio_real = idx >= off;
+      }
+    }
+  #endif
+  #if BOTH(SDSUPPORT, MINIATURA_GCODE)
+    if (!(card.isFileOpen() && card.getFileSize() && GcodeThumb::data_offset() && GcodeThumb::data_offset() < card.getFileSize()))
+      pn_inicio_real = pn_pct_arch >= 1;
+  #else
+    pn_inicio_real = pn_pct_arch >= 1;
+  #endif
+  uint8_t pct = pn_pct_arch;
+  {
+    // Avance global: transcurrido (con la preparacion) / (transcurrido + restante)
+    const uint32_t r = pn_restante(0);
+    const duration_t eld = print_job_timer.duration();
+    if (pn_tiene_estimacion && r && eld.value && pn_pct_arch < 100) {
+      const uint32_t v = eld.value * 100UL / (eld.value + r);
+      pct = v > 99 ? 99 : uint8_t(v);
+    }
+  }
   switch (pantalla_pagina) {
     default: pn_pag0(pct, paused); break;
     case 1:  pn_pag1(paused);           break;

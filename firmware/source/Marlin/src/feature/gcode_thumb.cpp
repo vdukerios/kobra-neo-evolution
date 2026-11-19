@@ -26,6 +26,7 @@ namespace GcodeThumb {
   static uint16_t datos[MINIATURA_LADO_MAX * MINIATURA_LADO_MAX];
   static uint8_t ancho = 0, alto = 0;
   static bool lista = false;
+  static uint32_t fin_bloque = 0;   // byte donde acaba la miniatura: lo anterior (cabecera + imagen) no es G-code a imprimir
   static uint32_t tiempo_est = 0;   // segundos, de ";TIME:" en la cabecera (aunque no haya miniatura)
 
   bool ready() { return lista; }
@@ -33,7 +34,8 @@ namespace GcodeThumb {
   uint8_t height() { return lista ? alto : 0; }
   const uint16_t* pixels() { return lista ? datos : nullptr; }
   uint32_t estimated_seconds() { return tiempo_est; }
-  void unload() { lista = false; ancho = alto = 0; tiempo_est = 0; }
+  uint32_t data_offset() { return fin_bloque; }
+  void unload() { lista = false; ancho = alto = 0; tiempo_est = 0; fin_bloque = 0; }
 
   #if ENABLED(SDSUPPORT)
 
@@ -54,6 +56,7 @@ namespace GcodeThumb {
     uint32_t acc;       // acumulador base64
     uint8_t  nbits;     // bits validos en el acumulador
     uint32_t tiempo;    // segundos de ";TIME:" (0 = no visto)
+    uint32_t fin;       // byte (offset) justo despues de la linea ";kn_thumb_end"
     bool     relleno;   // ya se vio '=' (fin de los datos)
   };
 
@@ -153,7 +156,7 @@ namespace GcodeThumb {
 
     Estado e;
     e.fase = KN_BUSCANDO;
-    e.w = e.h = 0; e.total = e.escritos = e.inicio = e.acc = 0; e.nbits = 0; e.relleno = false; e.tiempo = 0;
+    e.w = e.h = 0; e.total = e.escritos = e.inicio = e.acc = 0; e.nbits = 0; e.relleno = false; e.tiempo = 0; e.fin = 0;
 
     char linea[KN_LINEA_MAX];
     uint8_t ln = 0;
@@ -177,6 +180,7 @@ namespace GcodeThumb {
             const uint8_t antes = e.fase;
             procesar_linea(linea, e);
             if (antes == KN_BUSCANDO && e.fase == KN_LEYENDO) e.inicio = leidos + i;
+            if (antes == KN_LEYENDO && e.fase == KN_TERMINADO) e.fin = leidos + i + 1;
           }
           else if (e.fase == KN_LEYENDO) e.fase = KN_FALLO;
           ln = 0; larga = false;
@@ -191,6 +195,32 @@ namespace GcodeThumb {
     if ((e.fase == KN_BUSCANDO || e.fase == KN_LEYENDO) && ln > 0 && !larga) {
       linea[ln] = '\0';
       procesar_linea(linea, e);
+    }
+
+    // Inicio de la pieza real: la linea ";LAYER:0" que Cura escribe justo despues del G-code de inicio.
+    // Todo lo anterior (cabecera, miniatura, inicio) es preparacion: no cuenta para el avance de la impresion.
+    {
+      uint32_t capa0 = 0;
+      const uint32_t desde = e.fase == KN_TERMINADO ? e.fin : 0;
+      if (f.seekSet(desde)) {
+        char lin[16]; uint8_t nl = 0; bool larga2 = false; uint32_t pos = desde;
+        while (!capa0 && pos - desde < 40000UL) {
+          const int16_t n2 = f.read(trozo, KN_TROZO);
+          if (n2 <= 0) break;
+          for (int16_t k = 0; k < n2 && !capa0; k++) {
+            const char c = (char)trozo[k];
+            if (c == 13) continue;
+            if (c == 10) {
+              if (!larga2) { lin[nl] = 0; if (strncmp(lin, ";LAYER:0", 8) == 0) capa0 = pos + k + 1; }
+              nl = 0; larga2 = false;
+            }
+            else if (nl < sizeof(lin) - 1) lin[nl++] = c;
+            else larga2 = true;
+          }
+          pos += n2;
+        }
+      }
+      fin_bloque = capa0 ? capa0 : (e.fase == KN_TERMINADO ? e.fin : 0);
     }
 
     f.close();

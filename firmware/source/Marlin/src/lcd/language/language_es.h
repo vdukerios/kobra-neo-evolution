@@ -673,6 +673,7 @@ namespace Language_es {
   LSTR MSG_KNE_FILE                   = _UxGT("Archivo");
   LSTR MSG_KNE_PROGRESS               = _UxGT("Avance");
   LSTR MSG_KNE_NIGHT_MODE             = _UxGT("Modo noche");
+  LSTR MSG_KNE_LIGHT_THEME            = _UxGT("Tema claro");
   LSTR MSG_KNE_GUIDE_HELP             = _UxGT("Guia y ayuda");
   LSTR MSG_KNE_MOTORS_SAVED_SILENT            = _UxGT("X/Y: Silencioso (guardado)");
   LSTR MSG_KNE_MOTORS_SAVED_MIXED             = _UxGT("X/Y: Mixto (guardado)");

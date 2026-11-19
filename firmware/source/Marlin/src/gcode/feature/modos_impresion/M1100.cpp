@@ -31,6 +31,7 @@ extern bool g29_fallo;   // definida en G29.cpp: la ultima medicion de la malla 
 
 uint8_t print_mode = MODO_COMPLETO;
 bool modos_impresion_iniciando = false;
+bool modos_malla_hecha = false;   // ya se midio la malla de este trabajo (modo Completo)
 
 static uint32_t m1100_abort_epoch = 0;
 static bool m1100_en_curso = false;   // true durante la preparacion
@@ -38,6 +39,7 @@ bool m1100_activo() { return m1100_en_curso; }
 
 void modos_impresion_fin() {
   modos_impresion_iniciando = false;
+  modos_malla_hecha = false;
   print_mode = MODO_COMPLETO;
   GcodeThumb::unload();
 }
@@ -89,6 +91,28 @@ static void mp_cancelar() {
   card.abortFilePrintSoon();   // la preparacion fallo o se cancelo: NO seguir imprimiendo el archivo
   if (!card.isFileOpen()) SERIAL_ECHOLNPGM("//action:cancel");   // M1100 desde host/USB: avisar al host para que deje de enviar
   ui.set_status_P(GET_TEXT(MSG_KNE_PREP_CANCELLED));
+}
+
+// Completo desde la SD sin M1100 en el G-code: tras el primer G28 del trabajo, medir la malla en caliente.
+// El G-code de Cura de Valentin hace M140/M104, M190, G28, M420 S1, M109: la malla guardada se sustituye por la
+// nueva (G29 la activa) y se restauran las temperaturas que el G-code habia pedido.
+void modos_completo_tras_g28() {
+  if (modos_malla_hecha || m1100_en_curso || print_mode != MODO_COMPLETO || !IS_SD_PRINTING()) return;
+  if (!all_axes_trusted()) return;
+  modos_malla_hecha = true;
+  const int16_t cama = int16_t(thermalManager.degTargetBed()), boq = int16_t(thermalManager.degTargetHotend(0));
+  m1100_abort_epoch = TERN0(HAS_DISPLAY, ui.print_abort_count);
+  m1100_en_curso = true;
+  ui.set_status_P(GET_TEXT(MSG_KNE_STATUS_FULL));
+  bool ok = mp_cmd_P(PSTR("G29"));                    // malla en caliente
+  if (ok && (g29_fallo || !leveling_is_valid() || !planner.leveling_active)) ok = false;
+  // G29 deja la cama y la boquilla en otras temperaturas: volver a las que pedia el G-code
+  if (ok && cama) ok = mp_cmd_num_P(PSTR("M140 S"), cama);
+  if (ok && cama) ok = !mp_parar() && thermalManager.wait_for_bed(false) && !mp_parar();
+  if (ok && boq) ok = mp_cmd_num_P(PSTR("M104 S"), boq);
+  if (ok && boq) ok = !mp_parar() && thermalManager.wait_for_hotend(0, false) && !mp_parar();
+  m1100_en_curso = false;
+  if (!ok) mp_cancelar(); else ui.set_status_P(GET_TEXT(MSG_KNE_PRINTING));
 }
 
 void GcodeSuite::M1100() {

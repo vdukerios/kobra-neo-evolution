@@ -23,6 +23,12 @@ extern uint8_t print_mode;          // 0 = Completo, 1 = Express
 // creeria que se cancelo (descargaria la miniatura y el tiempo estimado y volveria a modo Completo).
 extern bool modos_impresion_iniciando;
 
+// Modo COMPLETO sin depender de que el G-code llame a M1100: tras el primer G28 de un trabajo de la SD se mide la
+// malla en caliente (G29) y se vuelven a pedir las temperaturas. Una vez por trabajo; no actua en Express, si el
+// G-code usa M1100 (el ya hace la preparacion) ni fuera de una impresion desde SD.
+extern bool modos_malla_hecha;
+void modos_completo_tras_g28();
+
 // Fin o aborto de la impresion (o cancelacion de la pantalla): vuelve a Completo y
 // descarta la miniatura cargada.
 void modos_impresion_fin();
